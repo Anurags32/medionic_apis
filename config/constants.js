@@ -83,6 +83,7 @@ module.exports = {
     },
 
     // JWT configuration
+    JWT_SECRET: 'your-super-secret-jwt-key-change-this-in-production',
     JWT: {
         ACCESS_TOKEN_EXPIRY: '7d',
         REFRESH_TOKEN_EXPIRY: '30d',
