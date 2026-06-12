@@ -19,6 +19,17 @@ const {
     rejectMRMeeting
 } = require('../controllers/doctorController');
 
+// Import extended controller functions
+const {
+    getRevenueAnalytics,
+    getRatingAnalytics,
+    getAppointmentTrends,
+    getEarnings,
+    requestWithdrawal,
+    getEarningsHistory,
+    submitVerificationDocuments
+} = require('../controllers/doctorExtendedController');
+
 // Import middleware
 const { protect, authorize, profileComplete } = require('../middleware/auth');
 const { canAccessDoctorData, canAccessAppointment, canWritePrescription, canAccessMRMeeting } = require('../middleware/roleAuth');
@@ -61,5 +72,18 @@ router.route('/prescriptions')
 router.get('/mr-meetings', getMRMeetings);
 router.post('/mr-meetings/:id/approve', canAccessMRMeeting, approveMRMeeting);
 router.post('/mr-meetings/:id/reject', canAccessMRMeeting, rejectMRMeeting);
+
+// Analytics routes
+router.get('/analytics/revenue', getRevenueAnalytics);
+router.get('/analytics/ratings', getRatingAnalytics);
+router.get('/analytics/appointments', getAppointmentTrends);
+
+// Earnings routes
+router.get('/earnings', getEarnings);
+router.post('/earnings/withdraw', requestWithdrawal);
+router.get('/earnings/history', getEarningsHistory);
+
+// Verification routes
+router.post('/profile/verify', submitVerificationDocuments);
 
 module.exports = router;

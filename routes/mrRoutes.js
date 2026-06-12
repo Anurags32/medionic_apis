@@ -18,6 +18,20 @@ const {
     getExpenseReport
 } = require('../controllers/mrController');
 
+// Import extended controller functions
+const {
+    getTourPlan,
+    createTourPlan,
+    getWeeklyBreakdown,
+    addChemist,
+    getChemists,
+    updateChemist,
+    deleteChemist,
+    logExpense,
+    getExpenses,
+    getPendingApprovals
+} = require('../controllers/mrExtendedController');
+
 // Import middleware
 const { protect, authorize, profileComplete } = require('../middleware/auth');
 const { canAccessMRMeeting } = require('../middleware/roleAuth');
@@ -56,6 +70,24 @@ router.post('/samples/distribute', distributeSamples);
 router.get('/analytics', getTerritoryAnalytics);
 
 // Expense routes
-router.get('/expenses', getExpenseReport);
+router.get('/expenses', getExpenses);
+router.post('/expenses', logExpense);
+router.get('/expenses/pending-approvals', getPendingApprovals);
+
+// Tour planning routes
+router.route('/tour-plan')
+    .get(getTourPlan)
+    .post(createTourPlan);
+
+router.get('/tour-plan/:id/weekly', getWeeklyBreakdown);
+
+// Chemist management routes
+router.route('/chemists')
+    .get(getChemists)
+    .post(addChemist);
+
+router.route('/chemists/:id')
+    .put(updateChemist)
+    .delete(deleteChemist);
 
 module.exports = router;

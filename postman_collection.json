@@ -1,8 +1,8 @@
 {
     "info": {
-        "_postman_id": "healthcare-backend-api",
-        "name": "HealthCare+ Backend API",
-        "description": "Complete API collection for HealthCare+ Backend with authentication, patient, doctor, and MR endpoints",
+        "_postman_id": "healthcare-backend-complete-api",
+        "name": "HealthCare+ Complete API (75 Endpoints)",
+        "description": "Production-ready healthcare backend API with all auth, patient, doctor, and MR endpoints",
         "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
     },
     "auth": {
@@ -25,748 +25,29 @@
             "key": "authToken",
             "value": "",
             "type": "string"
+        },
+        {
+            "key": "patientId",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "doctorId",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "appointmentId",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "prescriptionId",
+            "value": "",
+            "type": "string"
         }
     ],
     "item": [
-        {
-            "name": "Authentication",
-            "item": [
-                {
-                    "name": "Register User",
-                    "request": {
-                        "method": "POST",
-                        "header": [
-                            {
-                                "key": "Content-Type",
-                                "value": "application/json"
-                            }
-                        ],
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n  \"email\": \"test@example.com\",\n  \"password\": \"Password123!\",\n  \"confirmPassword\": \"Password123!\",\n  \"role\": \"patient\"\n}"
-                        },
-                        "url": {
-                            "raw": "{{baseUrl}}/auth/register",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "auth",
-                                "register"
-                            ]
-                        }
-                    }
-                },
-                {
-                    "name": "Login User",
-                    "event": [
-                        {
-                            "listen": "test",
-                            "script": {
-                                "exec": [
-                                    "if (pm.response.code === 200) {",
-                                    "    const response = pm.response.json();",
-                                    "    pm.collectionVariables.set('authToken', response.token);",
-                                    "}"
-                                ],
-                                "type": "text/javascript"
-                            }
-                        }
-                    ],
-                    "request": {
-                        "method": "POST",
-                        "header": [
-                            {
-                                "key": "Content-Type",
-                                "value": "application/json"
-                            }
-                        ],
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n  \"email\": \"john.doe@email.com\",\n  \"password\": \"Password123!\"\n}"
-                        },
-                        "url": {
-                            "raw": "{{baseUrl}}/auth/login",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "auth",
-                                "login"
-                            ]
-                        }
-                    }
-                },
-                {
-                    "name": "Get Current User",
-                    "request": {
-                        "method": "GET",
-                        "header": [],
-                        "url": {
-                            "raw": "{{baseUrl}}/auth/me",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "auth",
-                                "me"
-                            ]
-                        }
-                    }
-                },
-                {
-                    "name": "Complete Patient Profile",
-                    "request": {
-                        "method": "POST",
-                        "header": [
-                            {
-                                "key": "Content-Type",
-                                "value": "application/json"
-                            }
-                        ],
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n  \"firstName\": \"John\",\n  \"lastName\": \"Doe\",\n  \"dob\": \"1990-01-01\",\n  \"gender\": \"male\",\n  \"address\": {\n    \"street\": \"123 Main St\",\n    \"city\": \"New York\",\n    \"state\": \"NY\",\n    \"zip\": \"10001\"\n  },\n  \"bloodGroup\": \"O+\",\n  \"emergencyContact\": {\n    \"name\": \"Jane Doe\",\n    \"phone\": \"+1234567890\",\n    \"relation\": \"Spouse\"\n  }\n}"
-                        },
-                        "url": {
-                            "raw": "{{baseUrl}}/auth/complete-profile/patient",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "auth",
-                                "complete-profile",
-                                "patient"
-                            ]
-                        }
-                    }
-                },
-                {
-                    "name": "Forgot Password",
-                    "request": {
-                        "method": "POST",
-                        "header": [
-                            {
-                                "key": "Content-Type",
-                                "value": "application/json"
-                            }
-                        ],
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n  \"email\": \"john.doe@email.com\"\n}"
-                        },
-                        "url": {
-                            "raw": "{{baseUrl}}/auth/forgot-password",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "auth",
-                                "forgot-password"
-                            ]
-                        }
-                    }
-                }
-            ]
-        },
-        {
-            "name": "Patient",
-            "item": [
-                {
-                    "name": "Get Patient Profile",
-                    "request": {
-                        "method": "GET",
-                        "header": [],
-                        "url": {
-                            "raw": "{{baseUrl}}/patients/profile",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "patients",
-                                "profile"
-                            ]
-                        }
-                    }
-                },
-                {
-                    "name": "Search Doctors",
-                    "request": {
-                        "method": "GET",
-                        "header": [],
-                        "url": {
-                            "raw": "{{baseUrl}}/patients/doctors?specialization=Cardiology&city=New York&page=1&limit=10",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "patients",
-                                "doctors"
-                            ],
-                            "query": [
-                                {
-                                    "key": "specialization",
-                                    "value": "Cardiology"
-                                },
-                                {
-                                    "key": "city",
-                                    "value": "New York"
-                                },
-                                {
-                                    "key": "page",
-                                    "value": "1"
-                                },
-                                {
-                                    "key": "limit",
-                                    "value": "10"
-                                }
-                            ]
-                        }
-                    }
-                },
-                {
-                    "name": "Book Appointment",
-                    "request": {
-                        "method": "POST",
-                        "header": [
-                            {
-                                "key": "Content-Type",
-                                "value": "application/json"
-                            }
-                        ],
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n  \"doctorId\": \"DOCTOR_ID_HERE\",\n  \"appointmentDate\": \"2024-12-31\",\n  \"appointmentTime\": \"10:00\",\n  \"consultationType\": \"clinic\",\n  \"symptoms\": \"Regular checkup and consultation\"\n}"
-                        },
-                        "url": {
-                            "raw": "{{baseUrl}}/patients/appointments",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "patients",
-                                "appointments"
-                            ]
-                        }
-                    }
-                },
-                {
-                    "name": "Get Patient Appointments",
-                    "request": {
-                        "method": "GET",
-                        "header": [],
-                        "url": {
-                            "raw": "{{baseUrl}}/patients/appointments?status=pending&page=1&limit=10",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "patients",
-                                "appointments"
-                            ],
-                            "query": [
-                                {
-                                    "key": "status",
-                                    "value": "pending"
-                                },
-                                {
-                                    "key": "page",
-                                    "value": "1"
-                                },
-                                {
-                                    "key": "limit",
-                                    "value": "10"
-                                }
-                            ]
-                        }
-                    }
-                },
-                {
-                    "name": "Log Health Metric",
-                    "request": {
-                        "method": "POST",
-                        "header": [
-                            {
-                                "key": "Content-Type",
-                                "value": "application/json"
-                            }
-                        ],
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n  \"metricType\": \"BP\",\n  \"value\": \"120/80\",\n  \"unit\": \"mmHg\",\n  \"notes\": \"Morning reading\"\n}"
-                        },
-                        "url": {
-                            "raw": "{{baseUrl}}/patients/health-tracking",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "patients",
-                                "health-tracking"
-                            ]
-                        }
-                    }
-                },
-                {
-                    "name": "Get Health Metrics",
-                    "request": {
-                        "method": "GET",
-                        "header": [],
-                        "url": {
-                            "raw": "{{baseUrl}}/patients/health-tracking?metricType=BP&limit=20",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "patients",
-                                "health-tracking"
-                            ],
-                            "query": [
-                                {
-                                    "key": "metricType",
-                                    "value": "BP"
-                                },
-                                {
-                                    "key": "limit",
-                                    "value": "20"
-                                }
-                            ]
-                        }
-                    }
-                },
-                {
-                    "name": "Create Pharmacy Order",
-                    "request": {
-                        "method": "POST",
-                        "header": [
-                            {
-                                "key": "Content-Type",
-                                "value": "application/json"
-                            }
-                        ],
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n  \"medicines\": [\n    {\n      \"medicineName\": \"Aspirin\",\n      \"quantity\": 30,\n      \"price\": 10.50\n    },\n    {\n      \"medicineName\": \"Vitamin D\",\n      \"quantity\": 60,\n      \"price\": 25.00\n    }\n  ],\n  \"deliveryAddress\": {\n    \"street\": \"123 Main St\",\n    \"city\": \"New York\",\n    \"state\": \"NY\",\n    \"zip\": \"10001\",\n    \"contactPhone\": \"+1234567890\"\n  },\n  \"paymentMethod\": \"COD\"\n}"
-                        },
-                        "url": {
-                            "raw": "{{baseUrl}}/patients/pharmacy-orders",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "patients",
-                                "pharmacy-orders"
-                            ]
-                        }
-                    }
-                }
-            ]
-        },
-        {
-            "name": "Doctor",
-            "item": [
-                {
-                    "name": "Login Doctor",
-                    "event": [
-                        {
-                            "listen": "test",
-                            "script": {
-                                "exec": [
-                                    "if (pm.response.code === 200) {",
-                                    "    const response = pm.response.json();",
-                                    "    pm.collectionVariables.set('authToken', response.token);",
-                                    "}"
-                                ],
-                                "type": "text/javascript"
-                            }
-                        }
-                    ],
-                    "request": {
-                        "method": "POST",
-                        "header": [
-                            {
-                                "key": "Content-Type",
-                                "value": "application/json"
-                            }
-                        ],
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n  \"email\": \"dr.smith@hospital.com\",\n  \"password\": \"Password123!\"\n}"
-                        },
-                        "url": {
-                            "raw": "{{baseUrl}}/auth/login",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "auth",
-                                "login"
-                            ]
-                        }
-                    }
-                },
-                {
-                    "name": "Get Doctor Profile",
-                    "request": {
-                        "method": "GET",
-                        "header": [],
-                        "url": {
-                            "raw": "{{baseUrl}}/doctors/profile",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "doctors",
-                                "profile"
-                            ]
-                        }
-                    }
-                },
-                {
-                    "name": "Get Doctor Dashboard",
-                    "request": {
-                        "method": "GET",
-                        "header": [],
-                        "url": {
-                            "raw": "{{baseUrl}}/doctors/dashboard",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "doctors",
-                                "dashboard"
-                            ]
-                        }
-                    }
-                },
-                {
-                    "name": "Get Doctor Appointments",
-                    "request": {
-                        "method": "GET",
-                        "header": [],
-                        "url": {
-                            "raw": "{{baseUrl}}/doctors/appointments?status=confirmed&page=1&limit=10",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "doctors",
-                                "appointments"
-                            ],
-                            "query": [
-                                {
-                                    "key": "status",
-                                    "value": "confirmed"
-                                },
-                                {
-                                    "key": "page",
-                                    "value": "1"
-                                },
-                                {
-                                    "key": "limit",
-                                    "value": "10"
-                                }
-                            ]
-                        }
-                    }
-                },
-                {
-                    "name": "Create Prescription",
-                    "request": {
-                        "method": "POST",
-                        "header": [
-                            {
-                                "key": "Content-Type",
-                                "value": "application/json"
-                            }
-                        ],
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n  \"patientId\": \"PATIENT_ID_HERE\",\n  \"medicines\": [\n    {\n      \"medicineName\": \"Aspirin\",\n      \"dosage\": \"81mg\",\n      \"frequency\": \"Once daily\",\n      \"duration\": \"30 days\",\n      \"quantity\": 30,\n      \"instructions\": \"Take with food\"\n    },\n    {\n      \"medicineName\": \"Lisinopril\",\n      \"dosage\": \"10mg\",\n      \"frequency\": \"Once daily\",\n      \"duration\": \"30 days\",\n      \"quantity\": 30,\n      \"instructions\": \"Take in the morning\"\n    }\n  ],\n  \"testRecommendations\": [\n    {\n      \"testName\": \"Blood Pressure Check\",\n      \"urgency\": \"routine\",\n      \"instructions\": \"Check after 2 weeks\"\n    }\n  ],\n  \"notes\": \"Follow up in 2 weeks\",\n  \"followUpDate\": \"2024-01-15\"\n}"
-                        },
-                        "url": {
-                            "raw": "{{baseUrl}}/doctors/prescriptions",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "doctors",
-                                "prescriptions"
-                            ]
-                        }
-                    }
-                },
-                {
-                    "name": "Get Doctor Patients",
-                    "request": {
-                        "method": "GET",
-                        "header": [],
-                        "url": {
-                            "raw": "{{baseUrl}}/doctors/patients?page=1&limit=10",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "doctors",
-                                "patients"
-                            ],
-                            "query": [
-                                {
-                                    "key": "page",
-                                    "value": "1"
-                                },
-                                {
-                                    "key": "limit",
-                                    "value": "10"
-                                }
-                            ]
-                        }
-                    }
-                },
-                {
-                    "name": "Update Doctor Schedule",
-                    "request": {
-                        "method": "PUT",
-                        "header": [
-                            {
-                                "key": "Content-Type",
-                                "value": "application/json"
-                            }
-                        ],
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n  \"availability\": {\n    \"monday\": [\n      {\n        \"startTime\": \"09:00\",\n        \"endTime\": \"17:00\",\n        \"maxPatients\": 20\n      }\n    ],\n    \"tuesday\": [\n      {\n        \"startTime\": \"09:00\",\n        \"endTime\": \"17:00\",\n        \"maxPatients\": 20\n      }\n    ],\n    \"wednesday\": [\n      {\n        \"startTime\": \"09:00\",\n        \"endTime\": \"17:00\",\n        \"maxPatients\": 20\n      }\n    ],\n    \"thursday\": [\n      {\n        \"startTime\": \"09:00\",\n        \"endTime\": \"17:00\",\n        \"maxPatients\": 20\n      }\n    ],\n    \"friday\": [\n      {\n        \"startTime\": \"09:00\",\n        \"endTime\": \"17:00\",\n        \"maxPatients\": 20\n      }\n    ],\n    \"saturday\": [\n      {\n        \"startTime\": \"09:00\",\n        \"endTime\": \"13:00\",\n        \"maxPatients\": 10\n      }\n    ]\n  }\n}"
-                        },
-                        "url": {
-                            "raw": "{{baseUrl}}/doctors/schedule",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "doctors",
-                                "schedule"
-                            ]
-                        }
-                    }
-                }
-            ]
-        },
-        {
-            "name": "Medical Representative",
-            "item": [
-                {
-                    "name": "Login MR",
-                    "event": [
-                        {
-                            "listen": "test",
-                            "script": {
-                                "exec": [
-                                    "if (pm.response.code === 200) {",
-                                    "    const response = pm.response.json();",
-                                    "    pm.collectionVariables.set('authToken', response.token);",
-                                    "}"
-                                ],
-                                "type": "text/javascript"
-                            }
-                        }
-                    ],
-                    "request": {
-                        "method": "POST",
-                        "header": [
-                            {
-                                "key": "Content-Type",
-                                "value": "application/json"
-                            }
-                        ],
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n  \"email\": \"mr.jones@pharma.com\",\n  \"password\": \"Password123!\"\n}"
-                        },
-                        "url": {
-                            "raw": "{{baseUrl}}/auth/login",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "auth",
-                                "login"
-                            ]
-                        }
-                    }
-                },
-                {
-                    "name": "Get MR Profile",
-                    "request": {
-                        "method": "GET",
-                        "header": [],
-                        "url": {
-                            "raw": "{{baseUrl}}/mr/profile",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "mr",
-                                "profile"
-                            ]
-                        }
-                    }
-                },
-                {
-                    "name": "Get Doctors in Territory",
-                    "request": {
-                        "method": "GET",
-                        "header": [],
-                        "url": {
-                            "raw": "{{baseUrl}}/mr/doctors?specialization=Cardiology&page=1&limit=10",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "mr",
-                                "doctors"
-                            ],
-                            "query": [
-                                {
-                                    "key": "specialization",
-                                    "value": "Cardiology"
-                                },
-                                {
-                                    "key": "page",
-                                    "value": "1"
-                                },
-                                {
-                                    "key": "limit",
-                                    "value": "10"
-                                }
-                            ]
-                        }
-                    }
-                },
-                {
-                    "name": "Request Meeting",
-                    "request": {
-                        "method": "POST",
-                        "header": [
-                            {
-                                "key": "Content-Type",
-                                "value": "application/json"
-                            }
-                        ],
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n  \"doctorId\": \"DOCTOR_ID_HERE\",\n  \"proposedDate\": \"2024-12-31\",\n  \"proposedTime\": \"14:00\",\n  \"purpose\": \"Product presentation and discussion about new cardiovascular medications\",\n  \"products\": [\n    {\n      \"productId\": \"PRODUCT_ID_1\",\n      \"productName\": \"Cardio Plus\",\n      \"category\": \"Cardiovascular\",\n      \"focusArea\": \"Heart health\"\n    }\n  ],\n  \"message\": \"Would like to discuss our new cardiovascular product line and its benefits for your patients\"\n}"
-                        },
-                        "url": {
-                            "raw": "{{baseUrl}}/mr/meeting-requests",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "mr",
-                                "meeting-requests"
-                            ]
-                        }
-                    }
-                },
-                {
-                    "name": "Get Meeting Requests",
-                    "request": {
-                        "method": "GET",
-                        "header": [],
-                        "url": {
-                            "raw": "{{baseUrl}}/mr/meeting-requests?status=pending&page=1&limit=10",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "mr",
-                                "meeting-requests"
-                            ],
-                            "query": [
-                                {
-                                    "key": "status",
-                                    "value": "pending"
-                                },
-                                {
-                                    "key": "page",
-                                    "value": "1"
-                                },
-                                {
-                                    "key": "limit",
-                                    "value": "10"
-                                }
-                            ]
-                        }
-                    }
-                },
-                {
-                    "name": "Submit DCR",
-                    "request": {
-                        "method": "POST",
-                        "header": [
-                            {
-                                "key": "Content-Type",
-                                "value": "application/json"
-                            }
-                        ],
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n  \"visitDate\": \"2024-01-01\",\n  \"doctorId\": \"DOCTOR_ID_HERE\",\n  \"productsDiscussed\": [\n    {\n      \"productId\": \"PRODUCT_ID_1\",\n      \"productName\": \"Cardio Plus\",\n      \"feedback\": \"Doctor showed interest in the product\"\n    }\n  ],\n  \"feedback\": \"Very productive meeting. Doctor is interested in prescribing our new cardiovascular medication.\",\n  \"nextFollowUp\": \"2024-01-15\",\n  \"expensesIncurred\": 50.00,\n  \"samplesDistributed\": [\n    {\n      \"productId\": \"PRODUCT_ID_1\",\n      \"productName\": \"Cardio Plus\",\n      \"quantity\": 5,\n      \"batchNo\": \"CP2024001\"\n    }\n  ]\n}"
-                        },
-                        "url": {
-                            "raw": "{{baseUrl}}/mr/dcr",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "mr",
-                                "dcr"
-                            ]
-                        }
-                    }
-                },
-                {
-                    "name": "Get Sample Inventory",
-                    "request": {
-                        "method": "GET",
-                        "header": [],
-                        "url": {
-                            "raw": "{{baseUrl}}/mr/samples",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "mr",
-                                "samples"
-                            ]
-                        }
-                    }
-                },
-                {
-                    "name": "Get Territory Analytics",
-                    "request": {
-                        "method": "GET",
-                        "header": [],
-                        "url": {
-                            "raw": "{{baseUrl}}/mr/analytics?period=month",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "mr",
-                                "analytics"
-                            ],
-                            "query": [
-                                {
-                                    "key": "period",
-                                    "value": "month"
-                                }
-                            ]
-                        }
-                    }
-                }
-            ]
-        },
         {
             "name": "System",
             "item": [
@@ -785,6 +66,1784 @@
                             ],
                             "path": [
                                 "health"
+                            ]
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Authentication (11)",
+            "item": [
+                {
+                    "name": "1. Register User",
+                    "request": {
+                        "auth": {
+                            "type": "noauth"
+                        },
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"email\": \"patient@test.com\",\n  \"password\": \"Password123!\",\n  \"confirmPassword\": \"Password123!\",\n  \"role\": \"patient\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/auth/register",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "auth",
+                                "register"
+                            ]
+                        },
+                        "description": "Register with ONLY: email, password, confirmPassword, role. NO firstName/lastName here!"
+                    }
+                },
+                {
+                    "name": "2. Login",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "if (pm.response.code === 200) {",
+                                    "  const response = pm.response.json();",
+                                    "  pm.collectionVariables.set('authToken', response.token);",
+                                    "}"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "auth": {
+                            "type": "noauth"
+                        },
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"email\": \"patient@test.com\",\n  \"password\": \"Password123!\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/auth/login",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "auth",
+                                "login"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "3. Complete Patient Profile",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"firstName\": \"John\",\n  \"lastName\": \"Doe\",\n  \"dob\": \"1990-01-15\",\n  \"gender\": \"male\",\n  \"address\": {\n    \"street\": \"123 Main St\",\n    \"city\": \"New York\",\n    \"state\": \"NY\",\n    \"zip\": \"10001\"\n  },\n  \"bloodGroup\": \"O+\",\n  \"emergencyContact\": {\n    \"name\": \"Jane Doe\",\n    \"phone\": \"+1234567890\",\n    \"relation\": \"Sister\"\n  }\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/auth/complete-profile/patient",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "auth",
+                                "complete-profile",
+                                "patient"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "4. Complete Doctor Profile",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"firstName\": \"Dr. Smith\",\n  \"lastName\": \"Johnson\",\n  \"specialization\": \"Cardiology\",\n  \"licenseNumber\": \"DOC12345\",\n  \"yearsOfExperience\": 10,\n  \"clinic\": \"City Hospital\",\n  \"consultationFee\": 500\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/auth/complete-profile/doctor",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "auth",
+                                "complete-profile",
+                                "doctor"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "5. Complete MR Profile",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"firstName\": \"John\",\n  \"lastName\": \"MR\",\n  \"companyName\": \"PharmaCorp\",\n  \"territory\": \"Mumbai\",\n  \"designation\": \"Medical Representative\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/auth/complete-profile/mr",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "auth",
+                                "complete-profile",
+                                "mr"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "6. Refresh Token",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/auth/refresh-token",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "auth",
+                                "refresh-token"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "7. Get Me",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/auth/me",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "auth",
+                                "me"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "8. Update Me",
+                    "request": {
+                        "method": "PUT",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"firstName\": \"John\",\n  \"lastName\": \"Updated\",\n  \"phone\": \"1234567890\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/auth/me",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "auth",
+                                "me"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "9. Forgot Password",
+                    "request": {
+                        "auth": {
+                            "type": "noauth"
+                        },
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"email\": \"patient@test.com\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/auth/forgot-password",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "auth",
+                                "forgot-password"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "10. Reset Password",
+                    "request": {
+                        "auth": {
+                            "type": "noauth"
+                        },
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"resetToken\": \"token_from_email\",\n  \"newPassword\": \"NewPassword123!\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/auth/reset-password",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "auth",
+                                "reset-password"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "11. Logout",
+                    "request": {
+                        "method": "POST",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/auth/logout",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "auth",
+                                "logout"
+                            ]
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Patient - Profile & Search (4)",
+            "item": [
+                {
+                    "name": "GET Profile",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/patients/profile",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "patients",
+                                "profile"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "PUT Update Profile",
+                    "request": {
+                        "method": "PUT",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"address\": \"456 Park Ave\",\n  \"city\": \"Boston\",\n  \"medicalHistory\": \"Diabetes, High BP\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/patients/profile",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "patients",
+                                "profile"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "GET Search Doctors",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/patients/doctors?specialization=Cardiology&city=New York",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "patients",
+                                "doctors"
+                            ],
+                            "query": [
+                                {
+                                    "key": "specialization",
+                                    "value": "Cardiology"
+                                },
+                                {
+                                    "key": "city",
+                                    "value": "New York"
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "GET Doctor Details",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/patients/doctors/{{doctorId}}",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "patients",
+                                "doctors",
+                                "{{doctorId}}"
+                            ]
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Patient - Appointments (5)",
+            "item": [
+                {
+                    "name": "POST Book Appointment",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"doctorId\": \"{{doctorId}}\",\n  \"appointmentDate\": \"2024-12-20\",\n  \"appointmentTime\": \"10:00\",\n  \"reason\": \"Regular checkup\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/patients/appointments",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "patients",
+                                "appointments"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "GET All Appointments",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/patients/appointments",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "patients",
+                                "appointments"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "GET Appointment Details",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/patients/appointments/{{appointmentId}}",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "patients",
+                                "appointments",
+                                "{{appointmentId}}"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "DELETE Cancel Appointment",
+                    "request": {
+                        "method": "DELETE",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/patients/appointments/{{appointmentId}}",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "patients",
+                                "appointments",
+                                "{{appointmentId}}"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "PUT Reschedule Appointment",
+                    "request": {
+                        "method": "PUT",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"newDate\": \"2024-12-25\",\n  \"newTime\": \"14:00\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/patients/appointments/{{appointmentId}}/reschedule",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "patients",
+                                "appointments",
+                                "{{appointmentId}}",
+                                "reschedule"
+                            ]
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Patient - Prescriptions & Medical Records (7)",
+            "item": [
+                {
+                    "name": "GET All Prescriptions",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/patients/prescriptions",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "patients",
+                                "prescriptions"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "GET Prescription Details",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/patients/prescriptions/{{prescriptionId}}",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "patients",
+                                "prescriptions",
+                                "{{prescriptionId}}"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "GET Download Prescription",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/patients/prescriptions/{{prescriptionId}}/download",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "patients",
+                                "prescriptions",
+                                "{{prescriptionId}}",
+                                "download"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "POST Upload Medical Record",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"category\": \"lab_report\",\n  \"description\": \"Blood test report\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/patients/medical-records",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "patients",
+                                "medical-records"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "GET Medical Records",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/patients/medical-records",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "patients",
+                                "medical-records"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "DELETE Medical Record",
+                    "request": {
+                        "method": "DELETE",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/patients/medical-records/RECORD_ID",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "patients",
+                                "medical-records",
+                                "RECORD_ID"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "POST Create Pharmacy Order",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"prescriptionId\": \"{{prescriptionId}}\",\n  \"pharmacy\": \"City Pharmacy\",\n  \"deliveryAddress\": \"123 Main St\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/patients/pharmacy-orders",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "patients",
+                                "pharmacy-orders"
+                            ]
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Patient - Health & Emergency Contacts (5)",
+            "item": [
+                {
+                    "name": "POST Log Health Metric",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"metricType\": \"blood_pressure\",\n  \"value\": 120,\n  \"unit\": \"mmHg\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/patients/health-tracking",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "patients",
+                                "health-tracking"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "GET Health Metrics",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/patients/health-tracking",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "patients",
+                                "health-tracking"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "GET Health Statistics",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/patients/health-tracking/statistics",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "patients",
+                                "health-tracking",
+                                "statistics"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "GET Pharmacy Orders",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/patients/pharmacy-orders",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "patients",
+                                "pharmacy-orders"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "GET Emergency Contacts",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/patients/emergency-contacts",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "patients",
+                                "emergency-contacts"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "POST Add Emergency Contact",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"name\": \"Jane Doe\",\n  \"phone\": \"+1234567890\",\n  \"relation\": \"Sister\",\n  \"email\": \"jane@example.com\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/patients/emergency-contacts",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "patients",
+                                "emergency-contacts"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "PUT Update Emergency Contact",
+                    "request": {
+                        "method": "PUT",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"name\": \"Jane Updated\",\n  \"phone\": \"+9876543210\",\n  \"relation\": \"Sister\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/patients/emergency-contacts",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "patients",
+                                "emergency-contacts"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "DELETE Emergency Contact",
+                    "request": {
+                        "method": "DELETE",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/patients/emergency-contacts/CONTACT_ID",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "patients",
+                                "emergency-contacts",
+                                "CONTACT_ID"
+                            ]
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Doctor - Profile & Schedule (4)",
+            "item": [
+                {
+                    "name": "GET Doctor Profile",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/doctors/profile",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "doctors",
+                                "profile"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "PUT Update Doctor Profile",
+                    "request": {
+                        "method": "PUT",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"consultationFee\": 600,\n  \"clinic\": \"New Hospital\",\n  \"phone\": \"9876543210\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/doctors/profile",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "doctors",
+                                "profile"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "GET Doctor Schedule",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/doctors/schedule",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "doctors",
+                                "schedule"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "PUT Update Schedule",
+                    "request": {
+                        "method": "PUT",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"monday\": {\"startTime\": \"09:00\", \"endTime\": \"17:00\", \"isAvailable\": true}\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/doctors/schedule",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "doctors",
+                                "schedule"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "POST Verify Profile",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"licenseNumber\": \"DOC12345\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/doctors/profile/verify",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "doctors",
+                                "profile",
+                                "verify"
+                            ]
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Doctor - Appointments & Patients (4)",
+            "item": [
+                {
+                    "name": "GET All Appointments",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/doctors/appointments",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "doctors",
+                                "appointments"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "GET Appointment Details",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/doctors/appointments/{{appointmentId}}",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "doctors",
+                                "appointments",
+                                "{{appointmentId}}"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "PUT Complete Appointment",
+                    "request": {
+                        "method": "PUT",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"notes\": \"Patient recovering well\",\n  \"followUpNeeded\": true,\n  \"followUpDate\": \"2024-12-27\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/doctors/appointments/{{appointmentId}}/complete",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "doctors",
+                                "appointments",
+                                "{{appointmentId}}",
+                                "complete"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "GET All Patients",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/doctors/patients",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "doctors",
+                                "patients"
+                            ]
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Doctor - Prescriptions (2)",
+            "item": [
+                {
+                    "name": "GET All Prescriptions",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/doctors/prescriptions",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "doctors",
+                                "prescriptions"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "POST Create Prescription",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"patientId\": \"{{patientId}}\",\n  \"appointmentId\": \"{{appointmentId}}\",\n  \"medicines\": [{\"name\": \"Aspirin\", \"dosage\": \"500mg\", \"frequency\": \"Twice daily\", \"duration\": \"7 days\"}],\n  \"notes\": \"Take with food\",\n  \"followUpDate\": \"2024-12-27\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/doctors/prescriptions",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "doctors",
+                                "prescriptions"
+                            ]
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Doctor - Analytics (3)",
+            "item": [
+                {
+                    "name": "GET Revenue Analytics",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/doctors/analytics/revenue",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "doctors",
+                                "analytics",
+                                "revenue"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "GET Rating Analytics",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/doctors/analytics/ratings",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "doctors",
+                                "analytics",
+                                "ratings"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "GET Appointment Trends",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/doctors/analytics/appointments",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "doctors",
+                                "analytics",
+                                "appointments"
+                            ]
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Doctor - Dashboard & Earnings (4)",
+            "item": [
+                {
+                    "name": "GET Dashboard",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/doctors/dashboard",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "doctors",
+                                "dashboard"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "GET Earnings",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/doctors/earnings",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "doctors",
+                                "earnings"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "POST Request Withdrawal",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"amount\": 5000,\n  \"bankDetails\": {\n    \"accountNumber\": \"1234567890\",\n    \"ifscCode\": \"BANK0001234\"\n  }\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/doctors/earnings/withdraw",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "doctors",
+                                "earnings",
+                                "withdraw"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "GET Earnings History",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/doctors/earnings/history",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "doctors",
+                                "earnings",
+                                "history"
+                            ]
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Doctor - MR Meetings (3)",
+            "item": [
+                {
+                    "name": "GET MR Meetings",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/doctors/mr-meetings",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "doctors",
+                                "mr-meetings"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "POST Approve MR Meeting",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"meetingDate\": \"2024-12-20\",\n  \"meetingTime\": \"14:00\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/doctors/mr-meetings/MEETING_ID/approve",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "doctors",
+                                "mr-meetings",
+                                "MEETING_ID",
+                                "approve"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "POST Reject MR Meeting",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"reason\": \"Too busy\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/doctors/mr-meetings/MEETING_ID/reject",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "doctors",
+                                "mr-meetings",
+                                "MEETING_ID",
+                                "reject"
+                            ]
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "MR - Profile & Doctors (3)",
+            "item": [
+                {
+                    "name": "GET MR Profile",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/mr/profile",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "mr",
+                                "profile"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "PUT Update MR Profile",
+                    "request": {
+                        "method": "PUT",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"territory\": \"Mumbai North\",\n  \"phone\": \"9876543210\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/mr/profile",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "mr",
+                                "profile"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "GET All Doctors",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/mr/doctors",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "mr",
+                                "doctors"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "GET Doctor Details",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/mr/doctors/{{doctorId}}",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "mr",
+                                "doctors",
+                                "{{doctorId}}"
+                            ]
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "MR - Meetings & Visits (4)",
+            "item": [
+                {
+                    "name": "GET Meeting Requests",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/mr/meeting-requests",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "mr",
+                                "meeting-requests"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "POST Request Meeting",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"doctorId\": \"{{doctorId}}\",\n  \"preferredDate\": \"2024-12-20\",\n  \"preferredTime\": \"14:00\",\n  \"purpose\": \"Product presentation\",\n  \"notes\": \"Bringing samples\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/mr/meeting-requests",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "mr",
+                                "meeting-requests"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "GET Visit Plan",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/mr/visit-plan",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "mr",
+                                "visit-plan"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "POST Create Tour Plan",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"month\": 12,\n  \"year\": 2024,\n  \"doctorsToVisit\": [\"doc1\", \"doc2\", \"doc3\"],\n  \"productsFocus\": [\"Product A\", \"Product B\"],\n  \"budget\": 10000,\n  \"notes\": \"Monthly plan\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/mr/tour-plan",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "mr",
+                                "tour-plan"
+                            ]
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "MR - DCR & Samples (4)",
+            "item": [
+                {
+                    "name": "GET DCR List",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/mr/dcr",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "mr",
+                                "dcr"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "POST Submit DCR",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"date\": \"2024-12-20\",\n  \"doctorId\": \"{{doctorId}}\",\n  \"meetingDuration\": 30,\n  \"samplesDistributed\": [{\"productName\": \"Drug A\", \"quantity\": 10}],\n  \"notes\": \"Doctor interested\",\n  \"nextVisitDate\": \"2024-12-27\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/mr/dcr",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "mr",
+                                "dcr"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "GET Sample Inventory",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/mr/samples",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "mr",
+                                "samples"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "POST Distribute Samples",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"doctorId\": \"{{doctorId}}\",\n  \"samples\": [{\"productName\": \"Drug A\", \"batchNumber\": \"BATCH001\", \"quantity\": 5, \"expiryDate\": \"2025-12-31\"}],\n  \"notes\": \"Sample distribution\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/mr/samples/distribute",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "mr",
+                                "samples",
+                                "distribute"
+                            ]
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "MR - Analytics & Tour (3)",
+            "item": [
+                {
+                    "name": "GET Territory Analytics",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/mr/analytics",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "mr",
+                                "analytics"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "GET Tour Plan",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/mr/tour-plan",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "mr",
+                                "tour-plan"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "GET Weekly Breakdown",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/mr/tour-plan/TOUR_ID/weekly",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "mr",
+                                "tour-plan",
+                                "TOUR_ID",
+                                "weekly"
+                            ]
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "MR - Chemist Management (4)",
+            "item": [
+                {
+                    "name": "GET All Chemists",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/mr/chemists",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "mr",
+                                "chemists"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "POST Add Chemist",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"name\": \"ABC Chemist\",\n  \"location\": \"123 Main St\",\n  \"pharmacyName\": \"ABC Pharmacy\",\n  \"contact\": \"9876543210\",\n  \"prescriptionTrend\": \"increasing\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/mr/chemists",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "mr",
+                                "chemists"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "PUT Update Chemist",
+                    "request": {
+                        "method": "PUT",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"name\": \"ABC Chemist Updated\",\n  \"location\": \"456 Park Ave\",\n  \"prescriptionTrend\": \"stable\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/mr/chemists/CHEMIST_ID",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "mr",
+                                "chemists",
+                                "CHEMIST_ID"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "DELETE Chemist",
+                    "request": {
+                        "method": "DELETE",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/mr/chemists/CHEMIST_ID",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "mr",
+                                "chemists",
+                                "CHEMIST_ID"
+                            ]
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "MR - Expense Management (3)",
+            "item": [
+                {
+                    "name": "POST Log Expense",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"type\": \"travel\",\n  \"amount\": 500,\n  \"category\": \"petrol\",\n  \"date\": \"2024-12-20\",\n  \"description\": \"Travel to doctor visit\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/mr/expenses",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "mr",
+                                "expenses"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "GET Expenses",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/mr/expenses",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "mr",
+                                "expenses"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "GET Pending Approvals",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/mr/expenses/pending-approvals",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "mr",
+                                "expenses",
+                                "pending-approvals"
                             ]
                         }
                     }
