@@ -1,0 +1,795 @@
+{
+    "info": {
+        "_postman_id": "healthcare-backend-api",
+        "name": "HealthCare+ Backend API",
+        "description": "Complete API collection for HealthCare+ Backend with authentication, patient, doctor, and MR endpoints",
+        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "auth": {
+        "type": "bearer",
+        "bearer": [
+            {
+                "key": "token",
+                "value": "{{authToken}}",
+                "type": "string"
+            }
+        ]
+    },
+    "variable": [
+        {
+            "key": "baseUrl",
+            "value": "http://localhost:5000/api",
+            "type": "string"
+        },
+        {
+            "key": "authToken",
+            "value": "",
+            "type": "string"
+        }
+    ],
+    "item": [
+        {
+            "name": "Authentication",
+            "item": [
+                {
+                    "name": "Register User",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"email\": \"test@example.com\",\n  \"password\": \"Password123!\",\n  \"confirmPassword\": \"Password123!\",\n  \"role\": \"patient\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/auth/register",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "auth",
+                                "register"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Login User",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "if (pm.response.code === 200) {",
+                                    "    const response = pm.response.json();",
+                                    "    pm.collectionVariables.set('authToken', response.token);",
+                                    "}"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"email\": \"john.doe@email.com\",\n  \"password\": \"Password123!\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/auth/login",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "auth",
+                                "login"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Get Current User",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/auth/me",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "auth",
+                                "me"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Complete Patient Profile",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"firstName\": \"John\",\n  \"lastName\": \"Doe\",\n  \"dob\": \"1990-01-01\",\n  \"gender\": \"male\",\n  \"address\": {\n    \"street\": \"123 Main St\",\n    \"city\": \"New York\",\n    \"state\": \"NY\",\n    \"zip\": \"10001\"\n  },\n  \"bloodGroup\": \"O+\",\n  \"emergencyContact\": {\n    \"name\": \"Jane Doe\",\n    \"phone\": \"+1234567890\",\n    \"relation\": \"Spouse\"\n  }\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/auth/complete-profile/patient",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "auth",
+                                "complete-profile",
+                                "patient"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Forgot Password",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"email\": \"john.doe@email.com\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/auth/forgot-password",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "auth",
+                                "forgot-password"
+                            ]
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Patient",
+            "item": [
+                {
+                    "name": "Get Patient Profile",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/patients/profile",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "patients",
+                                "profile"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Search Doctors",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/patients/doctors?specialization=Cardiology&city=New York&page=1&limit=10",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "patients",
+                                "doctors"
+                            ],
+                            "query": [
+                                {
+                                    "key": "specialization",
+                                    "value": "Cardiology"
+                                },
+                                {
+                                    "key": "city",
+                                    "value": "New York"
+                                },
+                                {
+                                    "key": "page",
+                                    "value": "1"
+                                },
+                                {
+                                    "key": "limit",
+                                    "value": "10"
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Book Appointment",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"doctorId\": \"DOCTOR_ID_HERE\",\n  \"appointmentDate\": \"2024-12-31\",\n  \"appointmentTime\": \"10:00\",\n  \"consultationType\": \"clinic\",\n  \"symptoms\": \"Regular checkup and consultation\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/patients/appointments",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "patients",
+                                "appointments"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Get Patient Appointments",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/patients/appointments?status=pending&page=1&limit=10",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "patients",
+                                "appointments"
+                            ],
+                            "query": [
+                                {
+                                    "key": "status",
+                                    "value": "pending"
+                                },
+                                {
+                                    "key": "page",
+                                    "value": "1"
+                                },
+                                {
+                                    "key": "limit",
+                                    "value": "10"
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Log Health Metric",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"metricType\": \"BP\",\n  \"value\": \"120/80\",\n  \"unit\": \"mmHg\",\n  \"notes\": \"Morning reading\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/patients/health-tracking",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "patients",
+                                "health-tracking"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Get Health Metrics",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/patients/health-tracking?metricType=BP&limit=20",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "patients",
+                                "health-tracking"
+                            ],
+                            "query": [
+                                {
+                                    "key": "metricType",
+                                    "value": "BP"
+                                },
+                                {
+                                    "key": "limit",
+                                    "value": "20"
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Create Pharmacy Order",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"medicines\": [\n    {\n      \"medicineName\": \"Aspirin\",\n      \"quantity\": 30,\n      \"price\": 10.50\n    },\n    {\n      \"medicineName\": \"Vitamin D\",\n      \"quantity\": 60,\n      \"price\": 25.00\n    }\n  ],\n  \"deliveryAddress\": {\n    \"street\": \"123 Main St\",\n    \"city\": \"New York\",\n    \"state\": \"NY\",\n    \"zip\": \"10001\",\n    \"contactPhone\": \"+1234567890\"\n  },\n  \"paymentMethod\": \"COD\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/patients/pharmacy-orders",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "patients",
+                                "pharmacy-orders"
+                            ]
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Doctor",
+            "item": [
+                {
+                    "name": "Login Doctor",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "if (pm.response.code === 200) {",
+                                    "    const response = pm.response.json();",
+                                    "    pm.collectionVariables.set('authToken', response.token);",
+                                    "}"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"email\": \"dr.smith@hospital.com\",\n  \"password\": \"Password123!\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/auth/login",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "auth",
+                                "login"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Get Doctor Profile",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/doctors/profile",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "doctors",
+                                "profile"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Get Doctor Dashboard",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/doctors/dashboard",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "doctors",
+                                "dashboard"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Get Doctor Appointments",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/doctors/appointments?status=confirmed&page=1&limit=10",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "doctors",
+                                "appointments"
+                            ],
+                            "query": [
+                                {
+                                    "key": "status",
+                                    "value": "confirmed"
+                                },
+                                {
+                                    "key": "page",
+                                    "value": "1"
+                                },
+                                {
+                                    "key": "limit",
+                                    "value": "10"
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Create Prescription",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"patientId\": \"PATIENT_ID_HERE\",\n  \"medicines\": [\n    {\n      \"medicineName\": \"Aspirin\",\n      \"dosage\": \"81mg\",\n      \"frequency\": \"Once daily\",\n      \"duration\": \"30 days\",\n      \"quantity\": 30,\n      \"instructions\": \"Take with food\"\n    },\n    {\n      \"medicineName\": \"Lisinopril\",\n      \"dosage\": \"10mg\",\n      \"frequency\": \"Once daily\",\n      \"duration\": \"30 days\",\n      \"quantity\": 30,\n      \"instructions\": \"Take in the morning\"\n    }\n  ],\n  \"testRecommendations\": [\n    {\n      \"testName\": \"Blood Pressure Check\",\n      \"urgency\": \"routine\",\n      \"instructions\": \"Check after 2 weeks\"\n    }\n  ],\n  \"notes\": \"Follow up in 2 weeks\",\n  \"followUpDate\": \"2024-01-15\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/doctors/prescriptions",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "doctors",
+                                "prescriptions"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Get Doctor Patients",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/doctors/patients?page=1&limit=10",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "doctors",
+                                "patients"
+                            ],
+                            "query": [
+                                {
+                                    "key": "page",
+                                    "value": "1"
+                                },
+                                {
+                                    "key": "limit",
+                                    "value": "10"
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Update Doctor Schedule",
+                    "request": {
+                        "method": "PUT",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"availability\": {\n    \"monday\": [\n      {\n        \"startTime\": \"09:00\",\n        \"endTime\": \"17:00\",\n        \"maxPatients\": 20\n      }\n    ],\n    \"tuesday\": [\n      {\n        \"startTime\": \"09:00\",\n        \"endTime\": \"17:00\",\n        \"maxPatients\": 20\n      }\n    ],\n    \"wednesday\": [\n      {\n        \"startTime\": \"09:00\",\n        \"endTime\": \"17:00\",\n        \"maxPatients\": 20\n      }\n    ],\n    \"thursday\": [\n      {\n        \"startTime\": \"09:00\",\n        \"endTime\": \"17:00\",\n        \"maxPatients\": 20\n      }\n    ],\n    \"friday\": [\n      {\n        \"startTime\": \"09:00\",\n        \"endTime\": \"17:00\",\n        \"maxPatients\": 20\n      }\n    ],\n    \"saturday\": [\n      {\n        \"startTime\": \"09:00\",\n        \"endTime\": \"13:00\",\n        \"maxPatients\": 10\n      }\n    ]\n  }\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/doctors/schedule",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "doctors",
+                                "schedule"
+                            ]
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Medical Representative",
+            "item": [
+                {
+                    "name": "Login MR",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "if (pm.response.code === 200) {",
+                                    "    const response = pm.response.json();",
+                                    "    pm.collectionVariables.set('authToken', response.token);",
+                                    "}"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"email\": \"mr.jones@pharma.com\",\n  \"password\": \"Password123!\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/auth/login",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "auth",
+                                "login"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Get MR Profile",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/mr/profile",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "mr",
+                                "profile"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Get Doctors in Territory",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/mr/doctors?specialization=Cardiology&page=1&limit=10",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "mr",
+                                "doctors"
+                            ],
+                            "query": [
+                                {
+                                    "key": "specialization",
+                                    "value": "Cardiology"
+                                },
+                                {
+                                    "key": "page",
+                                    "value": "1"
+                                },
+                                {
+                                    "key": "limit",
+                                    "value": "10"
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Request Meeting",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"doctorId\": \"DOCTOR_ID_HERE\",\n  \"proposedDate\": \"2024-12-31\",\n  \"proposedTime\": \"14:00\",\n  \"purpose\": \"Product presentation and discussion about new cardiovascular medications\",\n  \"products\": [\n    {\n      \"productId\": \"PRODUCT_ID_1\",\n      \"productName\": \"Cardio Plus\",\n      \"category\": \"Cardiovascular\",\n      \"focusArea\": \"Heart health\"\n    }\n  ],\n  \"message\": \"Would like to discuss our new cardiovascular product line and its benefits for your patients\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/mr/meeting-requests",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "mr",
+                                "meeting-requests"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Get Meeting Requests",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/mr/meeting-requests?status=pending&page=1&limit=10",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "mr",
+                                "meeting-requests"
+                            ],
+                            "query": [
+                                {
+                                    "key": "status",
+                                    "value": "pending"
+                                },
+                                {
+                                    "key": "page",
+                                    "value": "1"
+                                },
+                                {
+                                    "key": "limit",
+                                    "value": "10"
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Submit DCR",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"visitDate\": \"2024-01-01\",\n  \"doctorId\": \"DOCTOR_ID_HERE\",\n  \"productsDiscussed\": [\n    {\n      \"productId\": \"PRODUCT_ID_1\",\n      \"productName\": \"Cardio Plus\",\n      \"feedback\": \"Doctor showed interest in the product\"\n    }\n  ],\n  \"feedback\": \"Very productive meeting. Doctor is interested in prescribing our new cardiovascular medication.\",\n  \"nextFollowUp\": \"2024-01-15\",\n  \"expensesIncurred\": 50.00,\n  \"samplesDistributed\": [\n    {\n      \"productId\": \"PRODUCT_ID_1\",\n      \"productName\": \"Cardio Plus\",\n      \"quantity\": 5,\n      \"batchNo\": \"CP2024001\"\n    }\n  ]\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/mr/dcr",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "mr",
+                                "dcr"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Get Sample Inventory",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/mr/samples",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "mr",
+                                "samples"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Get Territory Analytics",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/mr/analytics?period=month",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "mr",
+                                "analytics"
+                            ],
+                            "query": [
+                                {
+                                    "key": "period",
+                                    "value": "month"
+                                }
+                            ]
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "System",
+            "item": [
+                {
+                    "name": "Health Check",
+                    "request": {
+                        "auth": {
+                            "type": "noauth"
+                        },
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/health",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "health"
+                            ]
+                        }
+                    }
+                }
+            ]
+        }
+    ]
+}
