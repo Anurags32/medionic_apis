@@ -92,10 +92,11 @@ module.exports = {
 
     // Password requirements
     PASSWORD: {
-        MIN_LENGTH: 8,
+        MIN_LENGTH: 6,
         REQUIRE_UPPERCASE: true,
         REQUIRE_NUMBER: true,
-        REQUIRE_SPECIAL_CHAR: true
+        REQUIRE_LOWERCASE: false,
+        REQUIRE_SPECIAL_CHAR: false
     },
 
     // File upload limits

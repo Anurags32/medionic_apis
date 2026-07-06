@@ -8,9 +8,10 @@ exports.isValidEmail = (email) => {
 
 // Password validation
 exports.isValidPassword = (password) => {
-    const minLength = constants.PASSWORD.MIN_LENGTH;
+    if (typeof password !== 'string') return false;
+    const minLength = constants.PASSWORD.MIN_LENGTH || 6;
     const hasUpperCase = constants.PASSWORD.REQUIRE_UPPERCASE ? /[A-Z]/.test(password) : true;
-    const hasLowerCase = /[a-z]/.test(password);
+    const hasLowerCase = constants.PASSWORD.REQUIRE_LOWERCASE ? /[a-z]/.test(password) : true;
     const hasNumbers = constants.PASSWORD.REQUIRE_NUMBER ? /\d/.test(password) : true;
     const hasSpecialChar = constants.PASSWORD.REQUIRE_SPECIAL_CHAR ? /[@$!%*?&]/.test(password) : true;
 
@@ -193,7 +194,7 @@ exports.isValidFileCategory = (category) => {
 exports.getValidationErrorMessage = (field, value, validator) => {
     const messages = {
         email: `'${value}' is not a valid email address`,
-        password: 'Password must be at least 8 characters and contain uppercase, lowercase, number, and special character',
+        password: 'Password must be at least 6 characters and contain at least one uppercase letter and one number',
         phone: `'${value}' is not a valid phone number`,
         zip: `'${value}' is not a valid ZIP code`,
         date: `'${value}' is not a valid date`,

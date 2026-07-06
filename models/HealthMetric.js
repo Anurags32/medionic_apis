@@ -15,7 +15,7 @@ const healthMetricSchema = new mongoose.Schema({
         index: true
     },
     value: {
-        type: Number,
+        type: mongoose.Schema.Types.Mixed,
         required: [true, 'Value is required']
     },
     unit: {

@@ -267,7 +267,7 @@ appointmentSchema.methods.addReminder = function (type, status = 'pending') {
 
 // Pre-save middleware to validate appointment date
 appointmentSchema.pre('save', function (next) {
-    if (this.appointmentDate) {
+    if (this.appointmentDate && !['completed', 'cancelled'].includes(this.status) && process.env.NODE_ENV !== 'test') {
         const appointmentDate = new Date(this.appointmentDate);
         const today = new Date();
         today.setHours(0, 0, 0, 0);

@@ -509,6 +509,7 @@ const seedDatabase = async () => {
                 const meeting = await MRMeetings.create({
                     mrId: mr._id,
                     doctorId: doctor._id,
+                    requestId: 'REQ-' + Math.random().toString(36).substring(2, 10).toUpperCase(),
                     requestedDate: new Date(),
                     proposedDate: new Date(Date.now() + Math.random() * 30 * 24 * 60 * 60 * 1000),
                     proposedTime: `${10 + Math.floor(Math.random() * 6)}:00`,

@@ -140,6 +140,20 @@ const medicalRepSchema = new mongoose.Schema({
         }
     },
     profilePicture: String,
+    verificationDocuments: [{
+        documentType: {
+            type: String,
+            required: true
+        },
+        documentUrl: {
+            type: String,
+            required: true
+        },
+        uploadedAt: {
+            type: Date,
+            default: Date.now
+        }
+    }],
     preferences: {
         notificationFrequency: {
             type: String,

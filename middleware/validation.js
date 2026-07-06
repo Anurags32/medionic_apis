@@ -5,17 +5,17 @@ const ErrorResponse = require('../utils/errorResponse');
 const schemas = {
     // Auth validation
     register: Joi.object({
-        email: Joi.string().email().required().messages({
-            'string.email': 'Please provide a valid email',
+        email: Joi.string().pattern(/^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/).required().messages({
+            'string.pattern.base': 'Please provide a valid email',
             'any.required': 'Email is required'
         }),
         password: Joi.string()
-            .min(8)
-            .pattern(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/)
+            .min(6)
+            .pattern(/^(?=.*[A-Z])(?=.*\d)/)
             .required()
             .messages({
-                'string.min': 'Password must be at least 8 characters',
-                'string.pattern.base': 'Password must contain at least one uppercase letter, one lowercase letter, one number and one special character',
+                'string.min': 'Password must be at least 6 characters',
+                'string.pattern.base': 'Password must contain at least one uppercase letter and one number',
                 'any.required': 'Password is required'
             }),
         confirmPassword: Joi.string().valid(Joi.ref('password')).required().messages({
@@ -250,7 +250,7 @@ const schemas = {
             'any.only': 'Metric type must be one of: BP, HR, Weight, Glucose, Temperature',
             'any.required': 'Metric type is required'
         }),
-        value: Joi.number().required().messages({
+        value: Joi.alternatives().try(Joi.number(), Joi.string()).required().messages({
             'any.required': 'Value is required'
         }),
         unit: Joi.string().required().messages({
@@ -290,12 +290,12 @@ const schemas = {
             'any.required': 'Reset token is required'
         }),
         newPassword: Joi.string()
-            .min(8)
-            .pattern(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/)
+            .min(6)
+            .pattern(/^(?=.*[A-Z])(?=.*\d)/)
             .required()
             .messages({
-                'string.min': 'Password must be at least 8 characters',
-                'string.pattern.base': 'Password must contain at least one uppercase letter, one lowercase letter, one number and one special character',
+                'string.min': 'Password must be at least 6 characters',
+                'string.pattern.base': 'Password must contain at least one uppercase letter and one number',
                 'any.required': 'New password is required'
             }),
         confirmPassword: Joi.string().valid(Joi.ref('newPassword')).required().messages({

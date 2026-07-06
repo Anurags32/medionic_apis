@@ -9,11 +9,26 @@ const dotenv = require('dotenv');
 // Load environment variables
 dotenv.config();
 
+console.log('==========================================================');
+console.log('🚀  Medionic Backend Server Starting...');
+console.log('==========================================================');
+console.log(`📌  NODE_ENV     : ${process.env.NODE_ENV || 'development'}`);
+console.log(`📌  PORT         : ${process.env.PORT || 5001}`);
+console.log(`📌  MONGODB_URI  : ${process.env.MONGODB_URI || 'mongodb://localhost:27017/healthcare_db'}`);
+console.log(`📌  CLIENT_URL   : ${process.env.CLIENT_URL || 'http://localhost:3000'}`);
+console.log('==========================================================');
+
 // Import routes
 const authRoutes = require('./routes/authRoutes');
 const patientRoutes = require('./routes/patientRoutes');
 const doctorRoutes = require('./routes/doctorRoutes');
 const mrRoutes = require('./routes/mrRoutes');
+
+const doctorAuthRoutes = require('./routes/auth/doctor/doctorRoutes');
+const patientAuthRoutes = require('./routes/auth/patient/patientRoutes');
+const mrAuthRoutes = require('./routes/auth/mr/mrRoutes');
+
+console.log('✅  All routes imported successfully');
 
 // Import middleware
 const errorHandler = require('./middleware/errorHandler');
@@ -23,56 +38,138 @@ const app = express();
 
 // Security middleware
 app.use(helmet());
+console.log('✅  Helmet security middleware applied');
 
 // Rate limiting
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, 
+  max: 100,
   message: 'Too many requests from this IP, please try again later.'
 });
 app.use('/api/', limiter);
+console.log('✅  Rate limiter applied on /api/');
 
 // Body parsing middleware
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+console.log('✅  Body parser middleware applied');
 
 // CORS configuration
 app.use(cors({
   origin: process.env.CLIENT_URL || 'http://localhost:3000',
   credentials: true
 }));
+console.log(`✅  CORS enabled for origin: ${process.env.CLIENT_URL || 'http://localhost:3000'}`);
 
 // Logging middleware
 if (process.env.NODE_ENV === 'development') {
   app.use(morgan('dev'));
+  console.log('✅  Morgan HTTP request logger enabled (dev mode)');
 }
 
 // Database connection
-mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/healthcare_db')
-  .then(() => console.log('MongoDB connected successfully'))
-  .catch((err) => console.error('MongoDB connection error:', err));
+if (process.env.NODE_ENV !== 'test') {
+  const mongoURI = process.env.MONGODB_URI || 'mongodb://localhost:27017/healthcare_db';
+  console.log(`\n🔌  Connecting to MongoDB at: ${mongoURI}`);
+
+  mongoose.connection.on('connecting', () => {
+    console.log('⏳  MongoDB: connecting...');
+  });
+
+  mongoose.connection.on('connected', () => {
+    console.log('✅  MongoDB: connected successfully!');
+  });
+
+  mongoose.connection.on('disconnected', () => {
+    console.warn('⚠️   MongoDB: disconnected!');
+  });
+
+  mongoose.connection.on('error', (err) => {
+    console.error('❌  MongoDB connection error:', err.message);
+  });
+
+  mongoose.connection.on('reconnected', () => {
+    console.log('🔄  MongoDB: reconnected!');
+  });
+
+  mongoose
+    .connect(mongoURI)
+    .then(() => {
+      console.log('✅  MongoDB initial connection promise resolved');
+      console.log(`📦  Database Name: ${mongoose.connection.name}`);
+      console.log(`📡  DB Host: ${mongoose.connection.host}:${mongoose.connection.port}`);
+    })
+    .catch((err) => {
+      console.error('❌  MongoDB initial connection FAILED:', err.message);
+      console.error('💡  Options to fix:');
+      console.error('    1. Install & start MongoDB locally: brew install mongodb-community && brew services start mongodb-community');
+      console.error('    2. Use MongoDB Atlas: update MONGODB_URI in .env with your Atlas connection string');
+      console.error('    ⚠️  Server will still run but all DB operations will fail until MongoDB is connected');
+    });
+}
+
+// Request logger middleware (log all incoming API requests)
+app.use((req, res, next) => {
+  const start = Date.now();
+  console.log(`\n📥  [${new Date().toISOString()}] ${req.method} ${req.originalUrl}`);
+  if (Object.keys(req.body || {}).length > 0) {
+    const safeBody = { ...req.body };
+    if (safeBody.password) safeBody.password = '****';
+    console.log(`    Body:`, JSON.stringify(safeBody));
+  }
+  res.on('finish', () => {
+    const duration = Date.now() - start;
+    const statusIcon = res.statusCode < 400 ? '✅' : '❌';
+    console.log(`📤  [${new Date().toISOString()}] ${req.method} ${req.originalUrl} → ${statusIcon} ${res.statusCode} (${duration}ms)`);
+  });
+  next();
+});
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
+  const dbState = mongoose.connection.readyState;
+  const dbStateMap = { 0: 'disconnected', 1: 'connected', 2: 'connecting', 3: 'disconnecting' };
+  const dbStatus = dbStateMap[dbState] || 'unknown';
+
+  console.log(`\n🏥  Health check requested — DB Status: ${dbStatus}`);
+
   res.status(200).json({
     success: true,
     message: 'HealthCare+ Backend is running',
     timestamp: new Date().toISOString(),
-    database: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected'
+    database: dbStatus,
+    environment: process.env.NODE_ENV || 'development',
+    port: process.env.PORT || 5001
   });
 });
 
-// API Routes
+// API Routes — specific auth routes MUST come before generic /api/auth
+// Otherwise /api/auth's router.use(protect) will intercept /api/auth/doctor/register etc.
+app.use('/api/auth/doctor', doctorAuthRoutes);
+app.use('/api/auth/patient', patientAuthRoutes);
+app.use('/api/auth/mr', mrAuthRoutes);
+
+// Generic auth routes (register, login, refresh-token etc.)
 app.use('/api/auth', authRoutes);
 app.use('/api/patients', patientRoutes);
 app.use('/api/doctors', doctorRoutes);
 app.use('/api/mr', mrRoutes);
+
+console.log('\n✅  All API routes registered:');
+console.log('    POST /api/auth/patient/register');
+console.log('    POST /api/auth/patient/login');
+console.log('    POST /api/auth/doctor/register');
+console.log('    POST /api/auth/doctor/login');
+console.log('    POST /api/auth/mr/register');
+console.log('    POST /api/auth/mr/login');
+console.log('    GET  /api/health');
 
 // Error handling middleware (should be last)
 app.use(errorHandler);
 
 // 404 handler for undefined routes
 app.use('*', (req, res) => {
+  console.warn(`⚠️   404 Not Found: ${req.method} ${req.originalUrl}`);
   res.status(404).json({
     success: false,
     message: `Route ${req.originalUrl} not found`
@@ -80,33 +177,39 @@ app.use('*', (req, res) => {
 });
 
 // Server configuration
-const PORT = process.env.PORT || 5000;
-const server = app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-  console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
-});
+if (process.env.NODE_ENV !== 'test') {
+  const PORT = process.env.PORT || 5001;
+  const server = app.listen(PORT, () => {
+    console.log('\n==========================================================');
+    console.log(`🟢  Server is LIVE on port ${PORT}`);
+    console.log(`🌐  Base URL   : http://localhost:${PORT}`);
+    console.log(`❤️   Health URL : http://localhost:${PORT}/api/health`);
+    console.log(`🌍  Environment: ${process.env.NODE_ENV || 'development'}`);
+    console.log('==========================================================\n');
+  });
 
-// Graceful shutdown
-process.on('SIGTERM', () => {
-  console.log('SIGTERM signal received: closing HTTP server');
-  server.close(() => {
-    console.log('HTTP server closed');
-    mongoose.connection.close(false, () => {
-      console.log('MongoDB connection closed');
-      process.exit(0);
+  // Graceful shutdown
+  process.on('SIGTERM', () => {
+    console.log('\n⚠️   SIGTERM received: closing HTTP server gracefully...');
+    server.close(() => {
+      console.log('✅  HTTP server closed');
+      mongoose.connection.close(false, () => {
+        console.log('✅  MongoDB connection closed');
+        process.exit(0);
+      });
     });
   });
-});
 
-process.on('SIGINT', () => {
-  console.log('SIGINT signal received: closing HTTP server');
-  server.close(() => {
-    console.log('HTTP server closed');
-    mongoose.connection.close(false, () => {
-      console.log('MongoDB connection closed');
-      process.exit(0);
+  process.on('SIGINT', () => {
+    console.log('\n⚠️   SIGINT received (Ctrl+C): closing HTTP server gracefully...');
+    server.close(() => {
+      console.log('✅  HTTP server closed');
+      mongoose.connection.close(false, () => {
+        console.log('✅  MongoDB connection closed');
+        process.exit(0);
+      });
     });
   });
-});
+}
 
 module.exports = app;
