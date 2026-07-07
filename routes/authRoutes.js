@@ -20,12 +20,19 @@ const {
 const { protect, authorize } = require('../middleware/auth');
 const constants = require('../config/constants');
 
+const { adminLogin, verifyDoctor, verifyMR } = require('../controllers/adminController');
+
 // Public routes
 router.post('/register', register);
 router.post('/login', login);
+router.post('/admin/login', adminLogin);
 router.post('/refresh-token', refreshToken);
 router.post('/forgot-password', forgotPassword);
 router.post('/reset-password', resetPassword);
+
+// Verification routes matching exact requirements
+router.put('/doctor/:id/verify-status', protect, authorize(constants.ROLES.ADMIN), verifyDoctor);
+router.put('/mr/:id/verify-status', protect, authorize(constants.ROLES.ADMIN), verifyMR);
 
 // Protected routes
 router.use(protect); // All routes below this are protected

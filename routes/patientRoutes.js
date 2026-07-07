@@ -18,6 +18,7 @@ const {
     logHealthMetric,
     getHealthMetrics,
     getHealthStatistics,
+    getAvailableSlots,
     getEmergencyContacts,
     updateEmergencyContact
 } = require('../controllers/patientController');
@@ -30,8 +31,13 @@ const {
     getMedicalRecords,
     deleteMedicalRecord,
     addEmergencyContact,
-    deleteEmergencyContact
+    deleteEmergencyContact,
+    getPatientDashboard,
+    getFamilyMembers,
+    addFamilyMember
 } = require('../controllers/patientExtendedController');
+
+const { payAppointment } = require('../controllers/paymentController');
 
 // Import middleware
 const { protect, authorize, profileComplete } = require('../middleware/auth');
@@ -41,6 +47,14 @@ const constants = require('../config/constants');
 // All routes are protected and require patient role
 router.use(protect, authorize(constants.ROLES.PATIENT), profileComplete);
 
+// Patient dashboard route
+router.get('/dashboard', getPatientDashboard);
+
+// Family members routes
+router.route('/family-members')
+    .get(getFamilyMembers)
+    .post(addFamilyMember);
+
 // Patient profile routes
 router.route('/profile')
     .get(getProfile)
@@ -49,6 +63,8 @@ router.route('/profile')
 // Doctor search and details routes
 router.get('/doctors', searchDoctors);
 router.get('/doctors/:id', getDoctorDetails);
+router.get('/doctors/:id/available-slots', getAvailableSlots);
+router.get('/doctors/:id/slots', getAvailableSlots);
 
 // Appointment routes
 router.route('/appointments')
@@ -60,6 +76,8 @@ router.route('/appointments/:id')
     .delete(canModifyAppointment, cancelAppointment);
 
 router.put('/appointments/:id/reschedule', canModifyAppointment, rescheduleAppointment);
+router.put('/appointments/:id/cancel', canModifyAppointment, cancelAppointment);
+router.post('/appointments/:id/pay', canModifyAppointment, payAppointment);
 
 // Prescription routes
 router.route('/prescriptions')
@@ -67,6 +85,7 @@ router.route('/prescriptions')
 
 router.get('/prescriptions/:id', canAccessPrescription, getPrescriptionDetails);
 router.get('/prescriptions/:id/download', canAccessPrescription, downloadPrescription);
+router.get('/prescriptions/:id/pdf', canAccessPrescription, downloadPrescription);
 
 // Medical records routes
 router.route('/medical-records')

@@ -76,9 +76,13 @@ const doctorSchema = new mongoose.Schema({
     }],
     rating: {
         type: Number,
-        default: 0,
+        default: 5.0,
         min: [0, 'Rating cannot be negative'],
         max: [5, 'Rating cannot exceed 5']
+    },
+    reviewsCount: {
+        type: Number,
+        default: 0
     },
     totalRatings: {
         type: Number,
@@ -114,6 +118,19 @@ const doctorSchema = new mongoose.Schema({
         friday: [{ startTime: String, endTime: String, maxPatients: Number }],
         saturday: [{ startTime: String, endTime: String, maxPatients: Number }],
         sunday: [{ startTime: String, endTime: String, maxPatients: Number }]
+    },
+    schedule: {
+        monday: [{ start: String, end: String }],
+        tuesday: [{ start: String, end: String }],
+        wednesday: [{ start: String, end: String }],
+        thursday: [{ start: String, end: String }],
+        friday: [{ start: String, end: String }],
+        saturday: [{ start: String, end: String }],
+        sunday: [{ start: String, end: String }]
+    },
+    slotDurationMinutes: {
+        type: Number,
+        default: 30
     },
     holidays: [{
         date: Date,
@@ -194,27 +211,50 @@ doctorSchema.methods.isAvailable = function (date, time) {
 
     if (isHoliday) return false;
 
-    // Check availability for the day
-    const dayAvailability = this.availability[day];
-    if (!dayAvailability || dayAvailability.length === 0) return false;
+    // Check schedule first, then fallback to availability
+    const daySchedule = this.schedule && this.schedule[day] ? this.schedule[day] : [];
+    const dayAvailability = this.availability && this.availability[day] ? this.availability[day] : [];
 
-    // Check if time falls within any slot
-    return dayAvailability.some(slot => {
-        const [startHour, startMinute] = slot.startTime.split(':').map(Number);
-        const [endHour, endMinute] = slot.endTime.split(':').map(Number);
+    if (daySchedule.length > 0) {
+        return daySchedule.some(slot => {
+            if (!slot.start || !slot.end) return false;
+            const [startHour, startMinute] = slot.start.split(':').map(Number);
+            const [endHour, endMinute] = slot.end.split(':').map(Number);
 
-        const slotStart = new Date(date);
-        slotStart.setHours(startHour, startMinute, 0, 0);
+            const slotStart = new Date(date);
+            slotStart.setHours(startHour, startMinute, 0, 0);
 
-        const slotEnd = new Date(date);
-        slotEnd.setHours(endHour, endMinute, 0, 0);
+            const slotEnd = new Date(date);
+            slotEnd.setHours(endHour, endMinute, 0, 0);
 
-        const checkTime = new Date(date);
-        const [checkHour, checkMinute] = time.split(':').map(Number);
-        checkTime.setHours(checkHour, checkMinute, 0, 0);
+            const checkTime = new Date(date);
+            const [checkHour, checkMinute] = time.split(':').map(Number);
+            checkTime.setHours(checkHour, checkMinute, 0, 0);
 
-        return checkTime >= slotStart && checkTime <= slotEnd;
-    });
+            return checkTime >= slotStart && checkTime <= slotEnd;
+        });
+    }
+
+    if (dayAvailability.length > 0) {
+        return dayAvailability.some(slot => {
+            const [startHour, startMinute] = slot.startTime.split(':').map(Number);
+            const [endHour, endMinute] = slot.endTime.split(':').map(Number);
+
+            const slotStart = new Date(date);
+            slotStart.setHours(startHour, startMinute, 0, 0);
+
+            const slotEnd = new Date(date);
+            slotEnd.setHours(endHour, endMinute, 0, 0);
+
+            const checkTime = new Date(date);
+            const [checkHour, checkMinute] = time.split(':').map(Number);
+            checkTime.setHours(checkHour, checkMinute, 0, 0);
+
+            return checkTime >= slotStart && checkTime <= slotEnd;
+        });
+    }
+
+    return false;
 };
 
 // Method to add availability slot

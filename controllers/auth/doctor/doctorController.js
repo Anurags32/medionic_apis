@@ -78,25 +78,35 @@ exports.doctorRegister = async (req, res, next) => {
         }
         console.log('    ✅  All required files present');
 
+        // Split fullName into firstName and lastName on first space
+        const trimmedName = fullName.trim();
+        const spaceIndex = trimmedName.indexOf(' ');
+        let firstName = trimmedName;
+        let lastName = '';
+        if (spaceIndex !== -1) {
+            firstName = trimmedName.substring(0, spaceIndex).trim();
+            lastName = trimmedName.substring(spaceIndex + 1).trim();
+        }
+
+        // Prepare uploaded files paths
+        const profilePicture = `/uploads/${req.files['profilePhoto'][0].filename}`;
+        console.log(`    📸  Profile picture: ${profilePicture}`);
+
         // Create User
         console.log('    💾  Creating User record in DB...');
         const user = await User.create({
             email: email.toLowerCase(),
             password,
+            firstName,
+            lastName,
+            phone: phoneDigits,
             role: constants.ROLES.DOCTOR,
             status: constants.USER_STATUS.ACTIVE,
-            profileComplete: true
+            profilePhoto: profilePicture,
+            profileComplete: true,
+            isVerified: false
         });
         console.log(`    ✅  User created — ID: ${user._id}`);
-
-        // Split fullName into firstName and lastName
-        const names = fullName.trim().split(' ');
-        const firstName = names[0];
-        const lastName = names.slice(1).join(' ') || 'Doctor';
-
-        // Prepare uploaded files paths
-        const profilePicture = `/uploads/${req.files['profilePhoto'][0].filename}`;
-        console.log(`    📸  Profile picture: ${profilePicture}`);
 
         const verificationDocuments = [
             {
@@ -120,6 +130,15 @@ exports.doctorRegister = async (req, res, next) => {
         // Format phone to match regex in schema if needed (+91 prefix or raw 10 digit)
         const formattedPhone = `+91${phoneDigits}`;
 
+        // Best effort city extraction from clinicAddress
+        let extractedCity = '';
+        if (city && city.trim()) {
+            extractedCity = city.trim();
+        } else if (clinicAddress && clinicAddress.includes(',')) {
+            const segments = clinicAddress.split(',');
+            extractedCity = segments[segments.length - 1].trim();
+        }
+
         // Create Doctor Profile
         console.log('    💾  Creating Doctor profile in DB...');
         const doctor = await Doctor.create({
@@ -132,7 +151,7 @@ exports.doctorRegister = async (req, res, next) => {
             clinic: {
                 name: clinicName.trim(),
                 address: clinicAddress.trim(),
-                city: city ? city.trim() : 'Default City',
+                city: extractedCity,
                 phone: formattedPhone
             },
             consultationFee: parseInt(consultationFee) || 500,
@@ -156,18 +175,19 @@ exports.doctorRegister = async (req, res, next) => {
 
         res.status(201).json({
             success: true,
-            message: 'Doctor registered successfully. Approval is pending.',
+            token,
+            refreshToken,
             data: {
                 userId: user._id,
                 doctorId: doctor._id,
+                profileComplete: true,
+                role: 'doctor',
                 fullName: `${doctor.firstName} ${doctor.lastName}`,
                 email: user.email,
-                role: user.role,
+                phone: user.phone,
                 verificationStatus: doctor.verificationStatus,
-                profilePicture: doctor.profilePicture
-            },
-            token,
-            refreshToken
+                profilePhoto: doctor.profilePicture
+            }
         });
 
     } catch (error) {

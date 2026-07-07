@@ -1,3 +1,4 @@
+const http = require('http');
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
@@ -23,10 +24,20 @@ const authRoutes = require('./routes/authRoutes');
 const patientRoutes = require('./routes/patientRoutes');
 const doctorRoutes = require('./routes/doctorRoutes');
 const mrRoutes = require('./routes/mrRoutes');
+const adminRoutes = require('./routes/adminRoutes');
+const paymentRoutes = require('./routes/paymentRoutes');
+const aiRoutes = require('./routes/aiRoutes');
+const labRoutes = require('./routes/labRoutes');
+const pharmacyRoutes = require('./routes/pharmacyRoutes');
+const emergencyRoutes = require('./routes/emergencyRoutes');
+const consultationRoutes = require('./routes/consultationRoutes');
 
 const doctorAuthRoutes = require('./routes/auth/doctor/doctorRoutes');
 const patientAuthRoutes = require('./routes/auth/patient/patientRoutes');
 const mrAuthRoutes = require('./routes/auth/mr/mrRoutes');
+
+// Import Socket.io service
+const { initSocket } = require('./services/socketService');
 
 console.log('✅  All routes imported successfully');
 
@@ -154,6 +165,13 @@ app.use('/api/auth', authRoutes);
 app.use('/api/patients', patientRoutes);
 app.use('/api/doctors', doctorRoutes);
 app.use('/api/mr', mrRoutes);
+app.use('/api/admin', adminRoutes);
+app.use('/api/payments', paymentRoutes);
+app.use('/api/ai', aiRoutes);
+app.use('/api/lab', labRoutes);
+app.use('/api/pharmacy', pharmacyRoutes);
+app.use('/api/emergency', emergencyRoutes);
+app.use('/api/consultations', consultationRoutes);
 
 console.log('\n✅  All API routes registered:');
 console.log('    POST /api/auth/patient/register');
@@ -162,6 +180,13 @@ console.log('    POST /api/auth/doctor/register');
 console.log('    POST /api/auth/doctor/login');
 console.log('    POST /api/auth/mr/register');
 console.log('    POST /api/auth/mr/login');
+console.log('    POST /api/ai/symptom-checker');
+console.log('    POST /api/ai/analyze-report');
+console.log('    GET  /api/lab/tests');
+console.log('    POST /api/lab/bookings');
+console.log('    GET  /api/pharmacy/products');
+console.log('    POST /api/payments/create-order');
+console.log('    POST /api/emergency/sos');
 console.log('    GET  /api/health');
 
 // Error handling middleware (should be last)
@@ -179,11 +204,18 @@ app.use('*', (req, res) => {
 // Server configuration
 if (process.env.NODE_ENV !== 'test') {
   const PORT = process.env.PORT || 5001;
-  const server = app.listen(PORT, () => {
+  const server = http.createServer(app);
+
+  // Initialize Socket.io on the HTTP server
+  initSocket(server);
+  console.log('✅  Socket.io initialized on HTTP server');
+
+  server.listen(PORT, () => {
     console.log('\n==========================================================');
     console.log(`🟢  Server is LIVE on port ${PORT}`);
     console.log(`🌐  Base URL   : http://localhost:${PORT}`);
     console.log(`❤️   Health URL : http://localhost:${PORT}/api/health`);
+    console.log(`🔌  Socket.io  : ws://localhost:${PORT}`);
     console.log(`🌍  Environment: ${process.env.NODE_ENV || 'development'}`);
     console.log('==========================================================\n');
   });

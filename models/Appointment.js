@@ -53,6 +53,10 @@ const appointmentSchema = new mongoose.Schema({
         type: String,
         trim: true
     },
+    roomId: {
+        type: String,
+        trim: true
+    },
     paymentStatus: {
         type: String,
         enum: ['pending', 'completed', 'refunded'],
@@ -119,6 +123,13 @@ const appointmentSchema = new mongoose.Schema({
         reason: String,
         requestedAt: Date,
         approvedAt: Date
+    },
+    cancelledBy: {
+        type: String,
+        enum: ['patient', 'doctor']
+    },
+    cancellationReason: {
+        type: String
     }
 }, {
     timestamps: true
@@ -265,7 +276,7 @@ appointmentSchema.methods.addReminder = function (type, status = 'pending') {
     });
 };
 
-// Pre-save middleware to validate appointment date
+// Pre-save middleware to validate appointment date and auto-generate roomId for video/chat
 appointmentSchema.pre('save', function (next) {
     if (this.appointmentDate && !['completed', 'cancelled'].includes(this.status) && process.env.NODE_ENV !== 'test') {
         const appointmentDate = new Date(this.appointmentDate);
@@ -276,6 +287,11 @@ appointmentSchema.pre('save', function (next) {
         if (appointmentDate < today) {
             return next(new Error('Appointment date cannot be in the past'));
         }
+    }
+
+    // Auto-generate roomId for video/chat consultation types if not set
+    if ((this.consultationType === 'video' || this.consultationType === 'chat') && !this.roomId) {
+        this.roomId = new mongoose.Types.ObjectId().toString();
     }
 
     next();

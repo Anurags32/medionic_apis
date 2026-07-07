@@ -255,15 +255,20 @@ exports.bookAppointment = [
             }
 
             // Check if appointment slot is already booked
+            const startOfDay = new Date(appointmentDateTime);
+            startOfDay.setHours(0, 0, 0, 0);
+            const endOfDay = new Date(appointmentDateTime);
+            endOfDay.setHours(23, 59, 59, 999);
+
             const existingAppointment = await Appointment.findOne({
                 doctorId,
-                appointmentDate: appointmentDateTime,
+                appointmentDate: { $gte: startOfDay, $lte: endOfDay },
                 appointmentTime,
                 status: { $in: ['pending', 'confirmed'] }
             });
 
             if (existingAppointment) {
-                return next(new ErrorResponse('Time slot already booked', 400));
+                return next(new ErrorResponse('Time slot already booked', 409));
             }
 
             // Create appointment
@@ -958,6 +963,121 @@ exports.updateEmergencyContact = async (req, res, next) => {
             success: true,
             message: 'Emergency contact updated successfully',
             data: patient.emergencyContact
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+// Helper to generate slots from start and end times
+const generateTimeSlots = (startTimeStr, endTimeStr, slotDuration) => {
+    const slots = [];
+    const [startHour, startMinute] = startTimeStr.split(':').map(Number);
+    const [endHour, endMinute] = endTimeStr.split(':').map(Number);
+
+    let current = new Date();
+    current.setHours(startHour, startMinute, 0, 0);
+
+    const end = new Date();
+    end.setHours(endHour, endMinute, 0, 0);
+
+    while (current < end) {
+        const hh = current.getHours().toString().padStart(2, '0');
+        const mm = current.getMinutes().toString().padStart(2, '0');
+        slots.push(`${hh}:${mm}`);
+        current.setMinutes(current.getMinutes() + slotDuration);
+    }
+    return slots;
+};
+
+// @desc    Get available slots for a doctor on a specific date
+// @route   GET /api/patients/doctors/:id/available-slots
+// @access  Private (Patient only)
+exports.getAvailableSlots = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const { date } = req.query;
+
+        if (!date) {
+            return next(new ErrorResponse('Please provide a date (YYYY-MM-DD)', 400));
+        }
+
+        const queryDate = new Date(date);
+        if (isNaN(queryDate.getTime())) {
+            return next(new ErrorResponse('Invalid date format. Use YYYY-MM-DD', 400));
+        }
+
+        const doctor = await Doctor.findById(id);
+        if (!doctor) {
+            return next(new ErrorResponse('Doctor not found', 404));
+        }
+
+        // Check if date is a holiday
+        const isHoliday = doctor.holidays && doctor.holidays.some(holiday => {
+            const hDate = new Date(holiday.date);
+            return hDate.toDateString() === queryDate.toDateString();
+        });
+
+        if (isHoliday) {
+            return res.status(200).json({
+                success: true,
+                data: []
+            });
+        }
+
+        // Get day of week
+        const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+        const dayName = days[queryDate.getDay()];
+
+        // Get doctor schedule for this day
+        const daySchedule = doctor.schedule && doctor.schedule[dayName] ? doctor.schedule[dayName] : [];
+        const dayAvailability = doctor.availability && doctor.availability[dayName] ? doctor.availability[dayName] : [];
+
+        let allSlots = [];
+
+        if (daySchedule.length > 0) {
+            daySchedule.forEach(slotRange => {
+                if (slotRange.start && slotRange.end) {
+                    const generated = generateTimeSlots(slotRange.start, slotRange.end, doctor.slotDurationMinutes || 30);
+                    allSlots = allSlots.concat(generated);
+                }
+            });
+        } else if (dayAvailability.length > 0) {
+            dayAvailability.forEach(slotRange => {
+                if (slotRange.startTime && slotRange.endTime) {
+                    const generated = generateTimeSlots(slotRange.startTime, slotRange.endTime, doctor.slotDurationMinutes || 30);
+                    allSlots = allSlots.concat(generated);
+                }
+            });
+        }
+
+        if (allSlots.length === 0) {
+            return res.status(200).json({
+                success: true,
+                data: []
+            });
+        }
+
+        // Find existing bookings on this date (pending or confirmed)
+        const startOfDay = new Date(queryDate);
+        startOfDay.setHours(0, 0, 0, 0);
+        const endOfDay = new Date(queryDate);
+        endOfDay.setHours(23, 59, 59, 999);
+
+        const bookings = await Appointment.find({
+            doctorId: doctor._id,
+            appointmentDate: { $gte: startOfDay, $lte: endOfDay },
+            status: { $in: [constants.APPOINTMENT_STATUS.PENDING, constants.APPOINTMENT_STATUS.CONFIRMED] }
+        });
+
+        const bookedTimes = bookings.map(b => b.appointmentTime);
+
+        // Filter slots
+        const availableSlots = allSlots.filter(slot => !bookedTimes.includes(slot));
+
+        res.status(200).json({
+            success: true,
+            data: availableSlots
         });
     } catch (error) {
         next(error);

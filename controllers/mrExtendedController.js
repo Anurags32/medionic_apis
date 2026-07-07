@@ -1,7 +1,12 @@
 const MedicalRep = require('../models/MedicalRep');
 const Doctor = require('../models/Doctor');
+const Chemist = require('../models/Chemist');
+const Expense = require('../models/Expense');
+const TourPlan = require('../models/TourPlan');
+const DCR = require('../models/DCR');
 const ErrorResponse = require('../utils/errorResponse');
 const constants = require('../config/constants');
+const helpers = require('../utils/helpers');
 
 // ============= TOUR PLANNING =============
 
@@ -13,29 +18,25 @@ exports.getTourPlan = async (req, res, next) => {
         const mrId = req.user._id;
         const { month, year } = req.query;
 
-        const mr = await MedicalRep.findOne({ userId: mrId });
-        if (!mr) {
-            return next(new ErrorResponse('MR profile not found', 404));
-        }
+        const currentMonth = month ? parseInt(month) : new Date().getMonth() + 1;
+        const currentYear = year ? parseInt(year) : new Date().getFullYear();
 
-        const tourPlan = mr.tourPlans?.find(tp => {
-            if (month && year) {
-                return tp.month === parseInt(month) && tp.year === parseInt(year);
-            }
-            return tp.month === new Date().getMonth() + 1 && tp.year === new Date().getFullYear();
+        const tourPlan = await TourPlan.findOne({
+            mrId,
+            month: currentMonth,
+            year: currentYear
         });
 
         if (!tourPlan) {
             return res.status(200).json({
                 success: true,
-                message: 'No tour plan found',
+                message: 'No tour plan found for the specified period',
                 data: null
             });
         }
 
         res.status(200).json({
             success: true,
-            message: 'Tour plan retrieved',
             data: tourPlan
         });
     } catch (error) {
@@ -49,43 +50,30 @@ exports.getTourPlan = async (req, res, next) => {
 exports.createTourPlan = async (req, res, next) => {
     try {
         const mrId = req.user._id;
-        const { month, year, doctorsToVisit, productsFocus, budget, notes } = req.body;
+        const { month, year, routes } = req.body;
 
-        if (!month || !year || !doctorsToVisit || doctorsToVisit.length === 0) {
-            return next(new ErrorResponse('Month, year, and doctors to visit are required', 400));
+        if (!month || !year || !routes || !Array.isArray(routes) || routes.length === 0) {
+            return next(new ErrorResponse('Month, year, and routes list are required', 400));
         }
 
-        const mr = await MedicalRep.findOne({ userId: mrId });
-        if (!mr) {
-            return next(new ErrorResponse('MR profile not found', 404));
+        // Check if plan already exists
+        let tourPlan = await TourPlan.findOne({ mrId, month, year });
+
+        if (tourPlan) {
+            tourPlan.routes = routes;
+            await tourPlan.save();
+        } else {
+            tourPlan = await TourPlan.create({
+                mrId,
+                month,
+                year,
+                routes
+            });
         }
-
-        const tourPlan = {
-            _id: new require('mongoose').Types.ObjectId(),
-            month: parseInt(month),
-            year: parseInt(year),
-            doctorsToVisit,
-            productsFocus: productsFocus || [],
-            budget: budget || 0,
-            notes,
-            weeklyBreakdown: generateWeeklyBreakdown(doctorsToVisit, month, year),
-            createdAt: new Date(),
-            status: 'draft'
-        };
-
-        if (!mr.tourPlans) {
-            mr.tourPlans = [];
-        }
-
-        // Remove existing plan for same month/year
-        mr.tourPlans = mr.tourPlans.filter(tp => !(tp.month === month && tp.year === year));
-        mr.tourPlans.push(tourPlan);
-
-        await mr.save();
 
         res.status(201).json({
             success: true,
-            message: 'Tour plan created successfully',
+            message: 'Tour plan saved successfully',
             data: tourPlan
         });
     } catch (error) {
@@ -101,20 +89,33 @@ exports.getWeeklyBreakdown = async (req, res, next) => {
         const { id } = req.params;
         const mrId = req.user._id;
 
-        const mr = await MedicalRep.findOne({ userId: mrId });
-        if (!mr) {
-            return next(new ErrorResponse('MR profile not found', 404));
-        }
-
-        const tourPlan = mr.tourPlans?.find(tp => tp._id.toString() === id);
+        const tourPlan = await TourPlan.findOne({ _id: id, mrId });
         if (!tourPlan) {
             return next(new ErrorResponse('Tour plan not found', 404));
         }
 
+        // Divide routes into weeks of 7 days
+        const weeks = [];
+        let currentWeek = [];
+        let weekNumber = 1;
+
+        const sortedRoutes = [...tourPlan.routes].sort((a, b) => new Date(a.date) - new Date(b.date));
+
+        sortedRoutes.forEach((route, index) => {
+            currentWeek.push(route);
+            if (currentWeek.length === 7 || index === sortedRoutes.length - 1) {
+                weeks.push({
+                    week: `Week ${weekNumber}`,
+                    routes: currentWeek
+                });
+                currentWeek = [];
+                weekNumber++;
+            }
+        });
+
         res.status(200).json({
             success: true,
-            message: 'Weekly breakdown retrieved',
-            data: tourPlan.weeklyBreakdown
+            data: weeks
         });
     } catch (error) {
         next(error);
@@ -128,35 +129,17 @@ exports.getWeeklyBreakdown = async (req, res, next) => {
 // @access  Private/MR
 exports.addChemist = async (req, res, next) => {
     try {
-        const { name, location, pharmacyName, contact, prescriptionTrend } = req.body;
+        const { chemistName, contactPerson, phone, address, city } = req.body;
         const mrId = req.user._id;
 
-        if (!name || !pharmacyName || !contact) {
-            return next(new ErrorResponse('Name, pharmacy name, and contact are required', 400));
-        }
-
-        const mr = await MedicalRep.findOne({ userId: mrId });
-        if (!mr) {
-            return next(new ErrorResponse('MR profile not found', 404));
-        }
-
-        if (!mr.chemists) {
-            mr.chemists = [];
-        }
-
-        const chemist = {
-            _id: new require('mongoose').Types.ObjectId(),
-            name,
-            location,
-            pharmacyName,
-            contact,
-            prescriptionTrend: prescriptionTrend || 'increasing',
-            lastVisit: null,
-            addedAt: new Date()
-        };
-
-        mr.chemists.push(chemist);
-        await mr.save();
+        const chemist = await Chemist.create({
+            mrId,
+            chemistName,
+            contactPerson,
+            phone,
+            address,
+            city
+        });
 
         res.status(201).json({
             success: true,
@@ -174,28 +157,11 @@ exports.addChemist = async (req, res, next) => {
 exports.getChemists = async (req, res, next) => {
     try {
         const mrId = req.user._id;
-        const { limit = 20, skip = 0 } = req.query;
-
-        const mr = await MedicalRep.findOne({ userId: mrId });
-        if (!mr) {
-            return next(new ErrorResponse('MR profile not found', 404));
-        }
-
-        const chemists = mr.chemists || [];
-        const total = chemists.length;
-
-        const paginatedChemists = chemists
-            .sort((a, b) => b.addedAt - a.addedAt)
-            .slice(parseInt(skip), parseInt(skip) + parseInt(limit));
+        const chemists = await Chemist.find({ mrId }).sort({ createdAt: -1 });
 
         res.status(200).json({
             success: true,
-            message: 'Chemists retrieved',
-            data: {
-                total,
-                count: paginatedChemists.length,
-                chemists: paginatedChemists
-            }
+            data: chemists
         });
     } catch (error) {
         next(error);
@@ -209,25 +175,16 @@ exports.updateChemist = async (req, res, next) => {
     try {
         const { id } = req.params;
         const mrId = req.user._id;
-        const { name, location, pharmacyName, contact, prescriptionTrend } = req.body;
 
-        const mr = await MedicalRep.findOne({ userId: mrId });
-        if (!mr) {
-            return next(new ErrorResponse('MR profile not found', 404));
-        }
+        const chemist = await Chemist.findOneAndUpdate(
+            { _id: id, mrId },
+            req.body,
+            { new: true, runValidators: true }
+        );
 
-        const chemist = mr.chemists?.find(c => c._id.toString() === id);
         if (!chemist) {
             return next(new ErrorResponse('Chemist not found', 404));
         }
-
-        if (name) chemist.name = name;
-        if (location) chemist.location = location;
-        if (pharmacyName) chemist.pharmacyName = pharmacyName;
-        if (contact) chemist.contact = contact;
-        if (prescriptionTrend) chemist.prescriptionTrend = prescriptionTrend;
-
-        await mr.save();
 
         res.status(200).json({
             success: true,
@@ -247,18 +204,10 @@ exports.deleteChemist = async (req, res, next) => {
         const { id } = req.params;
         const mrId = req.user._id;
 
-        const mr = await MedicalRep.findOne({ userId: mrId });
-        if (!mr) {
-            return next(new ErrorResponse('MR profile not found', 404));
-        }
-
-        const chemistIndex = mr.chemists?.findIndex(c => c._id.toString() === id);
-        if (chemistIndex === -1 || chemistIndex === undefined) {
+        const chemist = await Chemist.findOneAndDelete({ _id: id, mrId });
+        if (!chemist) {
             return next(new ErrorResponse('Chemist not found', 404));
         }
-
-        mr.chemists.splice(chemistIndex, 1);
-        await mr.save();
 
         res.status(200).json({
             success: true,
@@ -276,42 +225,16 @@ exports.deleteChemist = async (req, res, next) => {
 // @access  Private/MR
 exports.logExpense = async (req, res, next) => {
     try {
-        const { type, amount, category, date, description, receipt } = req.body;
+        const { amount, expenseType, date, description } = req.body;
         const mrId = req.user._id;
 
-        if (!type || !amount || !category) {
-            return next(new ErrorResponse('Type, amount, and category are required', 400));
-        }
-
-        if (!['travel', 'meal', 'accommodation', 'misc'].includes(type)) {
-            return next(new ErrorResponse('Invalid expense type', 400));
-        }
-
-        const mr = await MedicalRep.findOne({ userId: mrId });
-        if (!mr) {
-            return next(new ErrorResponse('MR profile not found', 404));
-        }
-
-        if (!mr.expenses) {
-            mr.expenses = [];
-        }
-
-        const expense = {
-            _id: new require('mongoose').Types.ObjectId(),
-            type,
+        const expense = await Expense.create({
+            mrId,
             amount,
-            category,
+            expenseType,
             date: date || new Date(),
-            description,
-            receipt: receipt || null,
-            status: 'submitted',
-            submittedAt: new Date(),
-            approvedAt: null,
-            approvedBy: null
-        };
-
-        mr.expenses.push(expense);
-        await mr.save();
+            description
+        });
 
         res.status(201).json({
             success: true,
@@ -329,48 +252,17 @@ exports.logExpense = async (req, res, next) => {
 exports.getExpenses = async (req, res, next) => {
     try {
         const mrId = req.user._id;
-        const { type, status = 'submitted', month, year, limit = 20, skip = 0 } = req.query;
+        const { expenseType, approvalStatus } = req.query;
+        const query = { mrId };
 
-        const mr = await MedicalRep.findOne({ userId: mrId });
-        if (!mr) {
-            return next(new ErrorResponse('MR profile not found', 404));
-        }
+        if (expenseType) query.expenseType = expenseType;
+        if (approvalStatus) query.approvalStatus = approvalStatus;
 
-        let expenses = mr.expenses || [];
-
-        // Filter by type
-        if (type) {
-            expenses = expenses.filter(e => e.type === type);
-        }
-
-        // Filter by status
-        if (status) {
-            expenses = expenses.filter(e => e.status === status);
-        }
-
-        // Filter by month/year
-        if (month && year) {
-            const startDate = new Date(year, month - 1, 1);
-            const endDate = new Date(year, month, 0);
-            expenses = expenses.filter(e => e.date >= startDate && e.date <= endDate);
-        }
-
-        const total = expenses.length;
-        const totalAmount = expenses.reduce((sum, e) => sum + e.amount, 0);
-
-        const paginatedExpenses = expenses
-            .sort((a, b) => b.date - a.date)
-            .slice(parseInt(skip), parseInt(skip) + parseInt(limit));
+        const expenses = await Expense.find(query).sort({ date: -1 });
 
         res.status(200).json({
             success: true,
-            message: 'Expenses retrieved',
-            data: {
-                total,
-                count: paginatedExpenses.length,
-                totalAmount,
-                expenses: paginatedExpenses
-            }
+            data: expenses
         });
     } catch (error) {
         next(error);
@@ -383,56 +275,85 @@ exports.getExpenses = async (req, res, next) => {
 exports.getPendingApprovals = async (req, res, next) => {
     try {
         const mrId = req.user._id;
-
-        const mr = await MedicalRep.findOne({ userId: mrId });
-        if (!mr) {
-            return next(new ErrorResponse('MR profile not found', 404));
-        }
-
-        const pending = (mr.expenses || []).filter(e => e.status === 'submitted');
-        const totalPending = pending.reduce((sum, e) => sum + e.amount, 0);
+        const expenses = await Expense.find({ mrId, approvalStatus: 'pending' }).sort({ date: 1 });
 
         res.status(200).json({
             success: true,
-            message: 'Pending approvals retrieved',
-            data: {
-                count: pending.length,
-                totalAmount: totalPending,
-                expenses: pending
-            }
+            data: expenses
         });
     } catch (error) {
         next(error);
     }
 };
 
-// ============= HELPER FUNCTIONS =============
+// ============= DAILY CALL REPORT (DCR) =============
 
-function generateWeeklyBreakdown(doctorsToVisit, month, year) {
-    const weeks = [];
-    const firstDay = new Date(year, month - 1, 1);
-    const lastDay = new Date(year, month, 0);
+// @desc    Submit DCR
+// @route   POST /api/mr/dcr
+// @access  Private/MR
+exports.submitDCR = async (req, res, next) => {
+    try {
+        const mrId = req.user._id;
+        const { doctorId, visitDate, discussionPoints, samplesDistributed } = req.body;
 
-    let weekStart = new Date(firstDay);
-    weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+        if (!doctorId || !visitDate || !discussionPoints) {
+            return next(new ErrorResponse('Doctor ID, visit date, and discussion points are required', 400));
+        }
 
-    while (weekStart <= lastDay) {
-        const weekEnd = new Date(weekStart);
-        weekEnd.setDate(weekEnd.getDate() + 6);
+        const mr = await MedicalRep.findOne({ userId: mrId });
+        if (!mr) {
+            return next(new ErrorResponse('MR profile not found', 404));
+        }
 
-        const week = {
-            week: `${weekStart.toLocaleDateString()} - ${weekEnd.toLocaleDateString()}`,
-            doctorsScheduled: doctorsToVisit.slice(weeks.length * 3, (weeks.length + 1) * 3),
-            targets: {
-                doctors: 3,
-                products: 5
+        // Deduct distributed samples from MR's inventory
+        if (samplesDistributed && Array.isArray(samplesDistributed)) {
+            for (const sample of samplesDistributed) {
+                const item = mr.sampleInventory.find(s => s.productName.toLowerCase() === sample.sampleName.toLowerCase());
+                if (!item) {
+                    return next(new ErrorResponse(`Sample '${sample.sampleName}' not found in inventory`, 404));
+                }
+                if (item.quantity < sample.quantity) {
+                    return next(new ErrorResponse(`Insufficient stock for '${sample.sampleName}'. Available: ${item.quantity}`, 400));
+                }
+                item.quantity -= sample.quantity;
             }
-        };
+            mr.markModified('sampleInventory');
+            await mr.save();
+        }
 
-        weeks.push(week);
-        weekStart = new Date(weekEnd);
-        weekStart.setDate(weekStart.getDate() + 1);
+        const dcr = await DCR.create({
+            mrId,
+            doctorId,
+            visitDate,
+            discussionPoints,
+            samplesDistributed: samplesDistributed || []
+        });
+
+        res.status(201).json({
+            success: true,
+            message: 'DCR submitted successfully',
+            data: dcr
+        });
+    } catch (error) {
+        next(error);
     }
+};
 
-    return weeks;
-}
+// @desc    Get DCR list
+// @route   GET /api/mr/dcr
+// @access  Private/MR
+exports.getDCRList = async (req, res, next) => {
+    try {
+        const mrId = req.user._id;
+        const dcrs = await DCR.find({ mrId })
+            .populate('doctorId', 'firstName lastName specialization clinic')
+            .sort({ visitDate: -1 });
+
+        res.status(200).json({
+            success: true,
+            data: dcrs
+        });
+    } catch (error) {
+        next(error);
+    }
+};

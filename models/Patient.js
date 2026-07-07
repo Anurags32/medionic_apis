@@ -26,7 +26,7 @@ const patientSchema = new mongoose.Schema({
     },
     gender: {
         type: String,
-        enum: ['male', 'female', 'other', 'prefer-not-to-say'],
+        enum: ['male', 'female', 'other'],
         required: [true, 'Gender is required']
     },
     address: {
@@ -52,6 +52,10 @@ const patientSchema = new mongoose.Schema({
             match: [/^\d{5,6}(-\d{4})?$/, 'Please provide a valid ZIP code']
         }
     },
+    rawAddress: {
+        type: String,
+        trim: true
+    },
     bloodGroup: {
         type: String,
         enum: ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-', 'unknown'],
@@ -60,17 +64,16 @@ const patientSchema = new mongoose.Schema({
     emergencyContact: {
         name: {
             type: String,
-            required: [true, 'Emergency contact name is required'],
+            default: 'Not Provided',
             trim: true
         },
         phone: {
             type: String,
-            required: [true, 'Emergency contact phone is required'],
-            match: [/^\+?[1-9]\d{1,14}$/, 'Please provide a valid phone number']
+            required: [true, 'Emergency contact phone is required']
         },
         relation: {
             type: String,
-            required: [true, 'Emergency contact relation is required'],
+            default: 'Contact',
             trim: true
         }
     },

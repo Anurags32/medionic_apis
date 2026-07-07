@@ -2,6 +2,7 @@ const Prescription = require('../models/Prescription');
 const PharmacyOrder = require('../models/PharmacyOrder');
 const Appointment = require('../models/Appointment');
 const Patient = require('../models/Patient');
+const FamilyMember = require('../models/FamilyMember');
 const ErrorResponse = require('../utils/errorResponse');
 const constants = require('../config/constants');
 
@@ -287,6 +288,123 @@ exports.deleteEmergencyContact = async (req, res, next) => {
         res.status(200).json({
             success: true,
             message: 'Emergency contact deleted successfully'
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+// @desc    Get patient dashboard
+// @route   GET /api/patients/dashboard
+// @access  Private/Patient
+exports.getPatientDashboard = async (req, res, next) => {
+    try {
+        const patient = await Patient.findOne({ userId: req.user._id });
+        if (!patient) {
+            return next(new ErrorResponse('Patient profile not found', 404));
+        }
+
+        const now = new Date();
+        now.setHours(0, 0, 0, 0);
+
+        // Upcoming appointments
+        const upcomingAppointments = await Appointment.find({
+            patientId: patient._id,
+            appointmentDate: { $gte: now },
+            status: { $in: ['pending', 'confirmed'] }
+        })
+        .populate('doctorId', 'firstName lastName specialization profilePicture clinic')
+        .sort({ appointmentDate: 1, appointmentTime: 1 })
+        .limit(3);
+
+        // Recent prescriptions
+        const recentPrescriptions = await Prescription.find({ patientId: patient._id })
+            .populate('doctorId', 'firstName lastName specialization')
+            .sort({ createdAt: -1 })
+            .limit(3);
+
+        // Recent pharmacy orders
+        const recentOrders = await PharmacyOrder.find({ patientId: patient._id })
+            .sort({ createdAt: -1 })
+            .limit(3);
+
+        res.status(200).json({
+            success: true,
+            data: {
+                profile: patient,
+                upcomingAppointments,
+                recentPrescriptions,
+                recentOrders
+            }
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+// @desc    Get family members
+// @route   GET /api/patients/family-members
+// @access  Private/Patient
+exports.getFamilyMembers = async (req, res, next) => {
+    try {
+        const patient = await Patient.findOne({ userId: req.user._id });
+        if (!patient) {
+            return next(new ErrorResponse('Patient profile not found', 404));
+        }
+
+        const members = await FamilyMember.find({ patientId: patient._id });
+        res.status(200).json({
+            success: true,
+            data: members
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+// @desc    Add family member
+// @route   POST /api/patients/family-members
+// @access  Private/Patient
+exports.addFamilyMember = async (req, res, next) => {
+    try {
+        const { fullName, relation, dob, gender } = req.body;
+        if (!fullName || !relation || !dob || !gender) {
+            return next(new ErrorResponse('Please provide all required fields', 400));
+        }
+
+        const patient = await Patient.findOne({ userId: req.user._id });
+        if (!patient) {
+            return next(new ErrorResponse('Patient profile not found', 404));
+        }
+
+        // Parse dob (dd/MM/yyyy format or standard Date string)
+        let parsedDob = new Date(dob);
+        if (typeof dob === 'string' && dob.includes('/')) {
+            const parts = dob.split('/');
+            if (parts.length === 3) {
+                const day = parseInt(parts[0], 10);
+                const month = parseInt(parts[1], 10) - 1;
+                const year = parseInt(parts[2], 10);
+                parsedDob = new Date(year, month, day);
+            }
+        }
+
+        if (isNaN(parsedDob.getTime())) {
+            return next(new ErrorResponse('Invalid date of birth', 400));
+        }
+
+        const member = await FamilyMember.create({
+            patientId: patient._id,
+            fullName,
+            relation,
+            dob: parsedDob,
+            gender: gender.toLowerCase()
+        });
+
+        res.status(201).json({
+            success: true,
+            message: 'Family member added successfully',
+            data: member
         });
     } catch (error) {
         next(error);

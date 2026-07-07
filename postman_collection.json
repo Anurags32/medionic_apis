@@ -1,1074 +1,1093 @@
 {
-    "info": {
-        "_postman_id": "medionic-api-v2",
-        "name": "Medionic API Collection v2",
-        "description": "Updated Postman collection with correct URLs for all Patient, Doctor, MR auth and feature endpoints. Base URL: http://localhost:5001/api",
-        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
-    },
-    "auth": {
-        "type": "bearer",
-        "bearer": [
-            {
-                "key": "token",
-                "value": "{{authToken}}",
-                "type": "string"
-            }
-        ]
-    },
-    "variable": [
+  "info": {
+    "_postman_id": "healthcare-plus-complete-v2",
+    "name": "HealthCare+ Backend API — Complete (71 endpoints)",
+    "description": "Full Postman collection for the HealthCare+ backend. Covers Auth, Patient, Doctor, MR, Admin, Pharmacy & Lab, AI & Emergency, Payments, and Real-time.\n\nSetup:\n1. Set `baseUrl` collection variable to `http://localhost:5001`\n2. Run `POST Patient Login` or `POST Patient Register` — tokens are auto-captured\n3. All protected endpoints use the `authToken` variable automatically",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl",        "value": "http://localhost:5001", "type": "string" },
+    { "key": "authToken",      "value": "",                      "type": "string" },
+    { "key": "refreshToken",   "value": "",                      "type": "string" },
+    { "key": "patientToken",   "value": "",                      "type": "string" },
+    { "key": "doctorToken",    "value": "",                      "type": "string" },
+    { "key": "mrToken",        "value": "",                      "type": "string" },
+    { "key": "adminToken",     "value": "",                      "type": "string" },
+    { "key": "patientId",      "value": "",                      "type": "string" },
+    { "key": "doctorId",       "value": "",                      "type": "string" },
+    { "key": "mrId",           "value": "",                      "type": "string" },
+    { "key": "appointmentId",  "value": "",                      "type": "string" },
+    { "key": "prescriptionId", "value": "",                      "type": "string" },
+    { "key": "productId",      "value": "",                      "type": "string" },
+    { "key": "orderId",        "value": "",                      "type": "string" },
+    { "key": "labTestId",      "value": "",                      "type": "string" },
+    { "key": "labBookingId",   "value": "",                      "type": "string" },
+    { "key": "roomId",         "value": "",                      "type": "string" },
+    { "key": "expenseId",      "value": "",                      "type": "string" },
+    { "key": "chemistId",      "value": "",                      "type": "string" },
+    { "key": "meetingId",      "value": "",                      "type": "string" }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [{ "key": "token", "value": "{{authToken}}", "type": "string" }]
+  },
+  "item": [
+
+    {
+      "name": "Auth",
+      "item": [
         {
-            "key": "baseUrl",
-            "value": "http://localhost:5001/api",
-            "type": "string"
+          "name": "Patient Register",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "if (pm.response.code === 201 || pm.response.code === 200) {",
+            "  var json = pm.response.json();",
+            "  if (json.token)        { pm.collectionVariables.set('authToken',    json.token); pm.collectionVariables.set('patientToken', json.token); }",
+            "  if (json.refreshToken) { pm.collectionVariables.set('refreshToken', json.refreshToken); }",
+            "  if (json.data && json.data.patientId) { pm.collectionVariables.set('patientId', json.data.patientId); }",
+            "}"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "fullName",          "value": "Aarav Gupta",       "type": "text" },
+                { "key": "email",             "value": "aarav.gupta@gmail.com", "type": "text" },
+                { "key": "password",          "value": "Patient@1234",      "type": "text" },
+                { "key": "confirmPassword",   "value": "Patient@1234",      "type": "text" },
+                { "key": "phone",             "value": "9876543210",        "type": "text" },
+                { "key": "dob",               "value": "12/04/1990",        "type": "text" },
+                { "key": "gender",            "value": "Male",              "type": "text" },
+                { "key": "address",           "value": "23 Park Street, Kolkata, West Bengal, 700016", "type": "text" },
+                { "key": "bloodGroup",        "value": "O+",                "type": "text" },
+                { "key": "emergencyPhone",    "value": "9876543200",        "type": "text" },
+                { "key": "medicalConditions", "value": "Hypertension",      "type": "text" }
+              ]
+            },
+            "url": { "raw": "{{baseUrl}}/api/auth/patient/register", "host": ["{{baseUrl}}"], "path": ["api","auth","patient","register"] }
+          }
         },
         {
-            "key": "authToken",
-            "value": "",
-            "type": "string"
+          "name": "Patient Login",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "if (pm.response.code === 200) {",
+            "  var json = pm.response.json();",
+            "  if (json.token)        { pm.collectionVariables.set('authToken',    json.token); pm.collectionVariables.set('patientToken', json.token); }",
+            "  if (json.refreshToken) { pm.collectionVariables.set('refreshToken', json.refreshToken); }",
+            "  if (json.data && json.data.patientId) { pm.collectionVariables.set('patientId', json.data.patientId); }",
+            "}"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"aarav.gupta@gmail.com\",\n  \"password\": \"Patient@1234\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/auth/patient/login", "host": ["{{baseUrl}}"], "path": ["api","auth","patient","login"] }
+          }
         },
         {
-            "key": "refreshToken",
-            "value": "",
-            "type": "string"
+          "name": "Doctor Register",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "if (pm.response.code === 201 || pm.response.code === 200) {",
+            "  var json = pm.response.json();",
+            "  if (json.token)  { pm.collectionVariables.set('doctorToken', json.token); }",
+            "  if (json.data && json.data.doctorId) { pm.collectionVariables.set('doctorId', json.data.doctorId); }",
+            "}"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "fullName",            "value": "Rajesh Sharma",       "type": "text" },
+                { "key": "email",               "value": "dr.sharma@hospital.com", "type": "text" },
+                { "key": "password",            "value": "Doctor@1234",         "type": "text" },
+                { "key": "confirmPassword",     "value": "Doctor@1234",         "type": "text" },
+                { "key": "phone",               "value": "9812345001",          "type": "text" },
+                { "key": "licenseNumber",       "value": "KA-MED-2010-0042",    "type": "text" },
+                { "key": "registrationCouncil", "value": "Karnataka Medical Council", "type": "text" },
+                { "key": "qualification",       "value": "MBBS, MD (Cardiology)", "type": "text" },
+                { "key": "specialization",      "value": "Cardiology",          "type": "text" },
+                { "key": "yearsExperience",     "value": "14",                  "type": "text" },
+                { "key": "clinicName",          "value": "HeartCare Clinic",    "type": "text" },
+                { "key": "clinicAddress",       "value": "12 MG Road, Indiranagar, Bangalore, Karnataka, 560038", "type": "text" },
+                { "key": "profilePhoto",        "type": "file", "src": [], "disabled": true },
+                { "key": "govId",               "type": "file", "src": [], "disabled": true },
+                { "key": "degree",              "type": "file", "src": [], "disabled": true },
+                { "key": "councilId",           "type": "file", "src": [], "disabled": true }
+              ]
+            },
+            "url": { "raw": "{{baseUrl}}/api/auth/doctor/register", "host": ["{{baseUrl}}"], "path": ["api","auth","doctor","register"] }
+          }
         },
         {
-            "key": "patientId",
-            "value": "",
-            "type": "string"
+          "name": "Doctor Login",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "if (pm.response.code === 200) {",
+            "  var json = pm.response.json();",
+            "  if (json.token)  { pm.collectionVariables.set('authToken', json.token); pm.collectionVariables.set('doctorToken', json.token); }",
+            "  if (json.refreshToken) { pm.collectionVariables.set('refreshToken', json.refreshToken); }",
+            "  if (json.data && json.data.doctorId) { pm.collectionVariables.set('doctorId', json.data.doctorId); }",
+            "}"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"dr.sharma@hospital.com\",\n  \"password\": \"Doctor@1234\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/auth/doctor/login", "host": ["{{baseUrl}}"], "path": ["api","auth","doctor","login"] }
+          }
         },
         {
-            "key": "doctorId",
-            "value": "",
-            "type": "string"
+          "name": "MR Register",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "if (pm.response.code === 201 || pm.response.code === 200) {",
+            "  var json = pm.response.json();",
+            "  if (json.token) { pm.collectionVariables.set('mrToken', json.token); }",
+            "  if (json.data && json.data.mrId) { pm.collectionVariables.set('mrId', json.data.mrId); }",
+            "}"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "fullName",     "value": "Vikram Singh",          "type": "text" },
+                { "key": "email",        "value": "vikram.singh@pharmamax.com", "type": "text" },
+                { "key": "password",     "value": "MRep@1234",             "type": "text" },
+                { "key": "confirmPassword","value": "MRep@1234",           "type": "text" },
+                { "key": "phone",        "value": "9812345678",            "type": "text" },
+                { "key": "companyName",  "value": "PharmaMax Inc.",        "type": "text" },
+                { "key": "employeeId",   "value": "PM-2021-001",           "type": "text" },
+                { "key": "designation",  "value": "Senior Medical Representative", "type": "text" },
+                { "key": "territory",    "value": "Bangalore North",       "type": "text" },
+                { "key": "profilePhoto", "type": "file", "src": [], "disabled": true },
+                { "key": "companyId",    "type": "file", "src": [], "disabled": true },
+                { "key": "govId",        "type": "file", "src": [], "disabled": true },
+                { "key": "authLetter",   "type": "file", "src": [], "disabled": true }
+              ]
+            },
+            "url": { "raw": "{{baseUrl}}/api/auth/mr/register", "host": ["{{baseUrl}}"], "path": ["api","auth","mr","register"] }
+          }
         },
         {
-            "key": "mrId",
-            "value": "",
-            "type": "string"
+          "name": "MR Login",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "if (pm.response.code === 200) {",
+            "  var json = pm.response.json();",
+            "  if (json.token) { pm.collectionVariables.set('authToken', json.token); pm.collectionVariables.set('mrToken', json.token); }",
+            "  if (json.refreshToken) { pm.collectionVariables.set('refreshToken', json.refreshToken); }",
+            "  if (json.data && json.data.mrId) { pm.collectionVariables.set('mrId', json.data.mrId); }",
+            "}"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"vikram.singh@pharmamax.com\",\n  \"password\": \"MRep@1234\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/auth/mr/login", "host": ["{{baseUrl}}"], "path": ["api","auth","mr","login"] }
+          }
         },
         {
-            "key": "appointmentId",
-            "value": "",
-            "type": "string"
+          "name": "Get Current User (me)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/auth/me", "host": ["{{baseUrl}}"], "path": ["api","auth","me"] }
+          }
         },
         {
-            "key": "prescriptionId",
-            "value": "",
-            "type": "string"
+          "name": "Refresh Token",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "if (pm.response.code === 200) {",
+            "  var json = pm.response.json();",
+            "  if (json.token)        { pm.collectionVariables.set('authToken', json.token); }",
+            "  if (json.refreshToken) { pm.collectionVariables.set('refreshToken', json.refreshToken); }",
+            "}"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/auth/refresh-token", "host": ["{{baseUrl}}"], "path": ["api","auth","refresh-token"] }
+          }
+        },
+        {
+          "name": "Forgot Password",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"aarav.gupta@gmail.com\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/auth/forgot-password", "host": ["{{baseUrl}}"], "path": ["api","auth","forgot-password"] }
+          }
+        },
+        {
+          "name": "Reset Password",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"token\": \"RESET_TOKEN_FROM_EMAIL\",\n  \"password\": \"NewPass@1234\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/auth/reset-password", "host": ["{{baseUrl}}"], "path": ["api","auth","reset-password"] }
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/auth/logout", "host": ["{{baseUrl}}"], "path": ["api","auth","logout"] }
+          }
         }
-    ],
-    "item": [
+      ]
+    },
+
+    {
+      "name": "Admin",
+      "item": [
         {
-            "name": "🏥 System",
-            "item": [
-                {
-                    "name": "Health Check",
-                    "request": {
-                        "auth": { "type": "noauth" },
-                        "method": "GET",
-                        "header": [],
-                        "url": {
-                            "raw": "{{baseUrl}}/health",
-                            "host": ["{{baseUrl}}"],
-                            "path": ["health"]
-                        },
-                        "description": "Check server and MongoDB connection status"
-                    }
-                }
-            ]
+          "name": "Admin Login",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "if (pm.response.code === 200) {",
+            "  var json = pm.response.json();",
+            "  if (json.token) { pm.collectionVariables.set('authToken', json.token); pm.collectionVariables.set('adminToken', json.token); }",
+            "  if (json.refreshToken) { pm.collectionVariables.set('refreshToken', json.refreshToken); }",
+            "}"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"admin@healthcare.com\",\n  \"password\": \"Admin@1234\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/auth/admin/login", "host": ["{{baseUrl}}"], "path": ["api","auth","admin","login"] }
+          }
         },
         {
-            "name": "👤 Patient Auth",
-            "description": "Patient registration and login — NO token required",
-            "item": [
-                {
-                    "name": "Register Patient",
-                    "event": [
-                        {
-                            "listen": "test",
-                            "script": {
-                                "exec": [
-                                    "if(pm.response.code === 201){",
-                                    "  var json = pm.response.json();",
-                                    "  pm.collectionVariables.set('authToken', json.token);",
-                                    "  pm.collectionVariables.set('refreshToken', json.refreshToken);",
-                                    "  pm.collectionVariables.set('patientId', json.data.patientId);",
-                                    "  console.log('Patient token saved:', json.token);",
-                                    "}"
-                                ],
-                                "type": "text/javascript"
-                            }
-                        }
-                    ],
-                    "request": {
-                        "auth": { "type": "noauth" },
-                        "method": "POST",
-                        "header": [],
-                        "body": {
-                            "mode": "formdata",
-                            "formdata": [
-                                { "key": "fullName", "value": "Rahul Sharma", "type": "text" },
-                                { "key": "email", "value": "rahul@example.com", "type": "text" },
-                                { "key": "password", "value": "Rahul1234", "type": "text" },
-                                { "key": "phone", "value": "9876543210", "type": "text" },
-                                { "key": "dob", "value": "15/06/1995", "type": "text" },
-                                { "key": "gender", "value": "male", "type": "text" },
-                                { "key": "address", "value": "123 MG Road, Delhi, Delhi, 110001", "type": "text" },
-                                { "key": "emergencyPhone", "value": "9876543211", "type": "text" },
-                                { "key": "bloodGroup", "value": "O+", "type": "text" },
-                                { "key": "medicalConditions", "value": "None", "type": "text" },
-                                { "key": "profilePhoto", "type": "file", "src": "", "disabled": true, "description": "Optional profile photo (JPEG/PNG)" }
-                            ]
-                        },
-                        "url": {
-                            "raw": "{{baseUrl}}/auth/patient/register",
-                            "host": ["{{baseUrl}}"],
-                            "path": ["auth", "patient", "register"]
-                        },
-                        "description": "Register a new patient. profilePhoto is optional."
-                    }
-                },
-                {
-                    "name": "Login Patient",
-                    "event": [
-                        {
-                            "listen": "test",
-                            "script": {
-                                "exec": [
-                                    "if(pm.response.code === 200){",
-                                    "  var json = pm.response.json();",
-                                    "  pm.collectionVariables.set('authToken', json.token);",
-                                    "  pm.collectionVariables.set('refreshToken', json.refreshToken);",
-                                    "  pm.collectionVariables.set('patientId', json.data.patientId);",
-                                    "  console.log('Patient logged in, token saved');",
-                                    "}"
-                                ],
-                                "type": "text/javascript"
-                            }
-                        }
-                    ],
-                    "request": {
-                        "auth": { "type": "noauth" },
-                        "method": "POST",
-                        "header": [
-                            { "key": "Content-Type", "value": "application/json" }
-                        ],
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n  \"email\": \"rahul@example.com\",\n  \"password\": \"Rahul1234\"\n}",
-                            "options": { "raw": { "language": "json" } }
-                        },
-                        "url": {
-                            "raw": "{{baseUrl}}/auth/patient/login",
-                            "host": ["{{baseUrl}}"],
-                            "path": ["auth", "patient", "login"]
-                        }
-                    }
-                }
-            ]
+          "name": "Verify Doctor Status",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{adminToken}}" },
+              { "key": "Content-Type",  "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"status\": \"verified\",\n  \"remarks\": \"All documents verified and approved.\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/auth/doctor/{{doctorId}}/verify-status", "host": ["{{baseUrl}}"], "path": ["api","auth","doctor","{{doctorId}}","verify-status"] }
+          }
         },
         {
-            "name": "👨‍⚕️ Doctor Auth",
-            "description": "Doctor registration and login — NO token required",
-            "item": [
-                {
-                    "name": "Register Doctor",
-                    "event": [
-                        {
-                            "listen": "test",
-                            "script": {
-                                "exec": [
-                                    "if(pm.response.code === 201){",
-                                    "  var json = pm.response.json();",
-                                    "  pm.collectionVariables.set('authToken', json.token);",
-                                    "  pm.collectionVariables.set('refreshToken', json.refreshToken);",
-                                    "  pm.collectionVariables.set('doctorId', json.data.doctorId);",
-                                    "  console.log('Doctor registered, token saved');",
-                                    "}"
-                                ],
-                                "type": "text/javascript"
-                            }
-                        }
-                    ],
-                    "request": {
-                        "auth": { "type": "noauth" },
-                        "method": "POST",
-                        "header": [],
-                        "body": {
-                            "mode": "formdata",
-                            "formdata": [
-                                { "key": "fullName", "value": "Dr. Priya Mehta", "type": "text" },
-                                { "key": "email", "value": "priya.doctor@example.com", "type": "text" },
-                                { "key": "password", "value": "Doctor1234", "type": "text" },
-                                { "key": "phone", "value": "9123456780", "type": "text" },
-                                { "key": "licenseNumber", "value": "MCI-2024-001", "type": "text" },
-                                { "key": "registrationCouncil", "value": "Medical Council of India", "type": "text" },
-                                { "key": "qualification", "value": "MBBS, MD", "type": "text" },
-                                { "key": "specialization", "value": "Cardiology", "type": "text" },
-                                { "key": "yearsExperience", "value": "10", "type": "text" },
-                                { "key": "clinicName", "value": "Heart Care Clinic", "type": "text" },
-                                { "key": "clinicAddress", "value": "456 Medical Lane, Mumbai", "type": "text" },
-                                { "key": "city", "value": "Mumbai", "type": "text" },
-                                { "key": "consultationFee", "value": "800", "type": "text" },
-                                { "key": "profilePhoto", "type": "file", "src": "", "description": "Required: Doctor profile photo" },
-                                { "key": "govId", "type": "file", "src": "", "description": "Required: Government ID (Aadhar/PAN)" },
-                                { "key": "degree", "type": "file", "src": "", "description": "Required: Degree Certificate" },
-                                { "key": "councilId", "type": "file", "src": "", "description": "Required: Medical Council Registration ID" }
-                            ]
-                        },
-                        "url": {
-                            "raw": "{{baseUrl}}/auth/doctor/register",
-                            "host": ["{{baseUrl}}"],
-                            "path": ["auth", "doctor", "register"]
-                        },
-                        "description": "Register a new doctor. Requires 4 file uploads: profilePhoto, govId, degree, councilId."
-                    }
-                },
-                {
-                    "name": "Login Doctor",
-                    "event": [
-                        {
-                            "listen": "test",
-                            "script": {
-                                "exec": [
-                                    "if(pm.response.code === 200){",
-                                    "  var json = pm.response.json();",
-                                    "  pm.collectionVariables.set('authToken', json.token);",
-                                    "  pm.collectionVariables.set('refreshToken', json.refreshToken);",
-                                    "  pm.collectionVariables.set('doctorId', json.data.doctorId);",
-                                    "  console.log('Doctor logged in, token saved');",
-                                    "}"
-                                ],
-                                "type": "text/javascript"
-                            }
-                        }
-                    ],
-                    "request": {
-                        "auth": { "type": "noauth" },
-                        "method": "POST",
-                        "header": [
-                            { "key": "Content-Type", "value": "application/json" }
-                        ],
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n  \"email\": \"priya.doctor@example.com\",\n  \"password\": \"Doctor1234\"\n}",
-                            "options": { "raw": { "language": "json" } }
-                        },
-                        "url": {
-                            "raw": "{{baseUrl}}/auth/doctor/login",
-                            "host": ["{{baseUrl}}"],
-                            "path": ["auth", "doctor", "login"]
-                        }
-                    }
-                },
-                {
-                    "name": "Get Doctor Profile (🔒)",
-                    "request": {
-                        "method": "GET",
-                        "header": [],
-                        "url": {
-                            "raw": "{{baseUrl}}/auth/doctor/profile",
-                            "host": ["{{baseUrl}}"],
-                            "path": ["auth", "doctor", "profile"]
-                        },
-                        "description": "Get logged-in doctor's profile. Requires Bearer token."
-                    }
-                },
-                {
-                    "name": "Update Doctor Profile (🔒)",
-                    "request": {
-                        "method": "PUT",
-                        "header": [],
-                        "body": {
-                            "mode": "formdata",
-                            "formdata": [
-                                { "key": "fullName", "value": "Dr. Priya Mehta Updated", "type": "text" },
-                                { "key": "specialization", "value": "Cardiology & Internal Medicine", "type": "text" },
-                                { "key": "consultationFee", "value": "1000", "type": "text" },
-                                { "key": "bio", "value": "Experienced cardiologist with 10+ years.", "type": "text" },
-                                { "key": "profilePhoto", "type": "file", "src": "", "disabled": true }
-                            ]
-                        },
-                        "url": {
-                            "raw": "{{baseUrl}}/auth/doctor/profile",
-                            "host": ["{{baseUrl}}"],
-                            "path": ["auth", "doctor", "profile"]
-                        }
-                    }
-                },
-                {
-                    "name": "Get Doctor Verification Status (🔒)",
-                    "request": {
-                        "method": "GET",
-                        "header": [],
-                        "url": {
-                            "raw": "{{baseUrl}}/auth/doctor/status",
-                            "host": ["{{baseUrl}}"],
-                            "path": ["auth", "doctor", "status"]
-                        }
-                    }
-                },
-                {
-                    "name": "Admin Update Doctor Status (🔒 Admin)",
-                    "request": {
-                        "method": "PUT",
-                        "header": [
-                            { "key": "Content-Type", "value": "application/json" }
-                        ],
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n  \"doctorId\": \"{{doctorId}}\",\n  \"status\": \"verified\"\n}",
-                            "options": { "raw": { "language": "json" } }
-                        },
-                        "url": {
-                            "raw": "{{baseUrl}}/auth/doctor/status",
-                            "host": ["{{baseUrl}}"],
-                            "path": ["auth", "doctor", "status"]
-                        },
-                        "description": "Admin updates doctor verification. status can be: pending, verified, rejected"
-                    }
-                }
-            ]
+          "name": "Verify MR Status",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{adminToken}}" },
+              { "key": "Content-Type",  "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"status\": \"verified\",\n  \"remarks\": \"Company ID and authorization letter verified.\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/auth/mr/{{mrId}}/verify-status", "host": ["{{baseUrl}}"], "path": ["api","auth","mr","{{mrId}}","verify-status"] }
+          }
         },
         {
-            "name": "🧑‍💼 MR Auth",
-            "description": "Medical Representative registration and login — NO token required",
-            "item": [
-                {
-                    "name": "Register MR",
-                    "event": [
-                        {
-                            "listen": "test",
-                            "script": {
-                                "exec": [
-                                    "if(pm.response.code === 201){",
-                                    "  var json = pm.response.json();",
-                                    "  pm.collectionVariables.set('authToken', json.token);",
-                                    "  pm.collectionVariables.set('refreshToken', json.refreshToken);",
-                                    "  pm.collectionVariables.set('mrId', json.data.mrId);",
-                                    "  console.log('MR registered, token saved');",
-                                    "}"
-                                ],
-                                "type": "text/javascript"
-                            }
-                        }
-                    ],
-                    "request": {
-                        "auth": { "type": "noauth" },
-                        "method": "POST",
-                        "header": [],
-                        "body": {
-                            "mode": "formdata",
-                            "formdata": [
-                                { "key": "fullName", "value": "Vikram Sales", "type": "text" },
-                                { "key": "email", "value": "vikram.mr@example.com", "type": "text" },
-                                { "key": "password", "value": "Vikram1234", "type": "text" },
-                                { "key": "phone", "value": "9012345678", "type": "text" },
-                                { "key": "companyName", "value": "PharmaCorp Ltd", "type": "text" },
-                                { "key": "employeeId", "value": "EMP-2024-001", "type": "text" },
-                                { "key": "designation", "value": "Senior Medical Representative", "type": "text" },
-                                { "key": "territory", "value": "Delhi NCR", "type": "text" },
-                                { "key": "profilePhoto", "type": "file", "src": "", "description": "Required: Profile photo" },
-                                { "key": "companyId", "type": "file", "src": "", "description": "Required: Company ID card" },
-                                { "key": "govId", "type": "file", "src": "", "description": "Required: Government ID" },
-                                { "key": "authLetter", "type": "file", "src": "", "description": "Required: Authorization letter from company" }
-                            ]
-                        },
-                        "url": {
-                            "raw": "{{baseUrl}}/auth/mr/register",
-                            "host": ["{{baseUrl}}"],
-                            "path": ["auth", "mr", "register"]
-                        },
-                        "description": "Register a new MR. Requires 4 file uploads: profilePhoto, companyId, govId, authLetter."
-                    }
-                },
-                {
-                    "name": "Login MR",
-                    "event": [
-                        {
-                            "listen": "test",
-                            "script": {
-                                "exec": [
-                                    "if(pm.response.code === 200){",
-                                    "  var json = pm.response.json();",
-                                    "  pm.collectionVariables.set('authToken', json.token);",
-                                    "  pm.collectionVariables.set('refreshToken', json.refreshToken);",
-                                    "  pm.collectionVariables.set('mrId', json.data.mrId);",
-                                    "  console.log('MR logged in, token saved');",
-                                    "}"
-                                ],
-                                "type": "text/javascript"
-                            }
-                        }
-                    ],
-                    "request": {
-                        "auth": { "type": "noauth" },
-                        "method": "POST",
-                        "header": [
-                            { "key": "Content-Type", "value": "application/json" }
-                        ],
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n  \"email\": \"vikram.mr@example.com\",\n  \"password\": \"Vikram1234\"\n}",
-                            "options": { "raw": { "language": "json" } }
-                        },
-                        "url": {
-                            "raw": "{{baseUrl}}/auth/mr/login",
-                            "host": ["{{baseUrl}}"],
-                            "path": ["auth", "mr", "login"]
-                        }
-                    }
-                }
-            ]
+          "name": "List Doctors",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/admin/doctors?status=pending&page=1&limit=10", "host": ["{{baseUrl}}"], "path": ["api","admin","doctors"], "query": [
+              { "key": "status", "value": "pending" },
+              { "key": "page",   "value": "1" },
+              { "key": "limit",  "value": "10" }
+            ]}
+          }
         },
         {
-            "name": "🔐 General Auth",
-            "description": "General auth routes (old flow) — /api/auth",
-            "item": [
-                {
-                    "name": "Register (General)",
-                    "request": {
-                        "auth": { "type": "noauth" },
-                        "method": "POST",
-                        "header": [{ "key": "Content-Type", "value": "application/json" }],
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n  \"email\": \"user@example.com\",\n  \"password\": \"User1234\",\n  \"role\": \"patient\"\n}",
-                            "options": { "raw": { "language": "json" } }
-                        },
-                        "url": {
-                            "raw": "{{baseUrl}}/auth/register",
-                            "host": ["{{baseUrl}}"],
-                            "path": ["auth", "register"]
-                        }
-                    }
-                },
-                {
-                    "name": "Login (General)",
-                    "event": [
-                        {
-                            "listen": "test",
-                            "script": {
-                                "exec": [
-                                    "if(pm.response.code === 200){",
-                                    "  var json = pm.response.json();",
-                                    "  pm.collectionVariables.set('authToken', json.token);",
-                                    "  pm.collectionVariables.set('refreshToken', json.refreshToken);",
-                                    "}"
-                                ],
-                                "type": "text/javascript"
-                            }
-                        }
-                    ],
-                    "request": {
-                        "auth": { "type": "noauth" },
-                        "method": "POST",
-                        "header": [{ "key": "Content-Type", "value": "application/json" }],
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n  \"email\": \"user@example.com\",\n  \"password\": \"User1234\"\n}",
-                            "options": { "raw": { "language": "json" } }
-                        },
-                        "url": {
-                            "raw": "{{baseUrl}}/auth/login",
-                            "host": ["{{baseUrl}}"],
-                            "path": ["auth", "login"]
-                        }
-                    }
-                },
-                {
-                    "name": "Refresh Token",
-                    "request": {
-                        "auth": { "type": "noauth" },
-                        "method": "POST",
-                        "header": [{ "key": "Content-Type", "value": "application/json" }],
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}",
-                            "options": { "raw": { "language": "json" } }
-                        },
-                        "url": {
-                            "raw": "{{baseUrl}}/auth/refresh-token",
-                            "host": ["{{baseUrl}}"],
-                            "path": ["auth", "refresh-token"]
-                        }
-                    }
-                },
-                {
-                    "name": "Forgot Password",
-                    "request": {
-                        "auth": { "type": "noauth" },
-                        "method": "POST",
-                        "header": [{ "key": "Content-Type", "value": "application/json" }],
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n  \"email\": \"user@example.com\"\n}",
-                            "options": { "raw": { "language": "json" } }
-                        },
-                        "url": {
-                            "raw": "{{baseUrl}}/auth/forgot-password",
-                            "host": ["{{baseUrl}}"],
-                            "path": ["auth", "forgot-password"]
-                        }
-                    }
-                },
-                {
-                    "name": "Reset Password",
-                    "request": {
-                        "auth": { "type": "noauth" },
-                        "method": "POST",
-                        "header": [{ "key": "Content-Type", "value": "application/json" }],
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n  \"token\": \"RESET_TOKEN_HERE\",\n  \"password\": \"NewPass1234\"\n}",
-                            "options": { "raw": { "language": "json" } }
-                        },
-                        "url": {
-                            "raw": "{{baseUrl}}/auth/reset-password",
-                            "host": ["{{baseUrl}}"],
-                            "path": ["auth", "reset-password"]
-                        }
-                    }
-                },
-                {
-                    "name": "Get Me (🔒)",
-                    "request": {
-                        "method": "GET",
-                        "header": [],
-                        "url": {
-                            "raw": "{{baseUrl}}/auth/me",
-                            "host": ["{{baseUrl}}"],
-                            "path": ["auth", "me"]
-                        }
-                    }
-                },
-                {
-                    "name": "Logout (🔒)",
-                    "request": {
-                        "method": "POST",
-                        "header": [],
-                        "url": {
-                            "raw": "{{baseUrl}}/auth/logout",
-                            "host": ["{{baseUrl}}"],
-                            "path": ["auth", "logout"]
-                        }
-                    }
-                }
-            ]
+          "name": "List MRs",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/admin/mr?status=pending&page=1&limit=10", "host": ["{{baseUrl}}"], "path": ["api","admin","mr"], "query": [
+              { "key": "status", "value": "pending" },
+              { "key": "page",   "value": "1" },
+              { "key": "limit",  "value": "10" }
+            ]}
+          }
         },
         {
-            "name": "🏥 Patient Features (🔒)",
-            "description": "All patient feature routes — Bearer token required",
-            "item": [
-                {
-                    "name": "Get Patient Dashboard",
-                    "request": {
-                        "method": "GET",
-                        "header": [],
-                        "url": {
-                            "raw": "{{baseUrl}}/patients/dashboard",
-                            "host": ["{{baseUrl}}"],
-                            "path": ["patients", "dashboard"]
-                        }
-                    }
-                },
-                {
-                    "name": "Search Doctors",
-                    "request": {
-                        "method": "GET",
-                        "header": [],
-                        "url": {
-                            "raw": "{{baseUrl}}/patients/doctors?specialization=Cardiology&city=Mumbai",
-                            "host": ["{{baseUrl}}"],
-                            "path": ["patients", "doctors"],
-                            "query": [
-                                { "key": "specialization", "value": "Cardiology" },
-                                { "key": "city", "value": "Mumbai" }
-                            ]
-                        }
-                    }
-                },
-                {
-                    "name": "Get Doctor Details",
-                    "request": {
-                        "method": "GET",
-                        "header": [],
-                        "url": {
-                            "raw": "{{baseUrl}}/patients/doctors/{{doctorId}}",
-                            "host": ["{{baseUrl}}"],
-                            "path": ["patients", "doctors", "{{doctorId}}"]
-                        }
-                    }
-                },
-                {
-                    "name": "Get Prescription Details",
-                    "request": {
-                        "method": "GET",
-                        "header": [],
-                        "url": {
-                            "raw": "{{baseUrl}}/patients/prescriptions/{{prescriptionId}}",
-                            "host": ["{{baseUrl}}"],
-                            "path": ["patients", "prescriptions", "{{prescriptionId}}"]
-                        }
-                    }
-                },
-                {
-                    "name": "Download Prescription",
-                    "request": {
-                        "method": "GET",
-                        "header": [],
-                        "url": {
-                            "raw": "{{baseUrl}}/patients/prescriptions/{{prescriptionId}}/download",
-                            "host": ["{{baseUrl}}"],
-                            "path": ["patients", "prescriptions", "{{prescriptionId}}", "download"]
-                        }
-                    }
-                },
-                {
-                    "name": "Get MR Meetings",
-                    "request": {
-                        "method": "GET",
-                        "header": [],
-                        "url": {
-                            "raw": "{{baseUrl}}/patients/mr-meetings",
-                            "host": ["{{baseUrl}}"],
-                            "path": ["patients", "mr-meetings"]
-                        }
-                    }
-                },
-                {
-                    "name": "Approve MR Meeting",
-                    "request": {
-                        "method": "POST",
-                        "header": [],
-                        "url": {
-                            "raw": "{{baseUrl}}/patients/mr-meetings/:meetingId/approve",
-                            "host": ["{{baseUrl}}"],
-                            "path": ["patients", "mr-meetings", ":meetingId", "approve"],
-                            "variable": [{ "key": "meetingId", "value": "MEETING_ID_HERE" }]
-                        }
-                    }
-                },
-                {
-                    "name": "Reject MR Meeting",
-                    "request": {
-                        "method": "POST",
-                        "header": [],
-                        "url": {
-                            "raw": "{{baseUrl}}/patients/mr-meetings/:meetingId/reject",
-                            "host": ["{{baseUrl}}"],
-                            "path": ["patients", "mr-meetings", ":meetingId", "reject"],
-                            "variable": [{ "key": "meetingId", "value": "MEETING_ID_HERE" }]
-                        }
-                    }
-                },
-                {
-                    "name": "Get Health Statistics",
-                    "request": {
-                        "method": "GET",
-                        "header": [],
-                        "url": {
-                            "raw": "{{baseUrl}}/patients/health-tracking/statistics",
-                            "host": ["{{baseUrl}}"],
-                            "path": ["patients", "health-tracking", "statistics"]
-                        }
-                    }
-                },
-                {
-                    "name": "Reschedule Appointment",
-                    "request": {
-                        "method": "PUT",
-                        "header": [{ "key": "Content-Type", "value": "application/json" }],
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n  \"scheduledAt\": \"2024-12-25T10:00:00.000Z\",\n  \"reason\": \"Schedule conflict\"\n}",
-                            "options": { "raw": { "language": "json" } }
-                        },
-                        "url": {
-                            "raw": "{{baseUrl}}/patients/appointments/{{appointmentId}}/reschedule",
-                            "host": ["{{baseUrl}}"],
-                            "path": ["patients", "appointments", "{{appointmentId}}", "reschedule"]
-                        }
-                    }
-                },
-                {
-                    "name": "Complete Appointment",
-                    "request": {
-                        "method": "PUT",
-                        "header": [],
-                        "url": {
-                            "raw": "{{baseUrl}}/patients/appointments/{{appointmentId}}/complete",
-                            "host": ["{{baseUrl}}"],
-                            "path": ["patients", "appointments", "{{appointmentId}}", "complete"]
-                        }
-                    }
-                }
-            ]
+          "name": "Admin Dashboard",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/admin/dashboard", "host": ["{{baseUrl}}"], "path": ["api","admin","dashboard"] }
+          }
         },
         {
-            "name": "👨‍⚕️ Doctor Features (🔒)",
-            "description": "All doctor feature routes — Bearer token required",
-            "item": [
-                {
-                    "name": "Get Doctor Dashboard",
-                    "request": {
-                        "method": "GET",
-                        "header": [],
-                        "url": {
-                            "raw": "{{baseUrl}}/doctors/dashboard",
-                            "host": ["{{baseUrl}}"],
-                            "path": ["doctors", "dashboard"]
-                        }
-                    }
-                },
-                {
-                    "name": "Get Patients List",
-                    "request": {
-                        "method": "GET",
-                        "header": [],
-                        "url": {
-                            "raw": "{{baseUrl}}/doctors/patients",
-                            "host": ["{{baseUrl}}"],
-                            "path": ["doctors", "patients"]
-                        }
-                    }
-                },
-                {
-                    "name": "Get Analytics",
-                    "request": {
-                        "method": "GET",
-                        "header": [],
-                        "url": {
-                            "raw": "{{baseUrl}}/doctors/analytics",
-                            "host": ["{{baseUrl}}"],
-                            "path": ["doctors", "analytics"]
-                        }
-                    }
-                },
-                {
-                    "name": "Get Appointment Trends",
-                    "request": {
-                        "method": "GET",
-                        "header": [],
-                        "url": {
-                            "raw": "{{baseUrl}}/doctors/analytics/appointments",
-                            "host": ["{{baseUrl}}"],
-                            "path": ["doctors", "analytics", "appointments"]
-                        }
-                    }
-                },
-                {
-                    "name": "Get Rating Analytics",
-                    "request": {
-                        "method": "GET",
-                        "header": [],
-                        "url": {
-                            "raw": "{{baseUrl}}/doctors/analytics/ratings",
-                            "host": ["{{baseUrl}}"],
-                            "path": ["doctors", "analytics", "ratings"]
-                        }
-                    }
-                },
-                {
-                    "name": "Get Revenue Analytics",
-                    "request": {
-                        "method": "GET",
-                        "header": [],
-                        "url": {
-                            "raw": "{{baseUrl}}/doctors/analytics/revenue",
-                            "host": ["{{baseUrl}}"],
-                            "path": ["doctors", "analytics", "revenue"]
-                        }
-                    }
-                },
-                {
-                    "name": "Get Earnings",
-                    "request": {
-                        "method": "GET",
-                        "header": [],
-                        "url": {
-                            "raw": "{{baseUrl}}/doctors/earnings",
-                            "host": ["{{baseUrl}}"],
-                            "path": ["doctors", "earnings"]
-                        }
-                    }
-                },
-                {
-                    "name": "Get Earnings History",
-                    "request": {
-                        "method": "GET",
-                        "header": [],
-                        "url": {
-                            "raw": "{{baseUrl}}/doctors/earnings/history",
-                            "host": ["{{baseUrl}}"],
-                            "path": ["doctors", "earnings", "history"]
-                        }
-                    }
-                },
-                {
-                    "name": "Submit Verification Docs",
-                    "request": {
-                        "method": "POST",
-                        "header": [],
-                        "body": {
-                            "mode": "formdata",
-                            "formdata": [
-                                { "key": "govId", "type": "file", "src": "" },
-                                { "key": "degree", "type": "file", "src": "" },
-                                { "key": "councilId", "type": "file", "src": "" }
-                            ]
-                        },
-                        "url": {
-                            "raw": "{{baseUrl}}/doctors/profile/verify",
-                            "host": ["{{baseUrl}}"],
-                            "path": ["doctors", "profile", "verify"]
-                        }
-                    }
-                }
-            ]
+          "name": "Get Pending Expense Approvals",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/admin/expenses/pending-approvals", "host": ["{{baseUrl}}"], "path": ["api","admin","expenses","pending-approvals"] }
+          }
         },
         {
-            "name": "🧑‍💼 MR Features (🔒)",
-            "description": "All MR feature routes — Bearer token required",
-            "item": [
-                {
-                    "name": "Get MR Dashboard",
-                    "request": {
-                        "method": "GET",
-                        "header": [],
-                        "url": {
-                            "raw": "{{baseUrl}}/mr/dashboard",
-                            "host": ["{{baseUrl}}"],
-                            "path": ["mr", "dashboard"]
-                        }
-                    }
-                },
-                {
-                    "name": "Get Visit Plan",
-                    "request": {
-                        "method": "GET",
-                        "header": [],
-                        "url": {
-                            "raw": "{{baseUrl}}/mr/visit-plan",
-                            "host": ["{{baseUrl}}"],
-                            "path": ["mr", "visit-plan"]
-                        }
-                    }
-                },
-                {
-                    "name": "Get Sample Inventory",
-                    "request": {
-                        "method": "GET",
-                        "header": [],
-                        "url": {
-                            "raw": "{{baseUrl}}/mr/samples",
-                            "host": ["{{baseUrl}}"],
-                            "path": ["mr", "samples"]
-                        }
-                    }
-                },
-                {
-                    "name": "Distribute Samples",
-                    "request": {
-                        "method": "POST",
-                        "header": [{ "key": "Content-Type", "value": "application/json" }],
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n  \"doctorId\": \"{{doctorId}}\",\n  \"samples\": [\n    { \"productId\": \"PROD001\", \"quantity\": 5 }\n  ]\n}",
-                            "options": { "raw": { "language": "json" } }
-                        },
-                        "url": {
-                            "raw": "{{baseUrl}}/mr/samples/distribute",
-                            "host": ["{{baseUrl}}"],
-                            "path": ["mr", "samples", "distribute"]
-                        }
-                    }
-                },
-                {
-                    "name": "Get Expenses",
-                    "request": {
-                        "method": "GET",
-                        "header": [],
-                        "url": {
-                            "raw": "{{baseUrl}}/mr/expenses",
-                            "host": ["{{baseUrl}}"],
-                            "path": ["mr", "expenses"]
-                        }
-                    }
-                },
-                {
-                    "name": "Log Expense",
-                    "request": {
-                        "method": "POST",
-                        "header": [{ "key": "Content-Type", "value": "application/json" }],
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n  \"category\": \"travel\",\n  \"amount\": 500,\n  \"description\": \"Travel to Mumbai for doctor visit\",\n  \"date\": \"2024-12-01\"\n}",
-                            "options": { "raw": { "language": "json" } }
-                        },
-                        "url": {
-                            "raw": "{{baseUrl}}/mr/expenses",
-                            "host": ["{{baseUrl}}"],
-                            "path": ["mr", "expenses"]
-                        }
-                    }
-                },
-                {
-                    "name": "Get Pending Expense Approvals",
-                    "request": {
-                        "method": "GET",
-                        "header": [],
-                        "url": {
-                            "raw": "{{baseUrl}}/mr/expenses/pending-approvals",
-                            "host": ["{{baseUrl}}"],
-                            "path": ["mr", "expenses", "pending-approvals"]
-                        }
-                    }
-                },
-                {
-                    "name": "Get Tour Plan",
-                    "request": {
-                        "method": "GET",
-                        "header": [],
-                        "url": {
-                            "raw": "{{baseUrl}}/mr/tour-plan",
-                            "host": ["{{baseUrl}}"],
-                            "path": ["mr", "tour-plan"]
-                        }
-                    }
-                },
-                {
-                    "name": "Create Tour Plan",
-                    "request": {
-                        "method": "POST",
-                        "header": [{ "key": "Content-Type", "value": "application/json" }],
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n  \"month\": 12,\n  \"year\": 2024,\n  \"dailyPlans\": [\n    {\n      \"date\": \"2024-12-01\",\n      \"doctors\": [\"{{doctorId}}\"]\n    }\n  ]\n}",
-                            "options": { "raw": { "language": "json" } }
-                        },
-                        "url": {
-                            "raw": "{{baseUrl}}/mr/tour-plan",
-                            "host": ["{{baseUrl}}"],
-                            "path": ["mr", "tour-plan"]
-                        }
-                    }
-                },
-                {
-                    "name": "Get Weekly Breakdown",
-                    "request": {
-                        "method": "GET",
-                        "header": [],
-                        "url": {
-                            "raw": "{{baseUrl}}/mr/tour-plan/:id/weekly",
-                            "host": ["{{baseUrl}}"],
-                            "path": ["mr", "tour-plan", ":id", "weekly"],
-                            "variable": [{ "key": "id", "value": "TOUR_PLAN_ID_HERE" }]
-                        }
-                    }
-                },
-                {
-                    "name": "Get Territory Analytics",
-                    "request": {
-                        "method": "GET",
-                        "header": [],
-                        "url": {
-                            "raw": "{{baseUrl}}/mr/analytics",
-                            "host": ["{{baseUrl}}"],
-                            "path": ["mr", "analytics"]
-                        }
-                    }
-                },
-                {
-                    "name": "Get Earnings (MR)",
-                    "request": {
-                        "method": "GET",
-                        "header": [],
-                        "url": {
-                            "raw": "{{baseUrl}}/mr/earnings",
-                            "host": ["{{baseUrl}}"],
-                            "path": ["mr", "earnings"]
-                        }
-                    }
-                },
-                {
-                    "name": "Request Withdrawal",
-                    "request": {
-                        "method": "POST",
-                        "header": [{ "key": "Content-Type", "value": "application/json" }],
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n  \"amount\": 5000,\n  \"bankAccount\": \"1234567890\"\n}",
-                            "options": { "raw": { "language": "json" } }
-                        },
-                        "url": {
-                            "raw": "{{baseUrl}}/mr/earnings/withdraw",
-                            "host": ["{{baseUrl}}"],
-                            "path": ["mr", "earnings", "withdraw"]
-                        }
-                    }
-                },
-                {
-                    "name": "Get Chemists",
-                    "request": {
-                        "method": "GET",
-                        "header": [],
-                        "url": {
-                            "raw": "{{baseUrl}}/mr/chemists",
-                            "host": ["{{baseUrl}}"],
-                            "path": ["mr", "chemists"]
-                        }
-                    }
-                },
-                {
-                    "name": "Add Chemist",
-                    "request": {
-                        "method": "POST",
-                        "header": [{ "key": "Content-Type", "value": "application/json" }],
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n  \"name\": \"City Pharmacy\",\n  \"phone\": \"9000000001\",\n  \"address\": \"123 Main St, Delhi\",\n  \"licenseNo\": \"CHEM-001\"\n}",
-                            "options": { "raw": { "language": "json" } }
-                        },
-                        "url": {
-                            "raw": "{{baseUrl}}/mr/chemists",
-                            "host": ["{{baseUrl}}"],
-                            "path": ["mr", "chemists"]
-                        }
-                    }
-                },
-                {
-                    "name": "Update Chemist",
-                    "request": {
-                        "method": "PUT",
-                        "header": [{ "key": "Content-Type", "value": "application/json" }],
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n  \"name\": \"Updated Pharmacy\",\n  \"phone\": \"9000000002\"\n}",
-                            "options": { "raw": { "language": "json" } }
-                        },
-                        "url": {
-                            "raw": "{{baseUrl}}/mr/chemists/:id",
-                            "host": ["{{baseUrl}}"],
-                            "path": ["mr", "chemists", ":id"],
-                            "variable": [{ "key": "id", "value": "CHEMIST_ID_HERE" }]
-                        }
-                    }
-                },
-                {
-                    "name": "Delete Chemist",
-                    "request": {
-                        "method": "DELETE",
-                        "header": [],
-                        "url": {
-                            "raw": "{{baseUrl}}/mr/chemists/:id",
-                            "host": ["{{baseUrl}}"],
-                            "path": ["mr", "chemists", ":id"],
-                            "variable": [{ "key": "id", "value": "CHEMIST_ID_HERE" }]
-                        }
-                    }
-                }
-            ]
+          "name": "Approve Expense",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/admin/expenses/{{expenseId}}/approve", "host": ["{{baseUrl}}"], "path": ["api","admin","expenses","{{expenseId}}","approve"] }
+          }
+        },
+        {
+          "name": "Reject Expense",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{adminToken}}" },
+              { "key": "Content-Type",  "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"remarks\": \"Receipt not clear. Please resubmit.\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/admin/expenses/{{expenseId}}/reject", "host": ["{{baseUrl}}"], "path": ["api","admin","expenses","{{expenseId}}","reject"] }
+          }
         }
-    ]
+      ]
+    },
+
+    {
+      "name": "Patient",
+      "item": [
+        {
+          "name": "Patient Dashboard",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{patientToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/patients/dashboard", "host": ["{{baseUrl}}"], "path": ["api","patients","dashboard"] }
+          }
+        },
+        {
+          "name": "Search Doctors",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{patientToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/patients/doctors?specialization=Cardiology&city=Bangalore&search=&page=1&limit=10",
+              "host": ["{{baseUrl}}"], "path": ["api","patients","doctors"],
+              "query": [
+                { "key": "specialization", "value": "Cardiology" },
+                { "key": "city",           "value": "Bangalore" },
+                { "key": "search",         "value": "" },
+                { "key": "page",           "value": "1" },
+                { "key": "limit",          "value": "10" }
+              ]}
+          }
+        },
+        {
+          "name": "Get Doctor Details",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{patientToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/patients/doctors/{{doctorId}}", "host": ["{{baseUrl}}"], "path": ["api","patients","doctors","{{doctorId}}"] }
+          }
+        },
+        {
+          "name": "Get Doctor Available Slots",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{patientToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/patients/doctors/{{doctorId}}/slots?date=2026-07-10",
+              "host": ["{{baseUrl}}"], "path": ["api","patients","doctors","{{doctorId}}","slots"],
+              "query": [{ "key": "date", "value": "2026-07-10" }]}
+          }
+        },
+        {
+          "name": "Book Appointment",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "if (pm.response.code === 201 || pm.response.code === 200) {",
+            "  var json = pm.response.json();",
+            "  if (json.data && json.data._id)          { pm.collectionVariables.set('appointmentId', json.data._id); }",
+            "  if (json.data && json.data.roomId)        { pm.collectionVariables.set('roomId', json.data.roomId); }",
+            "}"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{patientToken}}" },
+              { "key": "Content-Type",  "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"doctorId\": \"{{doctorId}}\",\n  \"appointmentDate\": \"2026-07-10\",\n  \"appointmentTime\": \"10:00\",\n  \"consultationType\": \"clinic\",\n  \"symptoms\": \"Chest pain and occasional breathlessness for 2 weeks.\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/patients/appointments", "host": ["{{baseUrl}}"], "path": ["api","patients","appointments"] }
+          }
+        },
+        {
+          "name": "Get My Appointments",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{patientToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/patients/appointments", "host": ["{{baseUrl}}"], "path": ["api","patients","appointments"] }
+          }
+        },
+        {
+          "name": "Reschedule Appointment",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{patientToken}}" },
+              { "key": "Content-Type",  "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"newDate\": \"2026-07-15\",\n  \"newTime\": \"11:00\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/patients/appointments/{{appointmentId}}/reschedule", "host": ["{{baseUrl}}"], "path": ["api","patients","appointments","{{appointmentId}}","reschedule"] }
+          }
+        },
+        {
+          "name": "Cancel Appointment",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Authorization", "value": "Bearer {{patientToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/patients/appointments/{{appointmentId}}/cancel", "host": ["{{baseUrl}}"], "path": ["api","patients","appointments","{{appointmentId}}","cancel"] }
+          }
+        },
+        {
+          "name": "Get My Prescriptions",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{patientToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/patients/prescriptions", "host": ["{{baseUrl}}"], "path": ["api","patients","prescriptions"] }
+          }
+        },
+        {
+          "name": "Get Prescription Details",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{patientToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/patients/prescriptions/{{prescriptionId}}", "host": ["{{baseUrl}}"], "path": ["api","patients","prescriptions","{{prescriptionId}}"] }
+          }
+        },
+        {
+          "name": "Download Prescription PDF",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{patientToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/patients/prescriptions/{{prescriptionId}}/pdf", "host": ["{{baseUrl}}"], "path": ["api","patients","prescriptions","{{prescriptionId}}","pdf"] }
+          }
+        },
+        {
+          "name": "Get Family Members",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{patientToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/patients/family-members", "host": ["{{baseUrl}}"], "path": ["api","patients","family-members"] }
+          }
+        },
+        {
+          "name": "Add Family Member",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{patientToken}}" },
+              { "key": "Content-Type",  "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"fullName\": \"Riya Gupta\",\n  \"relation\": \"Sister\",\n  \"dob\": \"18/08/1995\",\n  \"gender\": \"Female\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/patients/family-members", "host": ["{{baseUrl}}"], "path": ["api","patients","family-members"] }
+          }
+        },
+        {
+          "name": "Get Medical Records",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{patientToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/patients/medical-records?category=lab_report", "host": ["{{baseUrl}}"], "path": ["api","patients","medical-records"], "query": [{ "key": "category", "value": "lab_report" }] }
+          }
+        },
+        {
+          "name": "Upload Medical Record",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{patientToken}}" }],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "category",    "value": "lab_report", "type": "text" },
+                { "key": "description", "value": "CBC report from July 2026", "type": "text" },
+                { "key": "file",        "type": "file", "src": [], "disabled": true }
+              ]
+            },
+            "url": { "raw": "{{baseUrl}}/api/patients/medical-records", "host": ["{{baseUrl}}"], "path": ["api","patients","medical-records"] }
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "Doctor",
+      "item": [
+        {
+          "name": "Doctor Dashboard",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{doctorToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/doctors/dashboard", "host": ["{{baseUrl}}"], "path": ["api","doctors","dashboard"] }
+          }
+        },
+        {
+          "name": "Get Doctor Appointments",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{doctorToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/doctors/appointments?status=pending&date=2026-07-10",
+              "host": ["{{baseUrl}}"], "path": ["api","doctors","appointments"],
+              "query": [
+                { "key": "status", "value": "pending" },
+                { "key": "date",   "value": "2026-07-10" }
+              ]}
+          }
+        },
+        {
+          "name": "Update Appointment Status",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{doctorToken}}" },
+              { "key": "Content-Type",  "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"status\": \"confirmed\",\n  \"reason\": \"\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/doctors/appointments/{{appointmentId}}/status", "host": ["{{baseUrl}}"], "path": ["api","doctors","appointments","{{appointmentId}}","status"] }
+          }
+        },
+        {
+          "name": "Get Doctor Patients",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{doctorToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/doctors/patients?search=Aarav&page=1&limit=10",
+              "host": ["{{baseUrl}}"], "path": ["api","doctors","patients"],
+              "query": [
+                { "key": "search", "value": "Aarav" },
+                { "key": "page",   "value": "1" },
+                { "key": "limit",  "value": "10" }
+              ]}
+          }
+        },
+        {
+          "name": "Get Patient History",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{doctorToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/doctors/patients/{{patientId}}/history", "host": ["{{baseUrl}}"], "path": ["api","doctors","patients","{{patientId}}","history"] }
+          }
+        },
+        {
+          "name": "Create Prescription",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "if (pm.response.code === 201 || pm.response.code === 200) {",
+            "  var json = pm.response.json();",
+            "  if (json.data && json.data._id) { pm.collectionVariables.set('prescriptionId', json.data._id); }",
+            "}"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{doctorToken}}" },
+              { "key": "Content-Type",  "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"appointmentId\": \"{{appointmentId}}\",\n  \"patientId\": \"{{patientId}}\",\n  \"diagnosis\": \"Stable Angina — further cardiac workup recommended.\",\n  \"medicines\": [\n    { \"name\": \"Aspirin 75mg\", \"dosage\": \"75mg\", \"timing\": \"After breakfast\", \"duration\": \"30 days\", \"instructions\": \"Take with water\" },\n    { \"name\": \"Atorvastatin 20mg\", \"dosage\": \"20mg\", \"timing\": \"At night\", \"duration\": \"30 days\", \"instructions\": \"After dinner\" }\n  ],\n  \"instructions\": [\"Avoid strenuous exercise\", \"Low-salt diet\"],\n  \"followUpDate\": \"2026-08-10\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/doctors/prescriptions", "host": ["{{baseUrl}}"], "path": ["api","doctors","prescriptions"] }
+          }
+        },
+        {
+          "name": "Doctor Analytics",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{doctorToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/doctors/analytics", "host": ["{{baseUrl}}"], "path": ["api","doctors","analytics"] }
+          }
+        },
+        {
+          "name": "Doctor Revenue Analytics",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{doctorToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/doctors/analytics/revenue?range=month",
+              "host": ["{{baseUrl}}"], "path": ["api","doctors","analytics","revenue"],
+              "query": [{ "key": "range", "value": "month" }]}
+          }
+        },
+        {
+          "name": "Doctor Earnings",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{doctorToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/doctors/earnings", "host": ["{{baseUrl}}"], "path": ["api","doctors","earnings"] }
+          }
+        },
+        {
+          "name": "Doctor Earnings History",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{doctorToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/doctors/earnings/history?page=1&limit=10",
+              "host": ["{{baseUrl}}"], "path": ["api","doctors","earnings","history"],
+              "query": [
+                { "key": "page",  "value": "1" },
+                { "key": "limit", "value": "10" }
+              ]}
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "MR (Medical Representative)",
+      "item": [
+        {
+          "name": "MR Dashboard",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{mrToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/mr/dashboard", "host": ["{{baseUrl}}"], "path": ["api","mr","dashboard"] }
+          }
+        },
+        {
+          "name": "MR — Get Doctors List",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{mrToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/mr/doctors?search=Sharma&page=1&limit=10",
+              "host": ["{{baseUrl}}"], "path": ["api","mr","doctors"],
+              "query": [
+                { "key": "search", "value": "Sharma" },
+                { "key": "page",   "value": "1" },
+                { "key": "limit",  "value": "10" }
+              ]}
+          }
+        },
+        {
+          "name": "Request MR Meeting",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "if (pm.response.code === 201 || pm.response.code === 200) {",
+            "  var json = pm.response.json();",
+            "  if (json.data && json.data._id) { pm.collectionVariables.set('meetingId', json.data._id); }",
+            "}"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{mrToken}}" },
+              { "key": "Content-Type",  "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"doctorId\": \"{{doctorId}}\",\n  \"scheduledAt\": \"2026-07-12T10:00:00.000Z\",\n  \"agenda\": \"Introduce CardioPlus 10mg — efficacy, dosage, and patient suitability\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/mr/meetings", "host": ["{{baseUrl}}"], "path": ["api","mr","meetings"] }
+          }
+        },
+        {
+          "name": "Get MR Meetings",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{mrToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/mr/meetings?status=pending",
+              "host": ["{{baseUrl}}"], "path": ["api","mr","meetings"],
+              "query": [{ "key": "status", "value": "pending" }]}
+          }
+        },
+        {
+          "name": "Get Sample Inventory",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{mrToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/mr/samples", "host": ["{{baseUrl}}"], "path": ["api","mr","samples"] }
+          }
+        },
+        {
+          "name": "Distribute Samples",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{mrToken}}" },
+              { "key": "Content-Type",  "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"doctorId\": \"{{doctorId}}\",\n  \"sampleName\": \"CardioPlus 10mg\",\n  \"quantity\": 5,\n  \"batchNumber\": \"CP2024Q2-001\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/mr/samples/distribute", "host": ["{{baseUrl}}"], "path": ["api","mr","samples","distribute"] }
+          }
+        },
+        {
+          "name": "Get MR Expenses",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{mrToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/mr/expenses?status=pending",
+              "host": ["{{baseUrl}}"], "path": ["api","mr","expenses"],
+              "query": [{ "key": "status", "value": "pending" }]}
+          }
+        },
+        {
+          "name": "Log Expense",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "if (pm.response.code === 201 || pm.response.code === 200) {",
+            "  var json = pm.response.json();",
+            "  if (json.data && json.data._id) { pm.collectionVariables.set('expenseId', json.data._id); }",
+            "}"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{mrToken}}" }],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "amount",      "value": "850",    "type": "text" },
+                { "key": "expenseType", "value": "travel", "type": "text" },
+                { "key": "description", "value": "Cab fare for Bangalore North clinic visits", "type": "text" },
+                { "key": "date",        "value": "2026-07-07", "type": "text" },
+                { "key": "receipt",     "type": "file", "src": [], "disabled": true }
+              ]
+            },
+            "url": { "raw": "{{baseUrl}}/api/mr/expenses", "host": ["{{baseUrl}}"], "path": ["api","mr","expenses"] }
+          }
+        },
+        {
+          "name": "Get Tour Plan",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{mrToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/mr/tour-plan", "host": ["{{baseUrl}}"], "path": ["api","mr","tour-plan"] }
+          }
+        },
+        {
+          "name": "Create Tour Plan",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{mrToken}}" },
+              { "key": "Content-Type",  "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"month\": 7,\n  \"year\": 2026,\n  \"routes\": [\n    {\n      \"date\": \"2026-07-10\",\n      \"territory\": \"Bangalore North\",\n      \"objective\": \"Visit HeartCare and SkinGlow clinics\"\n    }\n  ]\n}" },
+            "url": { "raw": "{{baseUrl}}/api/mr/tour-plan", "host": ["{{baseUrl}}"], "path": ["api","mr","tour-plan"] }
+          }
+        },
+        {
+          "name": "Get Chemists",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{mrToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/mr/chemists?search=LifeCare",
+              "host": ["{{baseUrl}}"], "path": ["api","mr","chemists"],
+              "query": [{ "key": "search", "value": "LifeCare" }]}
+          }
+        },
+        {
+          "name": "Add Chemist",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "if (pm.response.code === 201 || pm.response.code === 200) {",
+            "  var json = pm.response.json();",
+            "  if (json.data && json.data._id) { pm.collectionVariables.set('chemistId', json.data._id); }",
+            "}"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{mrToken}}" },
+              { "key": "Content-Type",  "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"chemistName\": \"LifeCare Pharmacy\",\n  \"contactPerson\": \"Suresh Kumar\",\n  \"phone\": \"9876543001\",\n  \"address\": \"15 Commercial Street\",\n  \"city\": \"Bangalore\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/mr/chemists", "host": ["{{baseUrl}}"], "path": ["api","mr","chemists"] }
+          }
+        },
+        {
+          "name": "Update Chemist",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{mrToken}}" },
+              { "key": "Content-Type",  "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"phone\": \"9876543099\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/mr/chemists/{{chemistId}}", "host": ["{{baseUrl}}"], "path": ["api","mr","chemists","{{chemistId}}"] }
+          }
+        },
+        {
+          "name": "Submit DCR",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{mrToken}}" },
+              { "key": "Content-Type",  "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"visitedId\": \"{{doctorId}}\",\n  \"visitedType\": \"doctor\",\n  \"productsDiscussed\": [\"CardioPlus 10mg\"],\n  \"samplesGiven\": 3,\n  \"ordersTaken\": 1,\n  \"visitDate\": \"2026-07-07\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/mr/dcr", "host": ["{{baseUrl}}"], "path": ["api","mr","dcr"] }
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "Pharmacy & Lab",
+      "item": [
+        {
+          "name": "Get Pharmacy Products",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "if (pm.response.code === 200) {",
+            "  var json = pm.response.json();",
+            "  if (json.data && json.data.length > 0) { pm.collectionVariables.set('productId', json.data[0]._id); }",
+            "}"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{patientToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/pharmacy/products?search=Paracetamol&category=Pain+Relief&page=1&limit=10",
+              "host": ["{{baseUrl}}"], "path": ["api","pharmacy","products"],
+              "query": [
+                { "key": "search",   "value": "Paracetamol" },
+                { "key": "category", "value": "Pain Relief" },
+                { "key": "page",     "value": "1" },
+                { "key": "limit",    "value": "10" }
+              ]}
+          }
+        },
+        {
+          "name": "Get Single Product",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{patientToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/pharmacy/products/{{productId}}", "host": ["{{baseUrl}}"], "path": ["api","pharmacy","products","{{productId}}"] }
+          }
+        },
+        {
+          "name": "Place Pharmacy Order",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "if (pm.response.code === 201 || pm.response.code === 200) {",
+            "  var json = pm.response.json();",
+            "  if (json.data && json.data._id) { pm.collectionVariables.set('orderId', json.data._id); }",
+            "}"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{patientToken}}" }],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "items",           "value": "[{\"productId\":\"{{productId}}\",\"quantity\":2}]", "type": "text" },
+                { "key": "shippingAddress", "value": "{\"street\":\"23 Park Street\",\"city\":\"Kolkata\",\"state\":\"West Bengal\",\"zip\":\"700016\",\"contactPhone\":\"9876543210\"}", "type": "text" },
+                { "key": "paymentMethod",   "value": "UPI", "type": "text" },
+                { "key": "prescriptionFile","type": "file", "src": [], "disabled": true }
+              ]
+            },
+            "url": { "raw": "{{baseUrl}}/api/pharmacy/orders", "host": ["{{baseUrl}}"], "path": ["api","pharmacy","orders"] }
+          }
+        },
+        {
+          "name": "Get My Pharmacy Orders",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{patientToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/pharmacy/orders?page=1&limit=10",
+              "host": ["{{baseUrl}}"], "path": ["api","pharmacy","orders"],
+              "query": [
+                { "key": "page",  "value": "1" },
+                { "key": "limit", "value": "10" }
+              ]}
+          }
+        },
+        {
+          "name": "Get Single Pharmacy Order",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{patientToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/pharmacy/orders/{{orderId}}", "host": ["{{baseUrl}}"], "path": ["api","pharmacy","orders","{{orderId}}"] }
+          }
+        },
+        {
+          "name": "Get Lab Tests",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "if (pm.response.code === 200) {",
+            "  var json = pm.response.json();",
+            "  if (json.data && json.data.length > 0) { pm.collectionVariables.set('labTestId', json.data[0]._id); }",
+            "}"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{patientToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/lab/tests?search=blood&page=1&limit=20",
+              "host": ["{{baseUrl}}"], "path": ["api","lab","tests"],
+              "query": [
+                { "key": "search", "value": "blood" },
+                { "key": "page",   "value": "1" },
+                { "key": "limit",  "value": "20" }
+              ]}
+          }
+        },
+        {
+          "name": "Book Lab Test",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "if (pm.response.code === 201 || pm.response.code === 200) {",
+            "  var json = pm.response.json();",
+            "  if (json.data && json.data.booking && json.data.booking._id) {",
+            "    pm.collectionVariables.set('labBookingId', json.data.booking._id);",
+            "  }",
+            "}"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{patientToken}}" },
+              { "key": "Content-Type",  "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"testIds\": [\"{{labTestId}}\"],\n  \"scheduledAt\": \"2026-07-12T07:30:00.000Z\",\n  \"address\": \"23 Park Street, Kolkata, West Bengal 700016\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/lab/bookings", "host": ["{{baseUrl}}"], "path": ["api","lab","bookings"] }
+          }
+        },
+        {
+          "name": "Get My Lab Bookings",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{patientToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/lab/bookings", "host": ["{{baseUrl}}"], "path": ["api","lab","bookings"] }
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "AI & Emergency",
+      "item": [
+        {
+          "name": "AI Symptom Checker",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" },
+              { "key": "Content-Type",  "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"symptoms\": \"I have been experiencing chest pain on the left side, shortness of breath when climbing stairs, and mild dizziness for the past 3 days.\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/ai/symptom-checker", "host": ["{{baseUrl}}"], "path": ["api","ai","symptom-checker"] }
+          }
+        },
+        {
+          "name": "AI Analyze Medical Report",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "reportFile", "type": "file", "src": [], "description": "Upload a JPG, PNG, or PDF medical report (max 5 MB)" }
+              ]
+            },
+            "url": { "raw": "{{baseUrl}}/api/ai/analyze-report", "host": ["{{baseUrl}}"], "path": ["api","ai","analyze-report"] }
+          }
+        },
+        {
+          "name": "Emergency SOS",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{patientToken}}" },
+              { "key": "Content-Type",  "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"latitude\": 22.5726,\n  \"longitude\": 88.3639,\n  \"message\": \"EMERGENCY: Patient needs immediate medical assistance!\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/emergency/sos", "host": ["{{baseUrl}}"], "path": ["api","emergency","sos"] }
+          }
+        },
+        {
+          "name": "Get Nearest Ambulances",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/emergency/ambulances/nearest?lat=22.5726&lng=88.3639&limit=5",
+              "host": ["{{baseUrl}}"], "path": ["api","emergency","ambulances","nearest"],
+              "query": [
+                { "key": "lat",   "value": "22.5726" },
+                { "key": "lng",   "value": "88.3639" },
+                { "key": "limit", "value": "5" }
+              ]}
+          }
+        },
+        {
+          "name": "WebRTC Signal Relay",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" },
+              { "key": "Content-Type",  "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"type\": \"offer\",\n  \"sdp\": \"v=0\\r\\no=- 4962303945445044787 2 IN IP4 127.0.0.1\\r\\n...\",\n  \"roomId\": \"{{roomId}}\",\n  \"targetUserId\": \"{{doctorId}}\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/consultations/video/signal", "host": ["{{baseUrl}}"], "path": ["api","consultations","video","signal"] }
+          }
+        },
+        {
+          "name": "Get Consultation Chat History",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/consultations/{{roomId}}/messages?limit=50",
+              "host": ["{{baseUrl}}"], "path": ["api","consultations","{{roomId}}","messages"],
+              "query": [{ "key": "limit", "value": "50" }]}
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "Payments",
+      "item": [
+        {
+          "name": "Create Payment Order (Appointment)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{patientToken}}" },
+              { "key": "Content-Type",  "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"amount\": 800,\n  \"purpose\": \"appointment\",\n  \"referenceId\": \"{{appointmentId}}\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/payments/create-order", "host": ["{{baseUrl}}"], "path": ["api","payments","create-order"] }
+          }
+        },
+        {
+          "name": "Create Payment Order (Pharmacy)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{patientToken}}" },
+              { "key": "Content-Type",  "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"amount\": 105,\n  \"purpose\": \"pharmacy\",\n  \"referenceId\": \"{{orderId}}\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/payments/create-order", "host": ["{{baseUrl}}"], "path": ["api","payments","create-order"] }
+          }
+        },
+        {
+          "name": "Payment Webhook (Appointment Success)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"referenceId\": \"{{appointmentId}}\",\n  \"purpose\": \"appointment\",\n  \"status\": \"success\",\n  \"transactionId\": \"tx_mock_abc123\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/payments/webhook", "host": ["{{baseUrl}}"], "path": ["api","payments","webhook"] }
+          }
+        },
+        {
+          "name": "Payment Webhook (Pharmacy Success)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"referenceId\": \"{{orderId}}\",\n  \"purpose\": \"pharmacy\",\n  \"status\": \"success\",\n  \"transactionId\": \"tx_mock_def456\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/payments/webhook", "host": ["{{baseUrl}}"], "path": ["api","payments","webhook"] }
+          }
+        },
+        {
+          "name": "Pay for Appointment (Legacy)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{patientToken}}" },
+              { "key": "Content-Type",  "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"paymentMethod\": \"UPI\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/patients/appointments/{{appointmentId}}/pay", "host": ["{{baseUrl}}"], "path": ["api","patients","appointments","{{appointmentId}}","pay"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Health Check",
+      "item": [
+        {
+          "name": "Server Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/health", "host": ["{{baseUrl}}"], "path": ["api","health"] }
+          }
+        }
+      ]
+    }
+  ]
 }

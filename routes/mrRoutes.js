@@ -10,8 +10,6 @@ const {
     requestMeeting,
     getMeetingRequests,
     getVisitPlan,
-    submitDCR,
-    getDCRList,
     getSampleInventory,
     distributeSamples,
     getTerritoryAnalytics,
@@ -29,7 +27,9 @@ const {
     deleteChemist,
     logExpense,
     getExpenses,
-    getPendingApprovals
+    getPendingApprovals,
+    submitDCR,
+    getDCRList
 } = require('../controllers/mrExtendedController');
 
 // Import middleware

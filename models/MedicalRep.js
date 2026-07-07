@@ -140,6 +140,11 @@ const medicalRepSchema = new mongoose.Schema({
         }
     },
     profilePicture: String,
+    verificationStatus: {
+        type: String,
+        enum: ['pending', 'verified', 'rejected'],
+        default: 'pending'
+    },
     verificationDocuments: [{
         documentType: {
             type: String,

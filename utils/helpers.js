@@ -373,3 +373,98 @@ exports.getBMICategory = (bmi) => {
     if (bmi >= 25 && bmi < 30) return 'Overweight';
     return 'Obese';
 };
+
+// Parse full name into first and last name
+exports.parseFullName = (fullName) => {
+    if (!fullName) return { firstName: 'Default', lastName: 'Name' };
+    const names = fullName.trim().split(/\s+/);
+    const firstName = names[0];
+    const lastName = names.slice(1).join(' ') || 'User';
+    return { firstName, lastName };
+};
+
+// Normalize DOB from string DD/MM/YYYY or ISO to Date object
+exports.normalizeDob = (dobStr) => {
+    if (!dobStr) return new Date();
+    if (dobStr instanceof Date) return dobStr;
+    const parts = dobStr.split('/');
+    if (parts.length === 3) {
+        const day = parseInt(parts[0], 10);
+        const month = parseInt(parts[1], 10) - 1;
+        const year = parseInt(parts[2], 10);
+        return new Date(year, month, day);
+    }
+    const d = new Date(dobStr);
+    return isNaN(d.getTime()) ? new Date() : d;
+};
+
+// Parse plain text address string or object into standard schema address
+exports.parseAddress = (addressInput) => {
+    let street = 'Default Street';
+    let city = 'Default City';
+    let state = 'Default State';
+    let zip = '110001';
+
+    if (addressInput && typeof addressInput === 'object') {
+        return {
+            street: addressInput.street || street,
+            city: addressInput.city || city,
+            state: addressInput.state || state,
+            zip: addressInput.zip || zip
+        };
+    }
+
+    if (addressInput && typeof addressInput === 'string') {
+        const parts = addressInput.split(',').map(p => p.trim());
+        if (parts.length >= 4) {
+            street = parts.slice(0, parts.length - 3).join(', ');
+            city = parts[parts.length - 3];
+            state = parts[parts.length - 2];
+            zip = parts[parts.length - 1];
+        } else if (parts.length === 3) {
+            street = parts[0];
+            city = parts[1];
+            state = parts[2];
+        } else if (parts.length === 2) {
+            street = parts[0];
+            city = parts[1];
+        } else if (parts.length === 1) {
+            street = parts[0];
+        }
+    }
+
+    // Ensure ZIP is valid 5 or 6 digits
+    const zipDigits = zip.replace(/\D/g, '');
+    if (zipDigits.length >= 5 && zipDigits.length <= 6) {
+        zip = zipDigits;
+    } else {
+        zip = '110001';
+    }
+
+    return { street, city, state, zip };
+};
+
+// Normalize medical conditions to medicalHistory array schema
+exports.normalizeMedicalHistory = (medicalConditions) => {
+    if (!medicalConditions) return [];
+    if (Array.isArray(medicalConditions)) {
+        return medicalConditions.map(item => ({
+            condition: item.condition || 'Unknown',
+            diagnosisDate: item.diagnosisDate ? new Date(item.diagnosisDate) : new Date(),
+            status: item.status || 'active',
+            notes: item.notes || ''
+        }));
+    }
+    if (typeof medicalConditions === 'string') {
+        if (medicalConditions.toLowerCase() === 'none' || medicalConditions.trim() === '') {
+            return [];
+        }
+        return medicalConditions.split(',').map(cond => ({
+            condition: cond.trim(),
+            diagnosisDate: new Date(),
+            status: 'active',
+            notes: 'Self-reported condition'
+        }));
+    }
+    return [];
+};

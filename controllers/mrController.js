@@ -658,15 +658,17 @@ exports.getSampleInventory = async (req, res, next) => {
 exports.distributeSamples = async (req, res, next) => {
     try {
         const user = req.user;
-        const { doctorId, samples, visitDate } = req.body;
+        const { doctorId, samples } = req.body;
+
+        if (!doctorId || !samples || !Array.isArray(samples) || samples.length === 0) {
+            return next(new ErrorResponse('Doctor ID and list of samples are required', 400));
+        }
 
         const mr = await MedicalRep.findOne({ userId: user._id });
-
         if (!mr) {
             return next(new ErrorResponse('MR profile not found', 404));
         }
 
-        // Validate doctor
         const doctor = await Doctor.findById(doctorId);
         if (!doctor) {
             return next(new ErrorResponse('Doctor not found', 404));
@@ -674,34 +676,31 @@ exports.distributeSamples = async (req, res, next) => {
 
         // Validate and distribute samples
         for (const sample of samples) {
-            const available = mr.checkSampleStock(sample.productId);
-
-            if (available < sample.quantity) {
-                return next(new ErrorResponse(`Insufficient stock for ${sample.productName}. Available: ${available}`, 400));
+            if (!sample.sampleName || !sample.quantity) {
+                return next(new ErrorResponse('Sample name and quantity are required for each item', 400));
+            }
+            const item = mr.sampleInventory.find(s => s.productName.toLowerCase() === sample.sampleName.toLowerCase());
+            if (!item) {
+                return next(new ErrorResponse(`Sample '${sample.sampleName}' not found in inventory`, 404));
             }
 
-            // Distribute sample (reduce inventory)
-            mr.distributeSample(sample.productId, sample.quantity);
+            if (item.quantity < sample.quantity) {
+                return next(new ErrorResponse(`Insufficient stock for '${sample.sampleName}'. Available: ${item.quantity}`, 400));
+            }
+
+            item.quantity -= sample.quantity;
         }
 
+        mr.markModified('sampleInventory');
         await mr.save();
-
-        // Create distribution record (in a real app, you might have a separate SampleDistribution model)
-        const distributionId = helpers.generateRandomString(12);
 
         res.status(201).json({
             success: true,
             message: 'Samples distributed successfully',
             data: {
-                distributionId,
                 doctorName: doctor.fullName,
                 samplesDistributed: samples,
-                distributionDate: helpers.formatDate(visitDate || new Date()),
-                remainingStock: mr.sampleInventory.map(item => ({
-                    productId: item.productId,
-                    productName: item.productName,
-                    remainingQuantity: item.quantity
-                }))
+                remainingStock: mr.sampleInventory
             }
         });
     } catch (error) {

@@ -2,6 +2,7 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const constants = require('../config/constants');
 const ErrorResponse = require('../utils/errorResponse');
+const TokenBlacklist = require('../models/TokenBlacklist');
 
 // Protect routes - verify JWT token
 exports.protect = async (req, res, next) => {
@@ -22,6 +23,12 @@ exports.protect = async (req, res, next) => {
     }
 
     try {
+        // Check if token is blacklisted
+        const isBlacklisted = await TokenBlacklist.findOne({ token });
+        if (isBlacklisted) {
+            return next(new ErrorResponse('Not authorized to access this route', 401));
+        }
+
         // Verify token
         const decoded = jwt.verify(token, process.env.JWT_SECRET || constants.JWT_SECRET);
 

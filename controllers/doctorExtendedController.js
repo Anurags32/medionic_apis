@@ -7,9 +7,12 @@ const constants = require('../config/constants');
 // @desc    Get revenue analytics
 // @route   GET /api/doctors/analytics/revenue
 // @access  Private/Doctor
+// @desc    Get revenue analytics
+// @route   GET /api/doctors/analytics/revenue
+// @access  Private/Doctor
 exports.getRevenueAnalytics = async (req, res, next) => {
     try {
-        const { month, year } = req.query;
+        const { range, month, year } = req.query;
         const doctorId = req.user._id;
 
         const doctor = await Doctor.findOne({ userId: doctorId });
@@ -17,18 +20,36 @@ exports.getRevenueAnalytics = async (req, res, next) => {
             return next(new ErrorResponse('Doctor profile not found', 404));
         }
 
-        const startDate = month && year
-            ? new Date(year, month - 1, 1)
-            : new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+        let startDate = new Date();
+        let endDate = new Date();
 
-        const endDate = new Date(startDate);
-        endDate.setMonth(endDate.getMonth() + 1);
+        if (range === 'week') {
+            startDate.setDate(startDate.getDate() - 7);
+        } else if (range === 'year') {
+            startDate.setFullYear(startDate.getFullYear() - 1);
+        } else if (range === 'month') {
+            startDate.setMonth(startDate.getMonth() - 1);
+        } else if (month && year) {
+            startDate = new Date(year, month - 1, 1);
+            endDate = new Date(startDate);
+            endDate.setMonth(endDate.getMonth() + 1);
+        } else {
+            // Default: current month
+            startDate = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+            endDate = new Date(startDate);
+            endDate.setMonth(endDate.getMonth() + 1);
+        }
 
-        const appointments = await Appointment.find({
+        const query = {
             doctorId: doctor._id,
-            status: constants.APPOINTMENT_STATUS.COMPLETED,
-            completedAt: { $gte: startDate, $lt: endDate }
-        }).populate('patientId');
+            status: constants.APPOINTMENT_STATUS.COMPLETED
+        };
+
+        if (range || (month && year)) {
+            query.completedAt = { $gte: startDate, $lt: endDate };
+        }
+
+        const appointments = await Appointment.find(query).populate('patientId');
 
         const totalRevenue = appointments.reduce((sum, apt) => {
             return sum + (doctor.consultationFee || 0);
@@ -41,17 +62,56 @@ exports.getRevenueAnalytics = async (req, res, next) => {
             success: true,
             message: 'Revenue analytics retrieved',
             data: {
-                period: `${month || 'Current'}-${year || new Date().getFullYear()}`,
+                period: range || `${month || 'Current'}-${year || new Date().getFullYear()}`,
                 totalRevenue,
                 appointmentCount,
                 avgRevenue,
                 consultationFee: doctor.consultationFee,
                 appointments: appointments.map(a => ({
                     _id: a._id,
-                    patientName: a.patientId?.firstName + ' ' + a.patientId?.lastName,
-                    date: a.completedAt,
+                    patientName: a.patientId ? (a.patientId.firstName + ' ' + a.patientId.lastName) : 'Unknown Patient',
+                    date: a.completedAt || a.appointmentDate,
                     fee: doctor.consultationFee
                 }))
+            }
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+// @desc    Get doctor analytics general summary
+// @route   GET /api/doctors/analytics
+// @access  Private/Doctor
+exports.getDoctorAnalytics = async (req, res, next) => {
+    try {
+        const doctor = await Doctor.findOne({ userId: req.user._id });
+        if (!doctor) {
+            return next(new ErrorResponse('Doctor profile not found', 404));
+        }
+
+        // Appointments stats
+        const completedCount = await Appointment.countDocuments({
+            doctorId: doctor._id,
+            status: constants.APPOINTMENT_STATUS.COMPLETED
+        });
+
+        const pendingCount = await Appointment.countDocuments({
+            doctorId: doctor._id,
+            status: constants.APPOINTMENT_STATUS.PENDING
+        });
+
+        // Revenue stats
+        const totalRevenue = completedCount * (doctor.consultationFee || 500);
+
+        res.status(200).json({
+            success: true,
+            data: {
+                totalRevenue,
+                completedAppointments: completedCount,
+                pendingAppointments: pendingCount,
+                rating: doctor.rating || 5.0,
+                reviewsCount: doctor.reviewsCount || 0
             }
         });
     } catch (error) {

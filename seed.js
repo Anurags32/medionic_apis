@@ -2,548 +2,388 @@ const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 const dotenv = require('dotenv');
 
-// Load environment variables
 dotenv.config();
 
-// Import models
-const User = require('./models/User');
-const Patient = require('./models/Patient');
-const Doctor = require('./models/Doctor');
-const MedicalRep = require('./models/MedicalRep');
-const Appointment = require('./models/Appointment');
-const Prescription = require('./models/Prescription');
+// ── Models ────────────────────────────────────────────────────────────────────
+const User          = require('./models/User');
+const Patient       = require('./models/Patient');
+const Doctor        = require('./models/Doctor');
+const MedicalRep    = require('./models/MedicalRep');
+const Appointment   = require('./models/Appointment');
+const Prescription  = require('./models/Prescription');
 const PharmacyOrder = require('./models/PharmacyOrder');
-const HealthMetric = require('./models/HealthMetric');
-const MRMeetings = require('./models/MRMeetings');
+const PharmacyProduct = require('./models/PharmacyProduct');
+const LabTest       = require('./models/LabTest');
+const LabBooking    = require('./models/LabBooking');
+const HealthMetric  = require('./models/HealthMetric');
+const MRMeetings    = require('./models/MRMeetings');
+const Chemist       = require('./models/Chemist');
+const Expense       = require('./models/Expense');
+const TourPlan      = require('./models/TourPlan');
+const DCR           = require('./models/DCR');
+const TokenBlacklist = require('./models/TokenBlacklist');
+const FamilyMember  = require('./models/FamilyMember');
 
 const constants = require('./config/constants');
-const helpers = require('./utils/helpers');
 
-// Connect to database
+// ── DB connection ─────────────────────────────────────────────────────────────
 const connectDB = async () => {
     try {
         await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/healthcare_db');
-        console.log('MongoDB connected successfully');
-    } catch (error) {
-        console.error('MongoDB connection error:', error);
+        console.log('✅  MongoDB connected');
+    } catch (err) {
+        console.error('❌  MongoDB connection error:', err.message);
         process.exit(1);
     }
 };
 
-// Sample data
-const sampleData = {
-    users: [
-        // Patients
-        { email: 'john.doe@email.com', password: 'Password123!', role: 'patient' },
-        { email: 'jane.smith@email.com', password: 'Password123!', role: 'patient' },
-        { email: 'mike.johnson@email.com', password: 'Password123!', role: 'patient' },
-        { email: 'sarah.wilson@email.com', password: 'Password123!', role: 'patient' },
-        { email: 'david.brown@email.com', password: 'Password123!', role: 'patient' },
+// ── Static sample data ────────────────────────────────────────────────────────
+const PHARMACY_PRODUCTS = [
+    { name: 'Paracetamol 500mg', brand: 'Cipla', category: 'Pain Relief', price: 25, mrp: 30,
+      quantityDescription: 'Strip of 10 tablets', requiresPrescription: false, inStock: true,
+      description: 'For relief of mild to moderate pain and fever.' },
+    { name: 'Amoxicillin 250mg', brand: 'GlaxoSmithKline', category: 'Antibiotics', price: 85, mrp: 100,
+      quantityDescription: 'Strip of 10 capsules', requiresPrescription: true, inStock: true,
+      description: 'Broad-spectrum antibiotic for bacterial infections.' },
+    { name: 'Metformin 500mg', brand: 'Sun Pharma', category: 'Diabetes', price: 45, mrp: 55,
+      quantityDescription: 'Strip of 15 tablets', requiresPrescription: true, inStock: true,
+      description: 'First-line medication for type 2 diabetes management.' },
+    { name: 'Atorvastatin 10mg', brand: 'Ranbaxy', category: 'Cardiovascular', price: 120, mrp: 140,
+      quantityDescription: 'Strip of 10 tablets', requiresPrescription: true, inStock: true,
+      description: 'Lowers bad cholesterol and reduces cardiovascular risk.' },
+    { name: 'Cetirizine 10mg', brand: 'Dr. Reddy\'s', category: 'Allergy', price: 20, mrp: 28,
+      quantityDescription: 'Strip of 10 tablets', requiresPrescription: false, inStock: true,
+      description: 'Antihistamine for allergic rhinitis and urticaria.' },
+    { name: 'Omeprazole 20mg', brand: 'Cipla', category: 'Gastric', price: 55, mrp: 65,
+      quantityDescription: 'Strip of 10 capsules', requiresPrescription: false, inStock: true,
+      description: 'Proton pump inhibitor for acid reflux and ulcers.' },
+    { name: 'Vitamin D3 1000 IU', brand: 'Abbott', category: 'Vitamins & Supplements', price: 180, mrp: 220,
+      quantityDescription: 'Bottle of 60 soft-gels', requiresPrescription: false, inStock: true,
+      description: 'Supports bone health and immune function.' },
+    { name: 'Azithromycin 500mg', brand: 'Pfizer', category: 'Antibiotics', price: 95, mrp: 110,
+      quantityDescription: 'Strip of 3 tablets', requiresPrescription: true, inStock: false,
+      description: 'Macrolide antibiotic for respiratory and skin infections.' },
+    { name: 'Ibuprofen 400mg', brand: 'Micro Labs', category: 'Pain Relief', price: 30, mrp: 38,
+      quantityDescription: 'Strip of 10 tablets', requiresPrescription: false, inStock: true,
+      description: 'NSAID for pain, inflammation, and fever.' },
+    { name: 'Pantoprazole 40mg', brand: 'Aristo Pharma', category: 'Gastric', price: 60, mrp: 72,
+      quantityDescription: 'Strip of 10 tablets', requiresPrescription: false, inStock: true,
+      description: 'For gastroesophageal reflux disease (GERD) and peptic ulcers.' }
+];
 
-        // Doctors
-        { email: 'dr.smith@hospital.com', password: 'Password123!', role: 'doctor' },
-        { email: 'dr.johnson@clinic.com', password: 'Password123!', role: 'doctor' },
-        { email: 'dr.williams@medical.com', password: 'Password123!', role: 'doctor' },
-        { email: 'dr.davis@healthcare.com', password: 'Password123!', role: 'doctor' },
-        { email: 'dr.miller@hospital.com', password: 'Password123!', role: 'doctor' },
+const LAB_TESTS = [
+    { name: 'Complete Blood Count (CBC)', description: 'Measures different components of blood including RBC, WBC, and platelets.', price: 350, sampleType: 'Blood' },
+    { name: 'Lipid Profile', description: 'Measures cholesterol levels (total, HDL, LDL) and triglycerides.', price: 600, sampleType: 'Blood' },
+    { name: 'Blood Glucose Fasting', description: 'Measures blood sugar level after 8-hour fast. Used to diagnose diabetes.', price: 120, sampleType: 'Blood' },
+    { name: 'HbA1c', description: 'Average blood sugar control over the past 2–3 months.', price: 500, sampleType: 'Blood' },
+    { name: 'Thyroid Function Test (TSH)', description: 'Evaluates thyroid gland activity.', price: 450, sampleType: 'Blood' },
+    { name: 'Liver Function Test (LFT)', description: 'Assesses liver health — enzymes, bilirubin, proteins.', price: 700, sampleType: 'Blood' },
+    { name: 'Kidney Function Test (KFT)', description: 'Evaluates kidney health — creatinine, urea, electrolytes.', price: 650, sampleType: 'Blood' },
+    { name: 'Urine Routine Examination', description: 'Screens urine for infection, kidney disease, and other conditions.', price: 150, sampleType: 'Urine' },
+    { name: 'Chest X-Ray', description: 'Imaging of lungs and chest to detect infections or structural issues.', price: 400, sampleType: 'Imaging' },
+    { name: 'ECG (Electrocardiogram)', description: 'Records electrical activity of the heart.', price: 300, sampleType: 'Physical' },
+    { name: 'Vitamin B12', description: 'Checks vitamin B12 levels — important for nerve and red blood cell health.', price: 550, sampleType: 'Blood' },
+    { name: 'COVID-19 RT-PCR', description: 'Detects active SARS-CoV-2 infection.', price: 800, sampleType: 'Nasopharyngeal Swab' }
+];
 
-        // Medical Representatives
-        { email: 'mr.jones@pharma.com', password: 'Password123!', role: 'mr' },
-        { email: 'mr.taylor@medco.com', password: 'Password123!', role: 'mr' },
-        { email: 'mr.anderson@biopharma.com', password: 'Password123!', role: 'mr' },
-
-        // Admin
-        { email: 'admin@healthcare.com', password: 'Password123!', role: 'admin' }
-    ],
-
-    patients: [
-        {
-            firstName: 'John',
-            lastName: 'Doe',
-            dob: new Date('1985-06-15'),
-            gender: 'male',
-            address: {
-                street: '123 Main St',
-                city: 'New York',
-                state: 'NY',
-                zip: '10001'
-            },
-            bloodGroup: 'O+',
-            emergencyContact: {
-                name: 'Jane Doe',
-                phone: '+1234567890',
-                relation: 'Spouse'
-            }
-        },
-        {
-            firstName: 'Jane',
-            lastName: 'Smith',
-            dob: new Date('1990-03-22'),
-            gender: 'female',
-            address: {
-                street: '456 Oak Ave',
-                city: 'Los Angeles',
-                state: 'CA',
-                zip: '90210'
-            },
-            bloodGroup: 'A+',
-            emergencyContact: {
-                name: 'Robert Smith',
-                phone: '+1234567891',
-                relation: 'Father'
-            }
-        },
-        {
-            firstName: 'Mike',
-            lastName: 'Johnson',
-            dob: new Date('1978-11-08'),
-            gender: 'male',
-            address: {
-                street: '789 Pine Rd',
-                city: 'Chicago',
-                state: 'IL',
-                zip: '60601'
-            },
-            bloodGroup: 'B+',
-            emergencyContact: {
-                name: 'Lisa Johnson',
-                phone: '+1234567892',
-                relation: 'Wife'
-            }
-        },
-        {
-            firstName: 'Sarah',
-            lastName: 'Wilson',
-            dob: new Date('1995-09-14'),
-            gender: 'female',
-            address: {
-                street: '321 Elm St',
-                city: 'Houston',
-                state: 'TX',
-                zip: '77001'
-            },
-            bloodGroup: 'AB+',
-            emergencyContact: {
-                name: 'Tom Wilson',
-                phone: '+1234567893',
-                relation: 'Brother'
-            }
-        },
-        {
-            firstName: 'David',
-            lastName: 'Brown',
-            dob: new Date('1982-12-03'),
-            gender: 'male',
-            address: {
-                street: '654 Cedar Ln',
-                city: 'Phoenix',
-                state: 'AZ',
-                zip: '85001'
-            },
-            bloodGroup: 'O-',
-            emergencyContact: {
-                name: 'Mary Brown',
-                phone: '+1234567894',
-                relation: 'Mother'
-            }
-        }
-    ],
-
-    doctors: [
-        {
-            firstName: 'Robert',
-            lastName: 'Smith',
-            specialization: 'Cardiology',
-            licenseNumber: 'MD001234',
-            yearsExperience: 15,
-            clinic: {
-                name: 'Heart Care Center',
-                address: '100 Medical Plaza',
-                city: 'New York',
-                phone: '+1555001001'
-            },
-            consultationFee: 200,
-            bio: 'Experienced cardiologist specializing in heart disease prevention and treatment.'
-        },
-        {
-            firstName: 'Emily',
-            lastName: 'Johnson',
-            specialization: 'Dermatology',
-            licenseNumber: 'MD001235',
-            yearsExperience: 8,
-            clinic: {
-                name: 'Skin Health Clinic',
-                address: '200 Wellness St',
-                city: 'Los Angeles',
-                phone: '+1555001002'
-            },
-            consultationFee: 150,
-            bio: 'Board-certified dermatologist focused on skin cancer prevention and cosmetic dermatology.'
-        },
-        {
-            firstName: 'Michael',
-            lastName: 'Williams',
-            specialization: 'Orthopedics',
-            licenseNumber: 'MD001236',
-            yearsExperience: 12,
-            clinic: {
-                name: 'Bone & Joint Institute',
-                address: '300 Sports Medicine Dr',
-                city: 'Chicago',
-                phone: '+1555001003'
-            },
-            consultationFee: 180,
-            bio: 'Orthopedic surgeon specializing in sports medicine and joint replacement.'
-        },
-        {
-            firstName: 'Lisa',
-            lastName: 'Davis',
-            specialization: 'Pediatrics',
-            licenseNumber: 'MD001237',
-            yearsExperience: 10,
-            clinic: {
-                name: 'Children\'s Health Center',
-                address: '400 Family Care Blvd',
-                city: 'Houston',
-                phone: '+1555001004'
-            },
-            consultationFee: 120,
-            bio: 'Pediatrician dedicated to comprehensive healthcare for children from infancy to adolescence.'
-        },
-        {
-            firstName: 'James',
-            lastName: 'Miller',
-            specialization: 'Internal Medicine',
-            licenseNumber: 'MD001238',
-            yearsExperience: 20,
-            clinic: {
-                name: 'Primary Care Associates',
-                address: '500 Healthcare Way',
-                city: 'Phoenix',
-                phone: '+1555001005'
-            },
-            consultationFee: 160,
-            bio: 'Internal medicine physician providing comprehensive primary care for adults.'
-        }
-    ],
-
-    medicalReps: [
-        {
-            firstName: 'Alex',
-            lastName: 'Jones',
-            companyName: 'PharmaMax Inc.',
-            territory: 'New York',
-            designation: 'Senior Medical Representative',
-            employmentDetails: {
-                joiningDate: new Date('2020-01-15'),
-                employeeId: 'PM001',
-                department: 'Sales'
-            }
-        },
-        {
-            firstName: 'Maria',
-            lastName: 'Taylor',
-            companyName: 'MedCorp Solutions',
-            territory: 'Los Angeles',
-            designation: 'Medical Representative',
-            employmentDetails: {
-                joiningDate: new Date('2021-03-10'),
-                employeeId: 'MC002',
-                department: 'Sales'
-            }
-        },
-        {
-            firstName: 'Chris',
-            lastName: 'Anderson',
-            companyName: 'BioPharma Ltd.',
-            territory: 'Chicago',
-            designation: 'Regional Sales Manager',
-            employmentDetails: {
-                joiningDate: new Date('2019-07-22'),
-                employeeId: 'BP003',
-                department: 'Sales'
-            }
-        }
-    ]
-};
-
-// Seed function
+// ── Main seed function ────────────────────────────────────────────────────────
 const seedDatabase = async () => {
-    try {
-        console.log('Starting database seed...');
+    console.log('\n🌱  Starting database seed...\n');
 
-        // Clear existing data
-        await Promise.all([
-            User.deleteMany({}),
-            Patient.deleteMany({}),
-            Doctor.deleteMany({}),
-            MedicalRep.deleteMany({}),
-            Appointment.deleteMany({}),
-            Prescription.deleteMany({}),
-            PharmacyOrder.deleteMany({}),
-            HealthMetric.deleteMany({}),
-            MRMeetings.deleteMany({})
-        ]);
+    // Clear all collections
+    await Promise.all([
+        User.deleteMany({}), Patient.deleteMany({}), Doctor.deleteMany({}),
+        MedicalRep.deleteMany({}), Appointment.deleteMany({}), Prescription.deleteMany({}),
+        PharmacyOrder.deleteMany({}), PharmacyProduct.deleteMany({}),
+        LabTest.deleteMany({}), LabBooking.deleteMany({}), HealthMetric.deleteMany({}),
+        MRMeetings.deleteMany({}), Chemist.deleteMany({}), Expense.deleteMany({}),
+        TourPlan.deleteMany({}), DCR.deleteMany({}), TokenBlacklist.deleteMany({}),
+        FamilyMember.deleteMany({})
+    ]);
+    console.log('🗑   Cleared existing data');
 
-        console.log('Cleared existing data');
+    // ── Pharmacy Products ─────────────────────────────────────────────────────
+    const products = await PharmacyProduct.insertMany(PHARMACY_PRODUCTS);
+    console.log(`💊  Created ${products.length} pharmacy products`);
 
-        // Create users
-        const users = [];
-        for (const userData of sampleData.users) {
-            const user = await User.create({
-                ...userData,
-                profileComplete: true,
-                status: constants.USER_STATUS.ACTIVE
-            });
-            users.push(user);
-        }
+    // ── Lab Tests ─────────────────────────────────────────────────────────────
+    const labTests = await LabTest.insertMany(LAB_TESTS);
+    console.log(`🧪  Created ${labTests.length} lab tests`);
 
-        console.log(`Created ${users.length} users`);
+    // ── Admin user ────────────────────────────────────────────────────────────
+    const adminUser = await User.create({
+        firstName: 'Platform', lastName: 'Admin',
+        email: 'admin@healthcare.com', password: 'Admin@1234',
+        phone: '9000000000', role: constants.ROLES.ADMIN,
+        isVerified: true, status: constants.USER_STATUS.ACTIVE
+    });
+    console.log('👤  Created admin user');
 
-        // Create patients
-        const patients = [];
-        const patientUsers = users.filter(u => u.role === constants.ROLES.PATIENT);
-        for (let i = 0; i < sampleData.patients.length; i++) {
-            const patient = await Patient.create({
-                ...sampleData.patients[i],
-                userId: patientUsers[i]._id
-            });
-            patients.push(patient);
-        }
+    // ── Doctor users ──────────────────────────────────────────────────────────
+    const doctorDefs = [
+        { firstName: 'Rajesh',  lastName: 'Sharma',    email: 'dr.sharma@hospital.com',
+          specialization: 'Cardiology',      licenseNumber: 'KA-MED-2010-0042',
+          registrationCouncil: 'Karnataka Medical Council', qualification: 'MBBS, MD (Cardiology)',
+          yearsExperience: 14, clinicName: 'HeartCare Clinic',
+          clinicAddress: '12 MG Road, Indiranagar, Bangalore, Karnataka, 560038',
+          city: 'Bangalore', consultationFee: 800 },
+        { firstName: 'Priya',   lastName: 'Mehta',     email: 'dr.mehta@wellness.com',
+          specialization: 'Dermatology',     licenseNumber: 'MH-MED-2015-1120',
+          registrationCouncil: 'Maharashtra Medical Council', qualification: 'MBBS, MD (Dermatology)',
+          yearsExperience: 9, clinicName: 'SkinGlow Dermatology',
+          clinicAddress: '45 FC Road, Shivajinagar, Pune, Maharashtra, 411004',
+          city: 'Pune', consultationFee: 600 },
+        { firstName: 'Arun',    lastName: 'Krishnan',  email: 'dr.krishnan@neurology.com',
+          specialization: 'Neurology',       licenseNumber: 'TN-MED-2008-0334',
+          registrationCouncil: 'Tamil Nadu Medical Council', qualification: 'MBBS, DM (Neurology)',
+          yearsExperience: 16, clinicName: 'NeuroPlus Brain & Spine',
+          clinicAddress: '78 Anna Salai, Teynampet, Chennai, Tamil Nadu, 600018',
+          city: 'Chennai', consultationFee: 1000 }
+    ];
 
-        console.log(`Created ${patients.length} patients`);
+    const weekdaySchedule = {
+        monday:    [{ start: '09:00', end: '13:00' }, { start: '14:00', end: '18:00' }],
+        tuesday:   [{ start: '09:00', end: '13:00' }, { start: '14:00', end: '18:00' }],
+        wednesday: [{ start: '09:00', end: '13:00' }, { start: '14:00', end: '18:00' }],
+        thursday:  [{ start: '09:00', end: '13:00' }, { start: '14:00', end: '18:00' }],
+        friday:    [{ start: '09:00', end: '13:00' }, { start: '14:00', end: '17:00' }],
+        saturday:  [{ start: '10:00', end: '13:00' }],
+        sunday:    []
+    };
 
-        // Create doctors
-        const doctors = [];
-        const doctorUsers = users.filter(u => u.role === constants.ROLES.DOCTOR);
-        for (let i = 0; i < sampleData.doctors.length; i++) {
-            const doctor = await Doctor.create({
-                ...sampleData.doctors[i],
-                userId: doctorUsers[i]._id,
-                verificationStatus: constants.VERIFICATION_STATUS.VERIFIED,
-                rating: parseFloat((3.5 + Math.random() * 1.5).toFixed(1)),
-                totalRatings: Math.floor(Math.random() * 100) + 10,
-                availability: {
-                    monday: [{ startTime: '09:00', endTime: '17:00', maxPatients: 20 }],
-                    tuesday: [{ startTime: '09:00', endTime: '17:00', maxPatients: 20 }],
-                    wednesday: [{ startTime: '09:00', endTime: '17:00', maxPatients: 20 }],
-                    thursday: [{ startTime: '09:00', endTime: '17:00', maxPatients: 20 }],
-                    friday: [{ startTime: '09:00', endTime: '17:00', maxPatients: 20 }],
-                    saturday: [{ startTime: '09:00', endTime: '13:00', maxPatients: 10 }]
-                }
-            });
-            doctors.push(doctor);
-        }
-
-        console.log(`Created ${doctors.length} doctors`);
-
-        // Create medical reps
-        const medicalReps = [];
-        const mrUsers = users.filter(u => u.role === constants.ROLES.MR);
-        for (let i = 0; i < sampleData.medicalReps.length; i++) {
-            const mr = await MedicalRep.create({
-                ...sampleData.medicalReps[i],
-                userId: mrUsers[i]._id,
-                monthlyTarget: 50000 + Math.floor(Math.random() * 30000),
-                achievedTarget: Math.floor(Math.random() * 40000) + 20000,
-                productsHandled: [
-                    {
-                        productId: new mongoose.Types.ObjectId(),
-                        productName: 'Cardio Plus',
-                        category: 'Cardiovascular',
-                        targetUnits: 1000
-                    },
-                    {
-                        productId: new mongoose.Types.ObjectId(),
-                        productName: 'Pain Relief Max',
-                        category: 'Pain Management',
-                        targetUnits: 800
-                    }
-                ],
-                sampleInventory: [
-                    {
-                        productId: new mongoose.Types.ObjectId(),
-                        productName: 'Cardio Plus',
-                        quantity: 50,
-                        batchNo: 'CP2024001'
-                    },
-                    {
-                        productId: new mongoose.Types.ObjectId(),
-                        productName: 'Pain Relief Max',
-                        quantity: 30,
-                        batchNo: 'PRM2024001'
-                    }
-                ]
-            });
-            medicalReps.push(mr);
-        }
-
-        console.log(`Created ${medicalReps.length} medical representatives`);
-
-        // Create sample appointments
-        const appointments = [];
-        for (let i = 0; i < 10; i++) {
-            const patient = patients[Math.floor(Math.random() * patients.length)];
-            const doctor = doctors[Math.floor(Math.random() * doctors.length)];
-
-            const appointmentDate = new Date();
-            appointmentDate.setDate(appointmentDate.getDate() + Math.floor(Math.random() * 30) - 15);
-
-            const appointment = await Appointment.create({
-                patientId: patient._id,
-                doctorId: doctor._id,
-                appointmentDate,
-                appointmentTime: `${9 + Math.floor(Math.random() * 8)}:00`,
-                consultationType: ['video', 'chat', 'clinic'][Math.floor(Math.random() * 3)],
-                symptoms: [
-                    'Chest pain and shortness of breath',
-                    'Skin rash and itching',
-                    'Joint pain and stiffness',
-                    'Fever and headache',
-                    'Back pain'
-                ][Math.floor(Math.random() * 5)],
-                status: ['pending', 'confirmed', 'completed'][Math.floor(Math.random() * 3)],
-                amount: doctor.consultationFee
-            });
-            appointments.push(appointment);
-        }
-
-        console.log(`Created ${appointments.length} appointments`);
-
-        // Create sample prescriptions
-        const prescriptions = [];
-        const completedAppointments = appointments.filter(a => a.status === 'completed');
-
-        for (const appointment of completedAppointments) {
-            const prescription = await Prescription.create({
-                doctorId: appointment.doctorId,
-                patientId: appointment.patientId,
-                appointmentId: appointment._id,
-                medicines: [
-                    {
-                        medicineName: 'Aspirin',
-                        dosage: '81mg',
-                        frequency: 'Once daily',
-                        duration: '30 days',
-                        quantity: 30,
-                        instructions: 'Take with food'
-                    },
-                    {
-                        medicineName: 'Lisinopril',
-                        dosage: '10mg',
-                        frequency: 'Once daily',
-                        duration: '30 days',
-                        quantity: 30,
-                        instructions: 'Take in the morning'
-                    }
-                ],
-                testRecommendations: [
-                    {
-                        testName: 'Blood Pressure Check',
-                        urgency: 'routine'
-                    }
-                ],
-                notes: 'Follow up in 2 weeks',
-                status: constants.PRESCRIPTION_STATUS.ACTIVE
-            });
-            prescriptions.push(prescription);
-        }
-
-        console.log(`Created ${prescriptions.length} prescriptions`);
-
-        // Create sample health metrics
-        const healthMetrics = [];
-        for (const patient of patients) {
-            // Create 10 random health metrics for each patient
-            for (let i = 0; i < 10; i++) {
-                const metricTypes = Object.values(constants.HEALTH_METRICS);
-                const metricType = metricTypes[Math.floor(Math.random() * metricTypes.length)];
-
-                let value, unit;
-                switch (metricType) {
-                    case 'BP':
-                        value = `${120 + Math.floor(Math.random() * 40)}/${80 + Math.floor(Math.random() * 20)}`;
-                        unit = 'mmHg';
-                        break;
-                    case 'HR':
-                        value = 60 + Math.floor(Math.random() * 40);
-                        unit = 'bpm';
-                        break;
-                    case 'Weight':
-                        value = 60 + Math.floor(Math.random() * 40);
-                        unit = 'kg';
-                        break;
-                    case 'Glucose':
-                        value = 80 + Math.floor(Math.random() * 60);
-                        unit = 'mg/dL';
-                        break;
-                    case 'Temperature':
-                        value = parseFloat((36.5 + Math.random() * 2).toFixed(1));
-                        unit = 'C';
-                        break;
-                }
-
-                const metric = await HealthMetric.create({
-                    patientId: patient._id,
-                    metricType,
-                    value,
-                    unit,
-                    timestamp: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000),
-                    source: 'manual'
-                });
-                healthMetrics.push(metric);
-            }
-        }
-
-        console.log(`Created ${healthMetrics.length} health metrics`);
-
-        // Create sample MR meetings
-        const meetings = [];
-        for (const mr of medicalReps) {
-            // Create meetings with doctors in the same territory
-            const territoryDoctors = doctors.filter(d =>
-                d.clinic.city.toLowerCase().includes(mr.territory.toLowerCase())
-            );
-
-            for (const doctor of territoryDoctors) {
-                const meeting = await MRMeetings.create({
-                    mrId: mr._id,
-                    doctorId: doctor._id,
-                    requestId: 'REQ-' + Math.random().toString(36).substring(2, 10).toUpperCase(),
-                    requestedDate: new Date(),
-                    proposedDate: new Date(Date.now() + Math.random() * 30 * 24 * 60 * 60 * 1000),
-                    proposedTime: `${10 + Math.floor(Math.random() * 6)}:00`,
-                    purpose: 'Product presentation and discussion',
-                    products: mr.productsHandled.slice(0, 1),
-                    message: 'Would like to discuss our new cardiovascular products',
-                    status: ['pending', 'approved', 'completed'][Math.floor(Math.random() * 3)]
-                });
-                meetings.push(meeting);
-            }
-        }
-
-        console.log(`Created ${meetings.length} MR meetings`);
-
-        console.log('Database seeded successfully!');
-        console.log('\n=== Sample Login Credentials ===');
-        console.log('Patient: john.doe@email.com / Password123!');
-        console.log('Doctor: dr.smith@hospital.com / Password123!');
-        console.log('MR: mr.jones@pharma.com / Password123!');
-        console.log('Admin: admin@healthcare.com / Password123!');
-
-    } catch (error) {
-        console.error('Error seeding database:', error);
+    const doctorUsers = [];
+    const doctorProfiles = [];
+    for (const def of doctorDefs) {
+        const u = await User.create({
+            firstName: def.firstName, lastName: def.lastName,
+            email: def.email, password: 'Doctor@1234',
+            phone: `98${Math.floor(10000000 + Math.random() * 89999999)}`,
+            role: constants.ROLES.DOCTOR, isVerified: true, status: constants.USER_STATUS.ACTIVE
+        });
+        const d = await Doctor.create({
+            userId: u._id,
+            firstName: def.firstName, lastName: def.lastName,
+            licenseNumber: def.licenseNumber, registrationCouncil: def.registrationCouncil,
+            qualification: def.qualification, specialization: def.specialization,
+            yearsExperience: def.yearsExperience,
+            clinic: { name: def.clinicName, address: def.clinicAddress, city: def.city },
+            consultationFee: def.consultationFee,
+            verificationStatus: constants.VERIFICATION_STATUS.VERIFIED,
+            rating: parseFloat((3.8 + Math.random() * 1.2).toFixed(1)),
+            reviewsCount: Math.floor(20 + Math.random() * 80),
+            slotDurationMinutes: 30,
+            schedule: weekdaySchedule,
+            bio: `Experienced ${def.specialization} specialist with ${def.yearsExperience} years of practice.`
+        });
+        doctorUsers.push(u);
+        doctorProfiles.push(d);
     }
+    console.log(`👨‍⚕️  Created ${doctorProfiles.length} doctors`);
+
+    // ── Patient users ─────────────────────────────────────────────────────────
+    const patientDefs = [
+        { firstName: 'Aarav',  lastName: 'Gupta',  email: 'aarav.gupta@gmail.com',
+          phone: '9876543210', gender: 'male',   dob: new Date('1990-04-12'),
+          address: { street: '23 Park Street', city: 'Kolkata', state: 'West Bengal', zip: '700016' },
+          bloodGroup: 'O+', emergencyContact: { name: 'Sunita Gupta', phone: '9876543200', relation: 'Mother' } },
+        { firstName: 'Sneha', lastName: 'Patel', email: 'sneha.patel@gmail.com',
+          phone: '9765432109', gender: 'female', dob: new Date('1995-11-25'),
+          address: { street: '7 Ashram Road', city: 'Ahmedabad', state: 'Gujarat', zip: '380009' },
+          bloodGroup: 'A+', emergencyContact: { name: 'Ramesh Patel', phone: '9765432100', relation: 'Father' } }
+    ];
+
+    const patientUsers = [];
+    const patientProfiles = [];
+    for (const def of patientDefs) {
+        const u = await User.create({
+            firstName: def.firstName, lastName: def.lastName,
+            email: def.email, password: 'Patient@1234',
+            phone: def.phone, role: constants.ROLES.PATIENT,
+            isVerified: true, status: constants.USER_STATUS.ACTIVE
+        });
+        const p = await Patient.create({
+            userId: u._id,
+            firstName: def.firstName, lastName: def.lastName,
+            dob: def.dob, gender: def.gender,
+            address: def.address, rawAddress: Object.values(def.address).join(', '),
+            bloodGroup: def.bloodGroup, emergencyContact: def.emergencyContact
+        });
+        patientUsers.push(u);
+        patientProfiles.push(p);
+    }
+    console.log(`🧑‍🤝‍🧑  Created ${patientProfiles.length} patients`);
+
+    // ── Family member ─────────────────────────────────────────────────────────
+    await FamilyMember.create({
+        patientId: patientProfiles[0]._id,
+        fullName: 'Riya Gupta', relation: 'Sister',
+        dob: new Date('1995-08-18'), gender: 'female'
+    });
+
+    // ── MR users ──────────────────────────────────────────────────────────────
+    const mrDefs = [
+        { firstName: 'Vikram', lastName: 'Singh', email: 'vikram.singh@pharmamax.com',
+          phone: '9812345678', companyName: 'PharmaMax Inc.', employeeId: 'PM-2021-001',
+          designation: 'Senior Medical Representative', territory: 'Bangalore North' },
+        { firstName: 'Kavya',  lastName: 'Nair',  email: 'kavya.nair@medilife.com',
+          phone: '9823456789', companyName: 'MediLife Pharma', employeeId: 'ML-2022-045',
+          designation: 'Medical Representative', territory: 'Mumbai West' }
+    ];
+
+    const mrUsers = [];
+    const mrProfiles = [];
+    for (const def of mrDefs) {
+        const u = await User.create({
+            firstName: def.firstName, lastName: def.lastName,
+            email: def.email, password: 'MRep@1234',
+            phone: def.phone, role: constants.ROLES.MR,
+            isVerified: true, status: constants.USER_STATUS.ACTIVE
+        });
+        const mr = await MedicalRep.create({
+            userId: u._id,
+            firstName: def.firstName, lastName: def.lastName,
+            companyName: def.companyName, employeeId: def.employeeId,
+            designation: def.designation, territory: def.territory,
+            verificationStatus: constants.VERIFICATION_STATUS.VERIFIED,
+            sampleInventory: [
+                { productName: 'CardioPlus 10mg', batchNumber: 'CP2024Q2-001', quantity: 50, expiryDate: new Date('2025-12-31') },
+                { productName: 'NeuroClear 5mg',  batchNumber: 'NC2024Q1-010', quantity: 30, expiryDate: new Date('2025-06-30') }
+            ]
+        });
+        mrUsers.push(u);
+        mrProfiles.push(mr);
+    }
+    console.log(`🧑‍💼  Created ${mrProfiles.length} MRs`);
+
+    // ── Appointments ──────────────────────────────────────────────────────────
+    const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1); tomorrow.setHours(0,0,0,0);
+    const dayAfter  = new Date(); dayAfter.setDate(dayAfter.getDate() + 3); dayAfter.setHours(0,0,0,0);
+
+    const apt1 = await Appointment.create({
+        patientId: patientProfiles[0]._id, doctorId: doctorProfiles[0]._id,
+        appointmentDate: tomorrow, appointmentTime: '10:00',
+        consultationType: 'clinic', symptoms: 'Chest pain and occasional breathlessness for 2 weeks.',
+        status: 'confirmed', amount: doctorProfiles[0].consultationFee, paymentStatus: 'completed'
+    });
+    const apt2 = await Appointment.create({
+        patientId: patientProfiles[1]._id, doctorId: doctorProfiles[1]._id,
+        appointmentDate: dayAfter, appointmentTime: '11:30',
+        consultationType: 'video', symptoms: 'Persistent skin rash and itching on arms.',
+        status: 'pending', amount: doctorProfiles[1].consultationFee, paymentStatus: 'pending'
+    });
+    const apt3 = await Appointment.create({
+        patientId: patientProfiles[0]._id, doctorId: doctorProfiles[2]._id,
+        appointmentDate: dayAfter, appointmentTime: '14:00',
+        consultationType: 'chat', symptoms: 'Frequent headaches and dizziness.',
+        status: 'confirmed', amount: doctorProfiles[2].consultationFee, paymentStatus: 'completed'
+    });
+    console.log('📅  Created 3 appointments');
+
+    // ── Prescriptions ─────────────────────────────────────────────────────────
+    await Prescription.create({
+        appointmentId: apt1._id, patientId: patientProfiles[0]._id, doctorId: doctorProfiles[0]._id,
+        diagnosis: 'Stable Angina — further cardiac workup recommended.',
+        medicines: [
+            { medicineName: 'Aspirin 75mg', dosage: '75mg', frequency: 'Once daily', duration: '30 days', instructions: 'Take after breakfast' },
+            { medicineName: 'Atorvastatin 20mg', dosage: '20mg', frequency: 'Once at night', duration: '30 days', instructions: 'Take after dinner' }
+        ],
+        instructions: ['Avoid strenuous exercise', 'Low-salt diet', 'Follow up in 1 month'],
+        followUpDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+    });
+    console.log('📋  Created 1 prescription');
+
+    // ── Pharmacy order ────────────────────────────────────────────────────────
+    await PharmacyOrder.create({
+        patientId: patientProfiles[0]._id,
+        medicines: [
+            { medicineName: 'Paracetamol 500mg', quantity: 2, price: 25 },
+            { medicineName: 'Omeprazole 20mg',   quantity: 1, price: 55 }
+        ],
+        totalAmount: 105, discountApplied: 0, taxAmount: 0, finalAmount: 105,
+        paymentMethod: 'UPI', paymentStatus: 'completed',
+        deliveryAddress: {
+            street: '23 Park Street', city: 'Kolkata', state: 'West Bengal',
+            zip: '700016', contactPhone: '9876543210'
+        },
+        status: 'confirmed'
+    });
+    console.log('🛒  Created 1 pharmacy order');
+
+    // ── Lab booking ───────────────────────────────────────────────────────────
+    const labDate = new Date(); labDate.setDate(labDate.getDate() + 2);
+    await LabBooking.create({
+        patientId: patientProfiles[0]._id,
+        testIds: [labTests[0]._id, labTests[1]._id],
+        scheduledAt: labDate,
+        address: '23 Park Street, Kolkata, West Bengal 700016',
+        status: 'pending'
+    });
+    console.log('🧫  Created 1 lab booking');
+
+    // ── Chemists for MR ───────────────────────────────────────────────────────
+    await Chemist.create({
+        mrId: mrUsers[0]._id,
+        chemistName: 'LifeCare Pharmacy',
+        contactPerson: 'Suresh Kumar',
+        phone: '9876543001',
+        address: '15 Commercial Street', city: 'Bangalore'
+    });
+
+    // ── Expenses for MR ───────────────────────────────────────────────────────
+    await Expense.create({
+        mrId: mrUsers[0]._id, amount: 850,
+        expenseType: 'travel', date: new Date(),
+        description: 'Cab fare for Bangalore North clinic visits', approvalStatus: 'pending'
+    });
+
+    // ── Tour plan for MR ──────────────────────────────────────────────────────
+    await TourPlan.create({
+        mrId: mrUsers[0]._id,
+        month: new Date().getMonth() + 1,
+        year: new Date().getFullYear(),
+        routes: [{
+            date: tomorrow,
+            territory: 'Bangalore North',
+            objective: 'Introduce CardioPlus 10mg to cardiologists at HeartCare Clinic'
+        }]
+    });
+    console.log('🗺   Created MR Chemist, Expense, and TourPlan');
+
+    // ── MR Meeting request ────────────────────────────────────────────────────
+    await MRMeetings.create({
+        mrId: mrUsers[0]._id,
+        doctorId: doctorProfiles[0]._id,
+        scheduledAt: dayAfter,
+        agenda: 'Product presentation: CardioPlus 10mg — efficacy and dosage discussion.',
+        status: 'pending'
+    });
+    console.log('🤝  Created 1 MR meeting request');
+
+    // ── Summary ───────────────────────────────────────────────────────────────
+    console.log('\n============================================================');
+    console.log('✅  Database seeded successfully!');
+    console.log('============================================================');
+    console.log('\n🔑  Sample Login Credentials:');
+    console.log('─────────────────────────────────────────────────────────');
+    console.log('👤  Admin   : admin@healthcare.com          / Admin@1234');
+    console.log('👨‍⚕️  Doctor  : dr.sharma@hospital.com       / Doctor@1234');
+    console.log('👨‍⚕️  Doctor  : dr.mehta@wellness.com        / Doctor@1234');
+    console.log('👨‍⚕️  Doctor  : dr.krishnan@neurology.com    / Doctor@1234');
+    console.log('🧑  Patient : aarav.gupta@gmail.com         / Patient@1234');
+    console.log('🧑  Patient : sneha.patel@gmail.com         / Patient@1234');
+    console.log('🧑‍💼  MR      : vikram.singh@pharmamax.com   / MRep@1234');
+    console.log('🧑‍💼  MR      : kavya.nair@medilife.com      / MRep@1234');
+    console.log('============================================================\n');
 };
 
-// Run seed
+// ── Entry point ───────────────────────────────────────────────────────────────
 const runSeed = async () => {
     await connectDB();
     await seedDatabase();
+    await mongoose.disconnect();
     process.exit(0);
 };
 
-// Check if this file is being run directly
 if (require.main === module) {
     runSeed();
 }

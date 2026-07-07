@@ -110,15 +110,20 @@ exports.patientRegister = async (req, res, next) => {
             return next(new ErrorResponse('Email already registered', 400));
         }
 
-        // Split fullName
-        const names = fullName.trim().split(' ');
-        const firstName = names[0];
-        const lastName = names.slice(1).join(' ') || 'Patient';
+        // Split fullName on first space
+        const trimmedName = fullName.trim();
+        const spaceIndex = trimmedName.indexOf(' ');
+        let firstName = trimmedName;
+        let lastName = '';
+        if (spaceIndex !== -1) {
+            firstName = trimmedName.substring(0, spaceIndex).trim();
+            lastName = trimmedName.substring(spaceIndex + 1).trim();
+        }
 
         // Format phone numbers
-        const formattedPhone = `+91${phoneDigits}`;
+        const formattedPhone = phoneDigits; // 10 digits
         const emergDigits = emergencyPhone.replace(/\D/g, '');
-        const formattedEmergPhone = emergDigits.length === 10 ? `+91${emergDigits}` : '+919999999999';
+        const formattedEmergPhone = emergDigits; // 10 digits
 
         // Parse optional profile image if uploaded
         let profilePicture;
@@ -132,15 +137,20 @@ exports.patientRegister = async (req, res, next) => {
         const user = await User.create({
             email: email.toLowerCase(),
             password,
+            firstName,
+            lastName,
+            phone: formattedPhone,
             role: constants.ROLES.PATIENT,
             status: constants.USER_STATUS.ACTIVE,
-            profileComplete: true
+            profilePhoto: profilePicture,
+            profileComplete: true,
+            isVerified: false
         });
         console.log(`    ✅  User created — ID: ${user._id}`);
 
         // Set up medical history if provided
         const medicalHistory = [];
-        if (medicalConditions && medicalConditions.trim()) {
+        if (medicalConditions && medicalConditions.trim() && !['none', 'None', 'N/A', 'n/a'].includes(medicalConditions.trim())) {
             medicalHistory.push({
                 condition: medicalConditions.trim(),
                 diagnosisDate: new Date(),
@@ -148,6 +158,9 @@ exports.patientRegister = async (req, res, next) => {
                 notes: 'Declared at registration'
             });
         }
+
+        // Parse address
+        const parsedAddress = parseAddress(address);
 
         // Create Patient Profile record
         console.log('    💾  Creating Patient profile in DB...');
@@ -157,10 +170,11 @@ exports.patientRegister = async (req, res, next) => {
             lastName,
             dob: parseDob(dob),
             gender: gender.toLowerCase(),
-            address: parseAddress(address),
+            address: parsedAddress,
+            rawAddress: address,
             bloodGroup: bloodGroup || 'unknown',
             emergencyContact: {
-                name: 'Emergency Contact',
+                name: 'Not Provided',
                 phone: formattedEmergPhone,
                 relation: 'Contact'
             },
@@ -177,17 +191,18 @@ exports.patientRegister = async (req, res, next) => {
 
         res.status(201).json({
             success: true,
-            message: 'Patient registered successfully.',
+            token,
+            refreshToken,
             data: {
                 userId: user._id,
                 patientId: patient._id,
+                profileComplete: true,
+                role: 'patient',
                 fullName: `${patient.firstName} ${patient.lastName}`,
                 email: user.email,
-                role: user.role,
-                profilePicture: patient.profilePicture
-            },
-            token,
-            refreshToken
+                phone: user.phone,
+                profilePhoto: patient.profilePicture
+            }
         });
 
     } catch (error) {

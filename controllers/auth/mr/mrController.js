@@ -73,28 +73,38 @@ exports.mrRegister = async (req, res, next) => {
         }
         console.log('    ✅  All required files present');
 
+        // Split fullName into firstName and lastName on first space
+        const trimmedName = fullName.trim();
+        const spaceIndex = trimmedName.indexOf(' ');
+        let firstName = trimmedName;
+        let lastName = '';
+        if (spaceIndex !== -1) {
+            firstName = trimmedName.substring(0, spaceIndex).trim();
+            lastName = trimmedName.substring(spaceIndex + 1).trim();
+        }
+
+        // Save file paths
+        const profilePicture = `/uploads/${req.files['profilePhoto'][0].filename}`;
+        console.log(`    📸  Profile picture: ${profilePicture}`);
+
         // Create User
         console.log('    💾  Creating User record in DB...');
         const user = await User.create({
             email: email.toLowerCase(),
             password,
+            firstName,
+            lastName,
+            phone: phoneDigits,
             role: constants.ROLES.MR,
             status: constants.USER_STATUS.ACTIVE,
-            profileComplete: true
+            profilePhoto: profilePicture,
+            profileComplete: true,
+            isVerified: false
         });
         console.log(`    ✅  User created — ID: ${user._id}`);
 
-        // Split fullName into firstName and lastName
-        const names = fullName.trim().split(' ');
-        const firstName = names[0];
-        const lastName = names.slice(1).join(' ') || 'Representative';
-
         // Format phone
-        const formattedPhone = `+91${phoneDigits}`;
-
-        // Save file paths
-        const profilePicture = `/uploads/${req.files['profilePhoto'][0].filename}`;
-        console.log(`    📸  Profile picture: ${profilePicture}`);
+        const formattedPhone = phoneDigits; // 10 digits
 
         const verificationDocuments = [
             {
@@ -133,6 +143,7 @@ exports.mrRegister = async (req, res, next) => {
                 workEmail: email.toLowerCase()
             },
             profilePicture,
+            verificationStatus: 'pending',
             verificationDocuments
         });
         console.log(`    ✅  MedicalRep profile created — ID: ${medicalRep._id}`);
@@ -145,17 +156,19 @@ exports.mrRegister = async (req, res, next) => {
 
         res.status(201).json({
             success: true,
-            message: 'MR registered successfully.',
+            token,
+            refreshToken,
             data: {
                 userId: user._id,
                 mrId: medicalRep._id,
+                profileComplete: true,
+                role: 'mr',
                 fullName: `${medicalRep.firstName} ${medicalRep.lastName}`,
                 email: user.email,
-                role: user.role,
-                profilePicture: medicalRep.profilePicture
-            },
-            token,
-            refreshToken
+                phone: user.phone,
+                verificationStatus: medicalRep.verificationStatus,
+                profilePhoto: medicalRep.profilePicture
+            }
         });
 
     } catch (error) {

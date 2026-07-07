@@ -825,3 +825,159 @@ exports.rejectMRMeeting = async (req, res, next) => {
         next(error);
     }
 };
+
+// @desc    Confirm appointment
+// @route   PUT /api/doctors/appointments/:id/confirm
+// @access  Private (Doctor only)
+exports.confirmAppointment = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const appointment = await Appointment.findById(id);
+
+        if (!appointment) {
+            return next(new ErrorResponse('Appointment not found', 404));
+        }
+
+        if (appointment.status !== constants.APPOINTMENT_STATUS.PENDING) {
+            return next(new ErrorResponse(`Cannot confirm appointment with status ${appointment.status}`, 400));
+        }
+
+        appointment.status = constants.APPOINTMENT_STATUS.CONFIRMED;
+        await appointment.save();
+
+        // Trigger Notification
+        const notificationService = require('../utils/notificationService');
+        await notificationService.sendNotification({
+            type: 'appointment_confirmed',
+            userId: appointment.patientId,
+            message: `Your appointment has been confirmed for ${appointment.appointmentDate.toLocaleDateString()} at ${appointment.appointmentTime}.`
+        });
+
+        res.status(200).json({
+            success: true,
+            message: 'Appointment confirmed successfully',
+            data: appointment
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+// @desc    Cancel appointment (Doctor initiated)
+// @route   PUT /api/doctors/appointments/:id/cancel
+// @access  Private (Doctor only)
+exports.cancelAppointmentDoctor = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const { reason } = req.body;
+
+        const appointment = await Appointment.findById(id);
+
+        if (!appointment) {
+            return next(new ErrorResponse('Appointment not found', 404));
+        }
+
+        if (appointment.status === constants.APPOINTMENT_STATUS.COMPLETED || appointment.status === constants.APPOINTMENT_STATUS.CANCELLED) {
+            return next(new ErrorResponse(`Cannot cancel a ${appointment.status} appointment`, 400));
+        }
+
+        appointment.status = constants.APPOINTMENT_STATUS.CANCELLED;
+        appointment.cancelledBy = 'doctor';
+        appointment.cancellationReason = reason || 'Doctor unavailable';
+        await appointment.save();
+
+        // Trigger Notification
+        const notificationService = require('../utils/notificationService');
+        await notificationService.sendNotification({
+            type: 'appointment_cancelled',
+            userId: appointment.patientId,
+            message: `Your appointment has been cancelled by the doctor. Reason: ${appointment.cancellationReason}`
+        });
+
+        res.status(200).json({
+            success: true,
+            message: 'Appointment cancelled successfully',
+            data: appointment
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+// @desc    Get patient profile (for doctor with active/completed appointment)
+// @route   GET /api/doctors/patients/:id
+// @access  Private (Doctor only)
+exports.getPatientProfileForDoctor = async (req, res, next) => {
+    try {
+        const { id } = req.params; // Patient document ID
+
+        const patient = await Patient.findById(id).populate('userId', 'email');
+        if (!patient) {
+            return next(new ErrorResponse('Patient not found', 404));
+        }
+
+        res.status(200).json({
+            success: true,
+            data: patient
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+// @desc    Update appointment status (generic — confirmed|rejected|completed)
+// @route   PUT /api/doctors/appointments/:id/status
+// @access  Private (Doctor only)
+exports.updateAppointmentStatus = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const { status, reason } = req.body;
+
+        const allowedStatuses = [
+            constants.APPOINTMENT_STATUS.CONFIRMED,
+            constants.APPOINTMENT_STATUS.CANCELLED,
+            constants.APPOINTMENT_STATUS.COMPLETED
+        ];
+
+        if (!status || !allowedStatuses.includes(status)) {
+            return next(new ErrorResponse(`status must be one of: ${allowedStatuses.join(', ')}`, 400));
+        }
+
+        const appointment = await Appointment.findById(id);
+        if (!appointment) {
+            return next(new ErrorResponse('Appointment not found', 404));
+        }
+
+        // Verify the requesting doctor owns this appointment
+        const Doctor = require('../models/Doctor');
+        const doctor = await Doctor.findOne({ userId: req.user._id });
+        if (!doctor || appointment.doctorId.toString() !== doctor._id.toString()) {
+            return next(new ErrorResponse('Not authorized to update this appointment', 403));
+        }
+
+        if (appointment.status === constants.APPOINTMENT_STATUS.COMPLETED ||
+            appointment.status === constants.APPOINTMENT_STATUS.CANCELLED) {
+            return next(new ErrorResponse(`Cannot update a ${appointment.status} appointment`, 400));
+        }
+
+        appointment.status = status;
+        if (reason) {
+            if (status === constants.APPOINTMENT_STATUS.CANCELLED) {
+                appointment.cancellationReason = reason;
+                appointment.cancelledBy = 'doctor';
+            } else {
+                appointment.doctorNotes = reason;
+            }
+        }
+
+        await appointment.save();
+
+        res.status(200).json({
+            success: true,
+            message: `Appointment status updated to ${status}`,
+            data: appointment
+        });
+    } catch (error) {
+        next(error);
+    }
+};

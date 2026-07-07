@@ -10,10 +10,14 @@ const {
     getAppointments,
     getAppointmentDetails,
     completeAppointment,
+    confirmAppointment,
+    cancelAppointmentDoctor,
+    updateAppointmentStatus,
     createPrescription,
     getPrescriptions,
     getDashboard,
     getPatients,
+    getPatientProfileForDoctor,
     getMRMeetings,
     approveMRMeeting,
     rejectMRMeeting
@@ -27,12 +31,13 @@ const {
     getEarnings,
     requestWithdrawal,
     getEarningsHistory,
-    submitVerificationDocuments
+    submitVerificationDocuments,
+    getDoctorAnalytics
 } = require('../controllers/doctorExtendedController');
 
 // Import middleware
 const { protect, authorize, profileComplete } = require('../middleware/auth');
-const { canAccessDoctorData, canAccessAppointment, canWritePrescription, canAccessMRMeeting } = require('../middleware/roleAuth');
+const { canAccessDoctorData, canAccessPatientData, canAccessAppointment, canWritePrescription, canAccessMRMeeting } = require('../middleware/roleAuth');
 const constants = require('../config/constants');
 
 // All routes are protected and require doctor role
@@ -59,9 +64,14 @@ router.route('/appointments/:id')
     .get(canAccessAppointment, getAppointmentDetails);
 
 router.put('/appointments/:id/complete', canAccessAppointment, completeAppointment);
+router.put('/appointments/:id/confirm', canAccessAppointment, confirmAppointment);
+router.put('/appointments/:id/cancel', canAccessAppointment, cancelAppointmentDoctor);
+router.put('/appointments/:id/status', canAccessAppointment, updateAppointmentStatus);
 
 // Patient routes
 router.get('/patients', getPatients);
+router.get('/patients/:id', canAccessPatientData, getPatientProfileForDoctor);
+router.get('/patients/:id/history', canAccessPatientData, getPatientProfileForDoctor);
 
 // Prescription routes
 router.route('/prescriptions')
@@ -74,6 +84,7 @@ router.post('/mr-meetings/:id/approve', canAccessMRMeeting, approveMRMeeting);
 router.post('/mr-meetings/:id/reject', canAccessMRMeeting, rejectMRMeeting);
 
 // Analytics routes
+router.get('/analytics', getDoctorAnalytics);
 router.get('/analytics/revenue', getRevenueAnalytics);
 router.get('/analytics/ratings', getRatingAnalytics);
 router.get('/analytics/appointments', getAppointmentTrends);

@@ -4,7 +4,7 @@ const constants = require('../config/constants');
 // Middleware to check if user has access to patient data
 exports.canAccessPatientData = async (req, res, next) => {
     try {
-        const { patientId } = req.params;
+        const patientId = req.params.id || req.params.patientId;
         const user = req.user;
 
         if (!user) {
@@ -18,9 +18,6 @@ exports.canAccessPatientData = async (req, res, next) => {
 
         // Patient can access their own data
         if (user.role === constants.ROLES.PATIENT) {
-            // Check if patient is accessing their own data
-            // This assumes the patient ID in params matches the logged-in patient's ID
-            // In practice, you'd need to check the patient document linked to the user
             const Patient = require('../models/Patient');
             const patient = await Patient.findOne({ userId: user._id });
 
@@ -31,11 +28,17 @@ exports.canAccessPatientData = async (req, res, next) => {
 
         // Doctor can access data of their patients
         if (user.role === constants.ROLES.DOCTOR) {
+            const Doctor = require('../models/Doctor');
+            const doctorDoc = await Doctor.findOne({ userId: user._id });
+            if (!doctorDoc) {
+                return next(new ErrorResponse('Doctor profile not found', 404));
+            }
+
             // Check if this patient has appointments with this doctor
             const Appointment = require('../models/Appointment');
             const hasAppointment = await Appointment.findOne({
                 patientId,
-                doctorId: req.user.doctorId // Assuming doctorId is populated
+                doctorId: doctorDoc._id
             });
 
             if (hasAppointment) {
@@ -53,7 +56,7 @@ exports.canAccessPatientData = async (req, res, next) => {
 // Middleware to check if user has access to doctor data
 exports.canAccessDoctorData = async (req, res, next) => {
     try {
-        const { doctorId } = req.params;
+        const doctorId = req.params.id || req.params.doctorId;
         const user = req.user;
 
         if (!user) {
@@ -92,7 +95,6 @@ exports.canAccessDoctorData = async (req, res, next) => {
 
         // Patient can access doctor data for booking appointments
         if (user.role === constants.ROLES.PATIENT) {
-            // Patients can view doctor profiles for booking
             return next();
         }
 
@@ -105,7 +107,7 @@ exports.canAccessDoctorData = async (req, res, next) => {
 // Middleware to check if user can access appointment
 exports.canAccessAppointment = async (req, res, next) => {
     try {
-        const { appointmentId } = req.params;
+        const appointmentId = req.params.id || req.params.appointmentId;
         const user = req.user;
 
         if (!user) {
@@ -153,7 +155,7 @@ exports.canAccessAppointment = async (req, res, next) => {
 // Middleware to check if user can access prescription
 exports.canAccessPrescription = async (req, res, next) => {
     try {
-        const { prescriptionId } = req.params;
+        const prescriptionId = req.params.id || req.params.prescriptionId;
         const user = req.user;
 
         if (!user) {
@@ -201,11 +203,16 @@ exports.canAccessPrescription = async (req, res, next) => {
 // Middleware to check if user can modify appointment
 exports.canModifyAppointment = async (req, res, next) => {
     try {
-        const { appointmentId } = req.params;
+        const appointmentId = req.params.id || req.params.appointmentId;
         const user = req.user;
 
         if (!user) {
             return next(new ErrorResponse('User not authenticated', 401));
+        }
+
+        // Admin can modify appointments
+        if (user.role === constants.ROLES.ADMIN) {
+            return next();
         }
 
         const Appointment = require('../models/Appointment');
@@ -215,13 +222,15 @@ exports.canModifyAppointment = async (req, res, next) => {
             return next(new ErrorResponse('Appointment not found', 404));
         }
 
-        // Check if appointment can be modified
-        if (!appointment.canBeRescheduled() && req.method !== 'DELETE') {
-            return next(new ErrorResponse('Appointment cannot be rescheduled', 400));
-        }
+        // Time limits only apply to patients. Doctors can modify or cancel appointments anytime.
+        if (user.role === constants.ROLES.PATIENT) {
+            if (!appointment.canBeRescheduled() && req.method !== 'DELETE') {
+                return next(new ErrorResponse('Appointment cannot be rescheduled (less than 4 hours remaining)', 400));
+            }
 
-        if (!appointment.canBeCancelled() && req.method === 'DELETE') {
-            return next(new ErrorResponse('Appointment cannot be cancelled', 400));
+            if (!appointment.canBeCancelled() && req.method === 'DELETE') {
+                return next(new ErrorResponse('Appointment cannot be cancelled (less than 2 hours remaining)', 400));
+            }
         }
 
         // Patient can modify their own appointments
@@ -234,7 +243,7 @@ exports.canModifyAppointment = async (req, res, next) => {
             }
         }
 
-        // Doctor can modify their own appointments
+        // Doctor can modify their own appointments (cancel/confirm)
         if (user.role === constants.ROLES.DOCTOR) {
             const Doctor = require('../models/Doctor');
             const doctor = await Doctor.findOne({ userId: user._id });
@@ -286,7 +295,7 @@ exports.canWritePrescription = async (req, res, next) => {
 // Middleware to check if user can access MR meeting
 exports.canAccessMRMeeting = async (req, res, next) => {
     try {
-        const { meetingId } = req.params;
+        const meetingId = req.params.id || req.params.meetingId;
         const user = req.user;
 
         if (!user) {

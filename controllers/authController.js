@@ -3,6 +3,7 @@ const Patient = require('../models/Patient');
 const Doctor = require('../models/Doctor');
 const MedicalRep = require('../models/MedicalRep');
 const ErrorResponse = require('../utils/errorResponse');
+const TokenBlacklist = require('../models/TokenBlacklist');
 const { generateToken, generateRefreshToken } = require('../middleware/auth');
 const { validate } = require('../middleware/validation');
 const constants = require('../config/constants');
@@ -140,17 +141,59 @@ exports.completePatientProfile = [
                 insuranceDetails = {}
             } = req.body;
 
+            let fName = firstName;
+            let lName = lastName;
+            if (req.body.fullName) {
+                const names = helpers.parseFullName(req.body.fullName);
+                fName = names.firstName;
+                lName = names.lastName;
+            }
+
+            const parsedDob = helpers.normalizeDob(dob);
+            const parsedAddress = helpers.parseAddress(address);
+
+            // Normalize emergencyContact
+            let parsedEmergencyContact = emergencyContact;
+            if (typeof emergencyContact === 'string') {
+                parsedEmergencyContact = {
+                    name: 'Emergency Contact',
+                    phone: emergencyContact,
+                    relation: 'Contact'
+                };
+            } else if (emergencyContact) {
+                parsedEmergencyContact = {
+                    name: emergencyContact.name || 'Emergency Contact',
+                    phone: emergencyContact.phone || req.body.emergencyPhone || '9999999999',
+                    relation: emergencyContact.relation || 'Contact'
+                };
+            } else if (req.body.emergencyPhone) {
+                parsedEmergencyContact = {
+                    name: 'Emergency Contact',
+                    phone: req.body.emergencyPhone,
+                    relation: 'Contact'
+                };
+            } else {
+                parsedEmergencyContact = {
+                    name: 'Emergency Contact',
+                    phone: '9999999999',
+                    relation: 'Contact'
+                };
+            }
+
+            // Normalize medicalHistory
+            const parsedMedicalHistory = helpers.normalizeMedicalHistory(req.body.medicalConditions || medicalHistory);
+
             // Create patient profile
             const patient = await Patient.create({
                 userId: user._id,
-                firstName,
-                lastName,
-                dob,
+                firstName: fName,
+                lastName: lName,
+                dob: parsedDob,
                 gender,
-                address,
+                address: parsedAddress,
                 bloodGroup,
-                emergencyContact,
-                medicalHistory,
+                emergencyContact: parsedEmergencyContact,
+                medicalHistory: parsedMedicalHistory,
                 allergies,
                 insuranceDetails
             });
@@ -207,6 +250,25 @@ exports.completeDoctorProfile = [
                 certificates = []
             } = req.body;
 
+            let fName = firstName;
+            let lName = lastName;
+            if (req.body.fullName) {
+                const names = helpers.parseFullName(req.body.fullName);
+                fName = names.firstName;
+                lName = names.lastName;
+            }
+
+            // Parse clinic
+            let parsedClinic = clinic;
+            if (typeof clinic === 'string') {
+                parsedClinic = {
+                    name: 'Doctor Clinic',
+                    address: clinic,
+                    city: 'Default City',
+                    phone: '+919999999999'
+                };
+            }
+
             // Check if license number is unique
             const existingLicense = await Doctor.findOne({ licenseNumber });
             if (existingLicense) {
@@ -216,16 +278,18 @@ exports.completeDoctorProfile = [
             // Create doctor profile
             const doctor = await Doctor.create({
                 userId: user._id,
-                firstName,
-                lastName,
+                firstName: fName,
+                lastName: lName,
                 specialization,
                 licenseNumber,
                 yearsExperience,
-                clinic,
+                clinic: parsedClinic,
                 consultationFee,
                 consultationTypes,
                 bio,
                 certificates,
+                schedule: req.body.schedule || {},
+                slotDurationMinutes: req.body.slotDurationMinutes || 30,
                 verificationStatus: constants.VERIFICATION_STATUS.PENDING
             });
 
@@ -280,11 +344,20 @@ exports.completeMRProfile = [
                 employmentDetails
             } = req.body;
 
+            let fName = firstName;
+            let lName = lastName;
+            if (req.body.fullName) {
+                const names = helpers.parseFullName(req.body.fullName);
+                fName = names.firstName;
+                lName = names.lastName;
+            }
+
             // Create MR profile
             const medicalRep = await MedicalRep.create({
                 userId: user._id,
-                firstName,
-                lastName,
+                firstName: fName,
+                lastName: lName,
+                phone: req.body.phone || '+919999999999',
                 companyName,
                 territory,
                 designation,
@@ -292,7 +365,7 @@ exports.completeMRProfile = [
                 productsHandled,
                 employmentDetails: employmentDetails || {
                     joiningDate: new Date(),
-                    employeeId: helpers.generateRandomString(8),
+                    employeeId: req.body.employeeId || helpers.generateRandomString(8),
                     department: 'Sales'
                 }
             });
@@ -360,10 +433,23 @@ exports.refreshToken = async (req, res, next) => {
 // @access  Private
 exports.logout = async (req, res, next) => {
     try {
-        // In a real application, you might want to:
-        // 1. Add token to blacklist
-        // 2. Clear cookies
-        // 3. Update user session
+        let token;
+        if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
+            token = req.headers.authorization.split(' ')[1];
+        } else if (req.cookies && req.cookies.token) {
+            token = req.cookies.token;
+        }
+
+        if (token) {
+            const decoded = jwt.decode(token);
+            const expiresAt = decoded && decoded.exp ? new Date(decoded.exp * 1000) : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+            
+            // Save to blacklist if it isn't already blacklisted
+            const isBlacklisted = await TokenBlacklist.findOne({ token });
+            if (!isBlacklisted) {
+                await TokenBlacklist.create({ token, expiresAt });
+            }
+        }
 
         res.status(200).json({
             success: true,

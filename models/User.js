@@ -31,18 +31,32 @@ const userSchema = new mongoose.Schema({
         type: Boolean,
         default: false
     },
+    firstName: {
+        type: String,
+        trim: true
+    },
+    lastName: {
+        type: String,
+        trim: true
+    },
+    phone: {
+        type: String,
+        trim: true
+    },
+    isVerified: {
+        type: Boolean,
+        default: false
+    },
+    profilePhoto: {
+        type: String,
+        trim: true
+    },
     resetPasswordToken: String,
     resetPasswordExpire: Date,
     lastLogin: {
         type: Date,
         default: Date.now
-    },
-    emailVerified: {
-        type: Boolean,
-        default: false
-    },
-    emailVerificationToken: String,
-    emailVerificationExpire: Date
+    }
 }, {
     timestamps: true
 });
