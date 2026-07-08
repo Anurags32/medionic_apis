@@ -5,6 +5,7 @@ const Patient = require('../models/Patient');
 const FamilyMember = require('../models/FamilyMember');
 const ErrorResponse = require('../utils/errorResponse');
 const constants = require('../config/constants');
+const mongoose = require('mongoose');
 
 // @desc    Reschedule appointment
 // @route   PUT /api/patients/appointments/:id/reschedule
@@ -130,7 +131,7 @@ exports.uploadMedicalRecord = async (req, res, next) => {
         }
 
         const record = {
-            _id: new require('mongoose').Types.ObjectId(),
+            _id: new mongoose.Types.ObjectId(),
             category,
             description,
             fileUrl,
@@ -243,7 +244,7 @@ exports.addEmergencyContact = async (req, res, next) => {
         }
 
         const contact = {
-            _id: new require('mongoose').Types.ObjectId(),
+            _id: new mongoose.Types.ObjectId(),
             name,
             phone,
             relation,

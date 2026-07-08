@@ -40,6 +40,7 @@ const {
 const { payAppointment } = require('../controllers/paymentController');
 
 // Import middleware
+const upload = require('../services/uploadService');
 const { protect, authorize, profileComplete } = require('../middleware/auth');
 const { canAccessPatientData, canAccessAppointment, canAccessPrescription, canModifyAppointment } = require('../middleware/roleAuth');
 const constants = require('../config/constants');
@@ -90,7 +91,7 @@ router.get('/prescriptions/:id/pdf', canAccessPrescription, downloadPrescription
 // Medical records routes
 router.route('/medical-records')
     .get(getMedicalRecords)
-    .post(uploadMedicalRecord);
+    .post(upload.single('file'), uploadMedicalRecord);
 
 router.route('/medical-records/:id')
     .delete(deleteMedicalRecord);

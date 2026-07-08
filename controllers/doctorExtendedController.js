@@ -3,6 +3,7 @@ const Appointment = require('../models/Appointment');
 const Prescription = require('../models/Prescription');
 const ErrorResponse = require('../utils/errorResponse');
 const constants = require('../config/constants');
+const mongoose = require('mongoose');
 
 // @desc    Get revenue analytics
 // @route   GET /api/doctors/analytics/revenue
@@ -285,7 +286,7 @@ exports.requestWithdrawal = async (req, res, next) => {
         }
 
         const withdrawal = {
-            _id: new require('mongoose').Types.ObjectId(),
+            _id: new mongoose.Types.ObjectId(),
             amount,
             bankDetails,
             status: 'pending',

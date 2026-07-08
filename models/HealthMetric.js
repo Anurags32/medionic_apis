@@ -351,7 +351,7 @@ healthMetricSchema.statics.getDailyAverages = async function (patientId, metricT
     const result = await this.aggregate([
         {
             $match: {
-                patientId: mongoose.Types.ObjectId(patientId),
+                patientId: new mongoose.Types.ObjectId(patientId),
                 metricType,
                 timestamp: { $gte: startDate }
             }
