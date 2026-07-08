@@ -14,7 +14,6 @@ const helpers = require('../utils/helpers');
 exports.getProfile = async (req, res, next) => {
     try {
         const user = req.user;
-
         const doctor = await Doctor.findOne({ userId: user._id });
 
         if (!doctor) {
@@ -24,9 +23,26 @@ exports.getProfile = async (req, res, next) => {
         res.status(200).json({
             success: true,
             data: {
-                ...doctor.toObject(),
-                experience: doctor.experience,
-                displayName: doctor.displayName
+                firstName: doctor.firstName || user.firstName,
+                lastName: doctor.lastName || user.lastName,
+                email: user.email,
+                phone: user.phone,
+                specialization: doctor.specialization,
+                licenseNumber: doctor.licenseNumber,
+                registrationCouncil: doctor.registrationCouncil,
+                qualification: doctor.qualification,
+                yearsExperience: doctor.yearsExperience,
+                clinic: {
+                    name: doctor.clinic.name,
+                    address: doctor.clinic.address,
+                    city: doctor.clinic.city
+                },
+                consultationFee: doctor.consultationFee,
+                verificationStatus: doctor.verificationStatus,
+                bio: doctor.bio,
+                profilePhoto: user.profilePhoto || doctor.profilePicture,
+                shift: doctor.shift,
+                slotDurationMinutes: doctor.slotDurationMinutes
             }
         });
     } catch (error) {
@@ -40,32 +56,79 @@ exports.getProfile = async (req, res, next) => {
 exports.updateProfile = async (req, res, next) => {
     try {
         const user = req.user;
-
         const doctor = await Doctor.findOne({ userId: user._id });
 
         if (!doctor) {
             return next(new ErrorResponse('Doctor profile not found', 404));
         }
 
-        // Update allowed fields
-        const allowedUpdates = [
-            'firstName', 'lastName', 'specialization', 'yearsExperience',
-            'clinic', 'consultationFee', 'consultationTypes', 'bio',
-            'languages', 'education', 'profilePicture'
-        ];
+        // Update User fields if present in req.body
+        let userUpdated = false;
+        if (req.body.profilePhoto !== undefined) {
+            user.profilePhoto = req.body.profilePhoto;
+            doctor.profilePicture = req.body.profilePhoto;
+            userUpdated = true;
+        }
+        if (userUpdated) {
+            await user.save();
+        }
 
-        allowedUpdates.forEach(field => {
-            if (req.body[field] !== undefined) {
-                doctor[field] = req.body[field];
+        // Update Doctor fields if present in req.body
+        if (req.body.specialization !== undefined) {
+            doctor.specialization = req.body.specialization;
+        }
+        if (req.body.clinic !== undefined) {
+            if (typeof req.body.clinic === 'object') {
+                doctor.clinic = {
+                    ...doctor.clinic,
+                    ...req.body.clinic
+                };
             }
-        });
+        }
+        if (req.body.consultationFee !== undefined) {
+            doctor.consultationFee = req.body.consultationFee;
+        }
+        if (req.body.bio !== undefined) {
+            doctor.bio = req.body.bio;
+        }
+        if (req.body.shift !== undefined) {
+            let parsedShift = req.body.shift;
+            if (typeof parsedShift === 'string') {
+                try { parsedShift = JSON.parse(parsedShift); } catch (e) {}
+            }
+            doctor.shift = parsedShift;
+        }
+        if (req.body.slotDurationMinutes !== undefined) {
+            doctor.slotDurationMinutes = req.body.slotDurationMinutes;
+        }
 
         await doctor.save();
 
         res.status(200).json({
             success: true,
             message: 'Profile updated successfully',
-            data: doctor
+            data: {
+                firstName: doctor.firstName || user.firstName,
+                lastName: doctor.lastName || user.lastName,
+                email: user.email,
+                phone: user.phone,
+                specialization: doctor.specialization,
+                licenseNumber: doctor.licenseNumber,
+                registrationCouncil: doctor.registrationCouncil,
+                qualification: doctor.qualification,
+                yearsExperience: doctor.yearsExperience,
+                clinic: {
+                    name: doctor.clinic.name,
+                    address: doctor.clinic.address,
+                    city: doctor.clinic.city
+                },
+                consultationFee: doctor.consultationFee,
+                verificationStatus: doctor.verificationStatus,
+                bio: doctor.bio,
+                profilePhoto: user.profilePhoto || doctor.profilePicture,
+                shift: doctor.shift,
+                slotDurationMinutes: doctor.slotDurationMinutes
+            }
         });
     } catch (error) {
         next(error);
@@ -409,6 +472,7 @@ exports.getPrescriptions = async (req, res, next) => {
     try {
         const user = req.user;
         const {
+            patientId,
             status,
             patientName,
             fromDate,
@@ -426,6 +490,10 @@ exports.getPrescriptions = async (req, res, next) => {
         // Build query
         const query = { doctorId: doctor._id };
 
+        if (patientId) {
+            query.patientId = patientId;
+        }
+
         if (status) {
             query.status = status;
         }
@@ -439,9 +507,10 @@ exports.getPrescriptions = async (req, res, next) => {
         // Pagination
         const skip = (parseInt(page) - 1) * parseInt(limit);
 
-        // Get prescriptions with patient details
+        // Get prescriptions with patient and appointment details
         const prescriptions = await Prescription.find(query)
             .populate('patientId', 'firstName lastName dob')
+            .populate('appointmentId', 'appointmentDate')
             .skip(skip)
             .limit(parseInt(limit))
             .sort({ issuedAt: -1 });
@@ -465,6 +534,7 @@ exports.getPrescriptions = async (req, res, next) => {
         // Format response
         const formattedPrescriptions = filteredPrescriptions.map(prescription => {
             const patient = prescription.patientId;
+            const appointment = prescription.appointmentId;
             return {
                 prescriptionId: prescription._id,
                 issuedDate: prescription.formattedIssuedDate,
@@ -477,6 +547,7 @@ exports.getPrescriptions = async (req, res, next) => {
                     name: patient.fullName,
                     age: helpers.calculateAge(patient.dob)
                 } : null,
+                appointmentDate: appointment ? appointment.appointmentDate : null,
                 isValid: prescription.isValid,
                 daysUntilExpiry: prescription.daysUntilExpiry
             };
@@ -592,6 +663,7 @@ exports.getPatients = async (req, res, next) => {
     try {
         const user = req.user;
         const {
+            search,
             name,
             lastVisit,
             page = 1,
@@ -610,8 +682,9 @@ exports.getPatients = async (req, res, next) => {
         // Build query
         const query = { _id: { $in: patientIds } };
 
-        if (name) {
-            const nameRegex = new RegExp(name, 'i');
+        const searchQuery = search || name;
+        if (searchQuery) {
+            const nameRegex = new RegExp(searchQuery, 'i');
             query.$or = [
                 { firstName: nameRegex },
                 { lastName: nameRegex }

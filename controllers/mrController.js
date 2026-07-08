@@ -12,7 +12,6 @@ const helpers = require('../utils/helpers');
 exports.getProfile = async (req, res, next) => {
     try {
         const user = req.user;
-
         const mr = await MedicalRep.findOne({ userId: user._id });
 
         if (!mr) {
@@ -22,10 +21,16 @@ exports.getProfile = async (req, res, next) => {
         res.status(200).json({
             success: true,
             data: {
-                ...mr.toObject(),
-                tenure: mr.tenure,
-                achievementPercentage: mr.achievementPercentage,
-                displayName: mr.displayName
+                firstName: mr.firstName || user.firstName,
+                lastName: mr.lastName || user.lastName,
+                email: user.email,
+                phone: user.phone,
+                companyName: mr.companyName,
+                employeeId: mr.employmentDetails ? mr.employmentDetails.employeeId : mr.employeeId,
+                designation: mr.designation,
+                territory: mr.territory,
+                verificationStatus: mr.verificationStatus,
+                profilePhoto: user.profilePhoto || mr.profilePicture
             }
         });
     } catch (error) {
@@ -39,31 +44,48 @@ exports.getProfile = async (req, res, next) => {
 exports.updateProfile = async (req, res, next) => {
     try {
         const user = req.user;
-
         const mr = await MedicalRep.findOne({ userId: user._id });
 
         if (!mr) {
             return next(new ErrorResponse('MR profile not found', 404));
         }
 
-        // Update allowed fields
-        const allowedUpdates = [
-            'firstName', 'lastName', 'companyName', 'territory', 'designation',
-            'contactDetails', 'profilePicture', 'preferences'
-        ];
+        // Update User fields if present in req.body
+        let userUpdated = false;
+        if (req.body.profilePhoto !== undefined) {
+            user.profilePhoto = req.body.profilePhoto;
+            mr.profilePicture = req.body.profilePhoto;
+            userUpdated = true;
+        }
+        if (userUpdated) {
+            await user.save();
+        }
 
-        allowedUpdates.forEach(field => {
-            if (req.body[field] !== undefined) {
-                mr[field] = req.body[field];
-            }
-        });
+        // Update MR fields if present in req.body
+        if (req.body.designation !== undefined) {
+            mr.designation = req.body.designation;
+        }
+        if (req.body.territory !== undefined) {
+            mr.territory = req.body.territory;
+        }
 
         await mr.save();
 
         res.status(200).json({
             success: true,
             message: 'Profile updated successfully',
-            data: mr
+            data: {
+                firstName: mr.firstName || user.firstName,
+                lastName: mr.lastName || user.lastName,
+                email: user.email,
+                phone: user.phone,
+                companyName: mr.companyName,
+                employeeId: mr.employmentDetails ? mr.employmentDetails.employeeId : mr.employeeId,
+                designation: mr.designation,
+                territory: mr.territory,
+                verificationStatus: mr.verificationStatus,
+                profilePhoto: user.profilePhoto || mr.profilePicture
+            }
         });
     } catch (error) {
         next(error);

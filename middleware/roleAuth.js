@@ -286,6 +286,25 @@ exports.canWritePrescription = async (req, res, next) => {
             return next(new ErrorResponse('Doctor must be verified to write prescriptions', 403));
         }
 
+        // Enforce that doctor can only write prescription for a patient who has an appointment with them
+        const { patientId, appointmentId } = req.body;
+
+        if (!patientId || !appointmentId) {
+            return next(new ErrorResponse('Patient ID and Appointment ID are required to write a prescription', 400));
+        }
+
+        const Appointment = require('../models/Appointment');
+        const appointment = await Appointment.findOne({
+            _id: appointmentId,
+            doctorId: doctor._id,
+            patientId: patientId,
+            status: { $in: [constants.APPOINTMENT_STATUS.CONFIRMED, constants.APPOINTMENT_STATUS.COMPLETED] }
+        });
+
+        if (!appointment) {
+            return next(new ErrorResponse('Doctor can only write prescriptions for patients with a confirmed or completed appointment', 403));
+        }
+
         next();
     } catch (error) {
         return next(new ErrorResponse('Error checking prescription permissions', 500));

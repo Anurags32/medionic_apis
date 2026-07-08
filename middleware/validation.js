@@ -1,6 +1,69 @@
 const Joi = require('joi');
 const ErrorResponse = require('../utils/errorResponse');
 
+const validateShift = (value, helpers) => {
+    const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+    const timeToMinutes = (t) => {
+        const [h, m] = t.split(':').map(Number);
+        return h * 60 + m;
+    };
+
+    for (const day of days) {
+        const ranges = value[day] || [];
+        const parsedRanges = [];
+        
+        for (let i = 0; i < ranges.length; i++) {
+            const range = ranges[i];
+            if (!range.start || !range.end) continue;
+            const startMins = timeToMinutes(range.start);
+            const endMins = timeToMinutes(range.end);
+            
+            if (endMins <= startMins) {
+                return helpers.message(`On ${day}, end time (${range.end}) must be strictly after start time (${range.start})`);
+            }
+            parsedRanges.push({ start: startMins, end: endMins, index: i });
+        }
+
+        // Sort ranges by start time
+        parsedRanges.sort((a, b) => a.start - b.start);
+        
+        for (let i = 0; i < parsedRanges.length - 1; i++) {
+            if (parsedRanges[i].end > parsedRanges[i + 1].start) {
+                const overlapStartStr = ranges[parsedRanges[i].index].start;
+                const overlapEndStr = ranges[parsedRanges[i].index].end;
+                const nextStartStr = ranges[parsedRanges[i + 1].index].start;
+                const nextEndStr = ranges[parsedRanges[i + 1].index].end;
+                return helpers.message(`On ${day}, shift ranges overlap between ${overlapStartStr}-${overlapEndStr} and ${nextStartStr}-${nextEndStr}`);
+            }
+        }
+    }
+    return value;
+};
+
+const shiftTimeRegex = /^([01]\d|2[0-3]):[0-5]\d$/;
+const shiftDaySchema = Joi.array().items(
+    Joi.object({
+        start: Joi.string().pattern(shiftTimeRegex).required().messages({
+            'string.pattern.base': 'Start time must be a valid 24-hour time string in HH:mm format'
+        }),
+        end: Joi.string().pattern(shiftTimeRegex).required().messages({
+            'string.pattern.base': 'End time must be a valid 24-hour time string in HH:mm format'
+        })
+    })
+).default([]);
+
+const shiftSchema = Joi.object({
+    monday: shiftDaySchema,
+    tuesday: shiftDaySchema,
+    wednesday: shiftDaySchema,
+    thursday: shiftDaySchema,
+    friday: shiftDaySchema,
+    saturday: shiftDaySchema,
+    sunday: shiftDaySchema
+}).unknown(false).custom(validateShift).messages({
+    'object.unknown': 'Day keys must only be lowercase monday through sunday'
+});
+
 // Validation schemas
 const schemas = {
     // Auth validation
@@ -82,7 +145,9 @@ const schemas = {
         clinicName: Joi.string().required(),
         clinicAddress: Joi.string().required(),
         city: Joi.string().allow('', null),
-        consultationFee: Joi.any().allow('', null)
+        consultationFee: Joi.any().allow('', null),
+        shift: shiftSchema.optional(),
+        slotDurationMinutes: Joi.number().integer().min(1).optional()
     }),
 
     mrRegister: Joi.object({
@@ -477,7 +542,74 @@ const schemas = {
                 })
             })
         ).default([])
-    })
+    }),
+
+    // Profile updates Joi validations
+    updatePatientProfile: Joi.object({
+        firstName: Joi.string().max(50).optional(),
+        lastName: Joi.string().max(50).optional(),
+        phone: Joi.string().optional(),
+        dob: Joi.any().optional(),
+        gender: Joi.string().valid('male', 'female', 'other', 'prefer-not-to-say', 'Male', 'Female', 'Other').optional(),
+        address: Joi.alternatives().try(
+            Joi.string(),
+            Joi.object({
+                street: Joi.string().required(),
+                city: Joi.string().required(),
+                state: Joi.string().required(),
+                zip: Joi.string().pattern(/^\d{5,6}(-\d{4})?$/).required()
+            })
+        ).optional(),
+        bloodGroup: Joi.string().valid('A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-', 'unknown').optional(),
+        emergencyContact: Joi.alternatives().try(
+            Joi.object({
+                name: Joi.string().required(),
+                phone: Joi.string().required(),
+                relation: Joi.string().required()
+            }),
+            Joi.string()
+        ).optional(),
+        medicalHistory: Joi.array().items(
+            Joi.object({
+                condition: Joi.string().required(),
+                diagnosisDate: Joi.date().required(),
+                status: Joi.string().valid('active', 'resolved', 'chronic').default('active'),
+                notes: Joi.string().allow('', null)
+            })
+        ).optional(),
+        allergies: Joi.array().items(
+            Joi.object({
+                allergen: Joi.string().required(),
+                severity: Joi.string().valid('mild', 'moderate', 'severe').required(),
+                reaction: Joi.string().allow('', null)
+            })
+        ).optional(),
+        profilePhoto: Joi.string().allow('', null).optional()
+    }).unknown(false),
+
+    updateDoctorProfile: Joi.object({
+        specialization: Joi.string().optional(),
+        clinic: Joi.alternatives().try(
+            Joi.string(),
+            Joi.object({
+                name: Joi.string().required(),
+                address: Joi.string().required(),
+                city: Joi.string().required(),
+                phone: Joi.string().pattern(/^\+?[1-9]\d{1,14}$/).required()
+            })
+        ).optional(),
+        consultationFee: Joi.number().min(0).optional(),
+        bio: Joi.string().allow('', null).optional(),
+        profilePhoto: Joi.string().allow('', null).optional(),
+        shift: shiftSchema.optional(),
+        slotDurationMinutes: Joi.number().integer().min(1).optional()
+    }).unknown(false),
+
+    updateMRProfile: Joi.object({
+        designation: Joi.string().optional(),
+        territory: Joi.string().optional(),
+        profilePhoto: Joi.string().allow('', null).optional()
+    }).unknown(false)
 };
 
 // Validation middleware factory

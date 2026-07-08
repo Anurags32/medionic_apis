@@ -43,6 +43,7 @@ const { payAppointment } = require('../controllers/paymentController');
 const upload = require('../services/uploadService');
 const { protect, authorize, profileComplete } = require('../middleware/auth');
 const { canAccessPatientData, canAccessAppointment, canAccessPrescription, canModifyAppointment } = require('../middleware/roleAuth');
+const { validate } = require('../middleware/validation');
 const constants = require('../config/constants');
 
 // All routes are protected and require patient role
@@ -59,7 +60,7 @@ router.route('/family-members')
 // Patient profile routes
 router.route('/profile')
     .get(getProfile)
-    .put(updateProfile);
+    .put(validate('updatePatientProfile'), updateProfile);
 
 // Doctor search and details routes
 router.get('/doctors', searchDoctors);

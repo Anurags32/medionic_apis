@@ -139,6 +139,18 @@ exports.doctorRegister = async (req, res, next) => {
             extractedCity = segments[segments.length - 1].trim();
         }
 
+        // Parse initial shift if sent
+        let initialShift = {
+            monday: [], tuesday: [], wednesday: [], thursday: [], friday: [], saturday: [], sunday: []
+        };
+        if (req.body.shift) {
+            let parsedShift = req.body.shift;
+            if (typeof parsedShift === 'string') {
+                try { parsedShift = JSON.parse(parsedShift); } catch (e) {}
+            }
+            initialShift = parsedShift;
+        }
+
         // Create Doctor Profile
         console.log('    💾  Creating Doctor profile in DB...');
         const doctor = await Doctor.create({
@@ -147,6 +159,8 @@ exports.doctorRegister = async (req, res, next) => {
             lastName,
             specialization: specialization.trim(),
             licenseNumber: licenseNumber.trim(),
+            registrationCouncil: registrationCouncil ? registrationCouncil.trim() : '',
+            qualification: qualification ? qualification.trim() : '',
             yearsExperience: parseInt(yearsExperience) || 0,
             clinic: {
                 name: clinicName.trim(),
@@ -163,7 +177,9 @@ exports.doctorRegister = async (req, res, next) => {
                 degree: qualification.trim(),
                 institution: 'Medical Council of India recognized institution',
                 year: new Date().getFullYear() - (parseInt(yearsExperience) || 0)
-            }]
+            }],
+            shift: initialShift,
+            slotDurationMinutes: parseInt(req.body.slotDurationMinutes) || 10
         });
         console.log(`    ✅  Doctor profile created — ID: ${doctor._id} | Status: ${doctor.verificationStatus}`);
 

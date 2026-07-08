@@ -29,10 +29,25 @@ const uploadFields = upload.fields([
     { name: 'councilId', maxCount: 1 }
 ]);
 
+const parseJsonFields = (fields) => {
+    return (req, res, next) => {
+        fields.forEach(field => {
+            if (req.body && typeof req.body[field] === 'string') {
+                try {
+                    req.body[field] = JSON.parse(req.body[field]);
+                } catch (error) {
+                    // Let Joi validate
+                }
+            }
+        });
+        next();
+    };
+};
+
 // ─── Routes ──────────────────────────────────────────────────────────────────
 
 // Public signup & login
-router.post('/register', uploadFields, validate('doctorRegister'), doctorRegister);
+router.post('/register', uploadFields, parseJsonFields(['shift']), validate('doctorRegister'), doctorRegister);
 router.post('/login', doctorLogin);
 
 // Protected Doctor Profile and verification status check

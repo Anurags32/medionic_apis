@@ -32,6 +32,14 @@ const doctorSchema = new mongoose.Schema({
         unique: true,
         trim: true
     },
+    registrationCouncil: {
+        type: String,
+        trim: true
+    },
+    qualification: {
+        type: String,
+        trim: true
+    },
     yearsExperience: {
         type: Number,
         required: [true, 'Years of experience is required'],
@@ -128,9 +136,18 @@ const doctorSchema = new mongoose.Schema({
         saturday: [{ start: String, end: String }],
         sunday: [{ start: String, end: String }]
     },
+    shift: {
+        monday: { type: [{ start: String, end: String }], default: [] },
+        tuesday: { type: [{ start: String, end: String }], default: [] },
+        wednesday: { type: [{ start: String, end: String }], default: [] },
+        thursday: { type: [{ start: String, end: String }], default: [] },
+        friday: { type: [{ start: String, end: String }], default: [] },
+        saturday: { type: [{ start: String, end: String }], default: [] },
+        sunday: { type: [{ start: String, end: String }], default: [] }
+    },
     slotDurationMinutes: {
         type: Number,
-        default: 30
+        default: 10
     },
     holidays: [{
         date: Date,
@@ -210,6 +227,40 @@ doctorSchema.methods.isAvailable = function (date, time) {
     });
 
     if (isHoliday) return false;
+
+    // Check new shift model first
+    const dayShift = this.shift && this.shift[day] ? this.shift[day] : [];
+    if (dayShift.length > 0) {
+        const duration = this.slotDurationMinutes || 10;
+        let validSlots = [];
+        
+        dayShift.forEach(range => {
+            if (range.start && range.end) {
+                const [startHour, startMinute] = range.start.split(':').map(Number);
+                const [endHour, endMinute] = range.end.split(':').map(Number);
+
+                let current = new Date();
+                current.setHours(startHour, startMinute, 0, 0);
+
+                const end = new Date();
+                end.setHours(endHour, endMinute, 0, 0);
+
+                while (true) {
+                    const nextTime = new Date(current);
+                    nextTime.setMinutes(current.getMinutes() + duration);
+                    if (nextTime > end) {
+                        break;
+                    }
+                    const hh = current.getHours().toString().padStart(2, '0');
+                    const mm = current.getMinutes().toString().padStart(2, '0');
+                    validSlots.push(`${hh}:${mm}`);
+                    current = nextTime;
+                }
+            }
+        });
+        
+        return validSlots.includes(time);
+    }
 
     // Check schedule first, then fallback to availability
     const daySchedule = this.schedule && this.schedule[day] ? this.schedule[day] : [];

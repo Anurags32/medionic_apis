@@ -38,6 +38,7 @@ const {
 // Import middleware
 const { protect, authorize, profileComplete } = require('../middleware/auth');
 const { canAccessDoctorData, canAccessPatientData, canAccessAppointment, canWritePrescription, canAccessMRMeeting } = require('../middleware/roleAuth');
+const { validate } = require('../middleware/validation');
 const constants = require('../config/constants');
 
 // All routes are protected and require doctor role
@@ -46,7 +47,7 @@ router.use(protect, authorize(constants.ROLES.DOCTOR), profileComplete);
 // Doctor profile routes
 router.route('/profile')
     .get(getProfile)
-    .put(updateProfile);
+    .put(validate('updateDoctorProfile'), updateProfile);
 
 // Schedule routes
 router.route('/schedule')

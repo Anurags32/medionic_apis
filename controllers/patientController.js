@@ -15,23 +15,27 @@ const helpers = require('../utils/helpers');
 exports.getProfile = async (req, res, next) => {
     try {
         const user = req.user;
-
-        // Get patient profile
         const patient = await Patient.findOne({ userId: user._id });
 
         if (!patient) {
             return next(new ErrorResponse('Patient profile not found', 404));
         }
 
-        // Calculate age
-        const age = helpers.calculateAge(patient.dob);
-
         res.status(200).json({
             success: true,
             data: {
-                ...patient.toObject(),
-                age,
-                formattedAddress: patient.formattedAddress
+                firstName: patient.firstName || user.firstName,
+                lastName: patient.lastName || user.lastName,
+                email: user.email,
+                phone: user.phone,
+                dob: patient.dob,
+                gender: patient.gender,
+                address: patient.address,
+                bloodGroup: patient.bloodGroup,
+                emergencyContact: patient.emergencyContact,
+                medicalHistory: patient.medicalHistory,
+                allergies: patient.allergies,
+                profilePhoto: user.profilePhoto || patient.profilePicture
             }
         });
     } catch (error) {
@@ -45,33 +49,87 @@ exports.getProfile = async (req, res, next) => {
 exports.updateProfile = async (req, res, next) => {
     try {
         const user = req.user;
-
-        // Find patient
         const patient = await Patient.findOne({ userId: user._id });
 
         if (!patient) {
             return next(new ErrorResponse('Patient profile not found', 404));
         }
 
-        // Update allowed fields
-        const allowedUpdates = [
-            'firstName', 'lastName', 'dob', 'gender', 'address', 'bloodGroup',
-            'emergencyContact', 'medicalHistory', 'allergies', 'insuranceDetails',
-            'height', 'weight', 'profilePicture', 'preferences'
-        ];
+        // Update User fields if present in req.body (email changes are blocked)
+        let userUpdated = false;
+        if (req.body.firstName !== undefined) {
+            user.firstName = req.body.firstName;
+            patient.firstName = req.body.firstName;
+            userUpdated = true;
+        }
+        if (req.body.lastName !== undefined) {
+            user.lastName = req.body.lastName;
+            patient.lastName = req.body.lastName;
+            userUpdated = true;
+        }
+        if (req.body.phone !== undefined) {
+            user.phone = req.body.phone;
+            userUpdated = true;
+        }
+        if (req.body.profilePhoto !== undefined) {
+            user.profilePhoto = req.body.profilePhoto;
+            patient.profilePicture = req.body.profilePhoto;
+            userUpdated = true;
+        }
+        if (userUpdated) {
+            await user.save();
+        }
 
-        allowedUpdates.forEach(field => {
-            if (req.body[field] !== undefined) {
-                patient[field] = req.body[field];
+        // Update Patient fields if present in req.body
+        if (req.body.dob !== undefined) {
+            patient.dob = helpers.normalizeDob(req.body.dob);
+        }
+        if (req.body.gender !== undefined) {
+            patient.gender = req.body.gender;
+        }
+        if (req.body.address !== undefined) {
+            patient.address = helpers.parseAddress(req.body.address);
+        }
+        if (req.body.bloodGroup !== undefined) {
+            patient.bloodGroup = req.body.bloodGroup;
+        }
+        if (req.body.emergencyContact !== undefined) {
+            let parsedEmergencyContact = req.body.emergencyContact;
+            if (typeof parsedEmergencyContact === 'string') {
+                parsedEmergencyContact = {
+                    name: 'Emergency Contact',
+                    phone: parsedEmergencyContact,
+                    relation: 'Contact'
+                };
             }
-        });
+            patient.emergencyContact = parsedEmergencyContact;
+        }
+        if (req.body.medicalHistory !== undefined) {
+            patient.medicalHistory = req.body.medicalHistory;
+        }
+        if (req.body.allergies !== undefined) {
+            patient.allergies = req.body.allergies;
+        }
 
         await patient.save();
 
         res.status(200).json({
             success: true,
             message: 'Profile updated successfully',
-            data: patient
+            data: {
+                firstName: patient.firstName || user.firstName,
+                lastName: patient.lastName || user.lastName,
+                email: user.email,
+                phone: user.phone,
+                dob: patient.dob,
+                gender: patient.gender,
+                address: patient.address,
+                bloodGroup: patient.bloodGroup,
+                emergencyContact: patient.emergencyContact,
+                medicalHistory: patient.medicalHistory,
+                allergies: patient.allergies,
+                profilePhoto: user.profilePhoto || patient.profilePicture
+            }
         });
     } catch (error) {
         next(error);
@@ -981,11 +1039,16 @@ const generateTimeSlots = (startTimeStr, endTimeStr, slotDuration) => {
     const end = new Date();
     end.setHours(endHour, endMinute, 0, 0);
 
-    while (current < end) {
+    while (true) {
+        const nextTime = new Date(current);
+        nextTime.setMinutes(current.getMinutes() + slotDuration);
+        if (nextTime > end) {
+            break;
+        }
         const hh = current.getHours().toString().padStart(2, '0');
         const mm = current.getMinutes().toString().padStart(2, '0');
         slots.push(`${hh}:${mm}`);
-        current.setMinutes(current.getMinutes() + slotDuration);
+        current = nextTime;
     }
     return slots;
 };
@@ -1029,13 +1092,22 @@ exports.getAvailableSlots = async (req, res, next) => {
         const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
         const dayName = days[queryDate.getDay()];
 
-        // Get doctor schedule for this day
+        // Get doctor shift/schedule for this day
+        const dayShift = doctor.shift && doctor.shift[dayName] ? doctor.shift[dayName] : [];
         const daySchedule = doctor.schedule && doctor.schedule[dayName] ? doctor.schedule[dayName] : [];
         const dayAvailability = doctor.availability && doctor.availability[dayName] ? doctor.availability[dayName] : [];
 
         let allSlots = [];
+        const duration = doctor.slotDurationMinutes || 10;
 
-        if (daySchedule.length > 0) {
+        if (dayShift.length > 0) {
+            dayShift.forEach(slotRange => {
+                if (slotRange.start && slotRange.end) {
+                    const generated = generateTimeSlots(slotRange.start, slotRange.end, duration);
+                    allSlots = allSlots.concat(generated);
+                }
+            });
+        } else if (daySchedule.length > 0) {
             daySchedule.forEach(slotRange => {
                 if (slotRange.start && slotRange.end) {
                     const generated = generateTimeSlots(slotRange.start, slotRange.end, doctor.slotDurationMinutes || 30);
@@ -1075,9 +1147,15 @@ exports.getAvailableSlots = async (req, res, next) => {
         // Filter slots
         const availableSlots = allSlots.filter(slot => !bookedTimes.includes(slot));
 
+        // Format slot items as { time: String, available: true }
+        const formattedSlots = availableSlots.map(slot => ({
+            time: slot,
+            available: true
+        }));
+
         res.status(200).json({
             success: true,
-            data: availableSlots
+            data: formattedSlots
         });
     } catch (error) {
         next(error);

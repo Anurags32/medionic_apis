@@ -5,24 +5,24 @@ const dotenv = require('dotenv');
 dotenv.config();
 
 // ── Models ────────────────────────────────────────────────────────────────────
-const User          = require('./models/User');
-const Patient       = require('./models/Patient');
-const Doctor        = require('./models/Doctor');
-const MedicalRep    = require('./models/MedicalRep');
-const Appointment   = require('./models/Appointment');
-const Prescription  = require('./models/Prescription');
+const User = require('./models/User');
+const Patient = require('./models/Patient');
+const Doctor = require('./models/Doctor');
+const MedicalRep = require('./models/MedicalRep');
+const Appointment = require('./models/Appointment');
+const Prescription = require('./models/Prescription');
 const PharmacyOrder = require('./models/PharmacyOrder');
 const PharmacyProduct = require('./models/PharmacyProduct');
-const LabTest       = require('./models/LabTest');
-const LabBooking    = require('./models/LabBooking');
-const HealthMetric  = require('./models/HealthMetric');
-const MRMeetings    = require('./models/MRMeetings');
-const Chemist       = require('./models/Chemist');
-const Expense       = require('./models/Expense');
-const TourPlan      = require('./models/TourPlan');
-const DCR           = require('./models/DCR');
+const LabTest = require('./models/LabTest');
+const LabBooking = require('./models/LabBooking');
+const HealthMetric = require('./models/HealthMetric');
+const MRMeetings = require('./models/MRMeetings');
+const Chemist = require('./models/Chemist');
+const Expense = require('./models/Expense');
+const TourPlan = require('./models/TourPlan');
+const DCR = require('./models/DCR');
 const TokenBlacklist = require('./models/TokenBlacklist');
-const FamilyMember  = require('./models/FamilyMember');
+const FamilyMember = require('./models/FamilyMember');
 
 const constants = require('./config/constants');
 
@@ -39,36 +39,56 @@ const connectDB = async () => {
 
 // ── Static sample data ────────────────────────────────────────────────────────
 const PHARMACY_PRODUCTS = [
-    { name: 'Paracetamol 500mg', brand: 'Cipla', category: 'Pain Relief', price: 25, mrp: 30,
-      quantityDescription: 'Strip of 10 tablets', requiresPrescription: false, inStock: true,
-      description: 'For relief of mild to moderate pain and fever.' },
-    { name: 'Amoxicillin 250mg', brand: 'GlaxoSmithKline', category: 'Antibiotics', price: 85, mrp: 100,
-      quantityDescription: 'Strip of 10 capsules', requiresPrescription: true, inStock: true,
-      description: 'Broad-spectrum antibiotic for bacterial infections.' },
-    { name: 'Metformin 500mg', brand: 'Sun Pharma', category: 'Diabetes', price: 45, mrp: 55,
-      quantityDescription: 'Strip of 15 tablets', requiresPrescription: true, inStock: true,
-      description: 'First-line medication for type 2 diabetes management.' },
-    { name: 'Atorvastatin 10mg', brand: 'Ranbaxy', category: 'Cardiovascular', price: 120, mrp: 140,
-      quantityDescription: 'Strip of 10 tablets', requiresPrescription: true, inStock: true,
-      description: 'Lowers bad cholesterol and reduces cardiovascular risk.' },
-    { name: 'Cetirizine 10mg', brand: 'Dr. Reddy\'s', category: 'Allergy', price: 20, mrp: 28,
-      quantityDescription: 'Strip of 10 tablets', requiresPrescription: false, inStock: true,
-      description: 'Antihistamine for allergic rhinitis and urticaria.' },
-    { name: 'Omeprazole 20mg', brand: 'Cipla', category: 'Gastric', price: 55, mrp: 65,
-      quantityDescription: 'Strip of 10 capsules', requiresPrescription: false, inStock: true,
-      description: 'Proton pump inhibitor for acid reflux and ulcers.' },
-    { name: 'Vitamin D3 1000 IU', brand: 'Abbott', category: 'Vitamins & Supplements', price: 180, mrp: 220,
-      quantityDescription: 'Bottle of 60 soft-gels', requiresPrescription: false, inStock: true,
-      description: 'Supports bone health and immune function.' },
-    { name: 'Azithromycin 500mg', brand: 'Pfizer', category: 'Antibiotics', price: 95, mrp: 110,
-      quantityDescription: 'Strip of 3 tablets', requiresPrescription: true, inStock: false,
-      description: 'Macrolide antibiotic for respiratory and skin infections.' },
-    { name: 'Ibuprofen 400mg', brand: 'Micro Labs', category: 'Pain Relief', price: 30, mrp: 38,
-      quantityDescription: 'Strip of 10 tablets', requiresPrescription: false, inStock: true,
-      description: 'NSAID for pain, inflammation, and fever.' },
-    { name: 'Pantoprazole 40mg', brand: 'Aristo Pharma', category: 'Gastric', price: 60, mrp: 72,
-      quantityDescription: 'Strip of 10 tablets', requiresPrescription: false, inStock: true,
-      description: 'For gastroesophageal reflux disease (GERD) and peptic ulcers.' }
+    {
+        name: 'Paracetamol 500mg', brand: 'Cipla', category: 'Pain Relief', price: 25, mrp: 30,
+        quantityDescription: 'Strip of 10 tablets', requiresPrescription: false, inStock: true,
+        description: 'For relief of mild to moderate pain and fever.'
+    },
+    {
+        name: 'Amoxicillin 250mg', brand: 'GlaxoSmithKline', category: 'Antibiotics', price: 85, mrp: 100,
+        quantityDescription: 'Strip of 10 capsules', requiresPrescription: true, inStock: true,
+        description: 'Broad-spectrum antibiotic for bacterial infections.'
+    },
+    {
+        name: 'Metformin 500mg', brand: 'Sun Pharma', category: 'Diabetes', price: 45, mrp: 55,
+        quantityDescription: 'Strip of 15 tablets', requiresPrescription: true, inStock: true,
+        description: 'First-line medication for type 2 diabetes management.'
+    },
+    {
+        name: 'Atorvastatin 10mg', brand: 'Ranbaxy', category: 'Cardiovascular', price: 120, mrp: 140,
+        quantityDescription: 'Strip of 10 tablets', requiresPrescription: true, inStock: true,
+        description: 'Lowers bad cholesterol and reduces cardiovascular risk.'
+    },
+    {
+        name: 'Cetirizine 10mg', brand: 'Dr. Reddy\'s', category: 'Allergy', price: 20, mrp: 28,
+        quantityDescription: 'Strip of 10 tablets', requiresPrescription: false, inStock: true,
+        description: 'Antihistamine for allergic rhinitis and urticaria.'
+    },
+    {
+        name: 'Omeprazole 20mg', brand: 'Cipla', category: 'Gastric', price: 55, mrp: 65,
+        quantityDescription: 'Strip of 10 capsules', requiresPrescription: false, inStock: true,
+        description: 'Proton pump inhibitor for acid reflux and ulcers.'
+    },
+    {
+        name: 'Vitamin D3 1000 IU', brand: 'Abbott', category: 'Vitamins & Supplements', price: 180, mrp: 220,
+        quantityDescription: 'Bottle of 60 soft-gels', requiresPrescription: false, inStock: true,
+        description: 'Supports bone health and immune function.'
+    },
+    {
+        name: 'Azithromycin 500mg', brand: 'Pfizer', category: 'Antibiotics', price: 95, mrp: 110,
+        quantityDescription: 'Strip of 3 tablets', requiresPrescription: true, inStock: false,
+        description: 'Macrolide antibiotic for respiratory and skin infections.'
+    },
+    {
+        name: 'Ibuprofen 400mg', brand: 'Micro Labs', category: 'Pain Relief', price: 30, mrp: 38,
+        quantityDescription: 'Strip of 10 tablets', requiresPrescription: false, inStock: true,
+        description: 'NSAID for pain, inflammation, and fever.'
+    },
+    {
+        name: 'Pantoprazole 40mg', brand: 'Aristo Pharma', category: 'Gastric', price: 60, mrp: 72,
+        quantityDescription: 'Strip of 10 tablets', requiresPrescription: false, inStock: true,
+        description: 'For gastroesophageal reflux disease (GERD) and peptic ulcers.'
+    }
 ];
 
 const LAB_TESTS = [
@@ -121,34 +141,40 @@ const seedDatabase = async () => {
 
     // ── Doctor users ──────────────────────────────────────────────────────────
     const doctorDefs = [
-        { firstName: 'Rajesh',  lastName: 'Sharma',    email: 'dr.sharma@hospital.com',
-          specialization: 'Cardiology',      licenseNumber: 'KA-MED-2010-0042',
-          registrationCouncil: 'Karnataka Medical Council', qualification: 'MBBS, MD (Cardiology)',
-          yearsExperience: 14, clinicName: 'HeartCare Clinic',
-          clinicAddress: '12 MG Road, Indiranagar, Bangalore, Karnataka, 560038',
-          city: 'Bangalore', consultationFee: 800 },
-        { firstName: 'Priya',   lastName: 'Mehta',     email: 'dr.mehta@wellness.com',
-          specialization: 'Dermatology',     licenseNumber: 'MH-MED-2015-1120',
-          registrationCouncil: 'Maharashtra Medical Council', qualification: 'MBBS, MD (Dermatology)',
-          yearsExperience: 9, clinicName: 'SkinGlow Dermatology',
-          clinicAddress: '45 FC Road, Shivajinagar, Pune, Maharashtra, 411004',
-          city: 'Pune', consultationFee: 600 },
-        { firstName: 'Arun',    lastName: 'Krishnan',  email: 'dr.krishnan@neurology.com',
-          specialization: 'Neurology',       licenseNumber: 'TN-MED-2008-0334',
-          registrationCouncil: 'Tamil Nadu Medical Council', qualification: 'MBBS, DM (Neurology)',
-          yearsExperience: 16, clinicName: 'NeuroPlus Brain & Spine',
-          clinicAddress: '78 Anna Salai, Teynampet, Chennai, Tamil Nadu, 600018',
-          city: 'Chennai', consultationFee: 1000 }
+        {
+            firstName: 'Rajesh', lastName: 'Sharma', email: 'dr.sharma@hospital.com',
+            specialization: 'Cardiology', licenseNumber: 'KA-MED-2010-0042',
+            registrationCouncil: 'Karnataka Medical Council', qualification: 'MBBS, MD (Cardiology)',
+            yearsExperience: 14, clinicName: 'HeartCare Clinic',
+            clinicAddress: '12 MG Road, Indiranagar, Bangalore, Karnataka, 560038',
+            city: 'Bangalore', consultationFee: 800
+        },
+        {
+            firstName: 'Priya', lastName: 'Mehta', email: 'dr.mehta@wellness.com',
+            specialization: 'Dermatology', licenseNumber: 'MH-MED-2015-1120',
+            registrationCouncil: 'Maharashtra Medical Council', qualification: 'MBBS, MD (Dermatology)',
+            yearsExperience: 9, clinicName: 'SkinGlow Dermatology',
+            clinicAddress: '45 FC Road, Shivajinagar, Pune, Maharashtra, 411004',
+            city: 'Pune', consultationFee: 600
+        },
+        {
+            firstName: 'Arun', lastName: 'Krishnan', email: 'dr.krishnan@neurology.com',
+            specialization: 'Neurology', licenseNumber: 'TN-MED-2008-0334',
+            registrationCouncil: 'Tamil Nadu Medical Council', qualification: 'MBBS, DM (Neurology)',
+            yearsExperience: 16, clinicName: 'NeuroPlus Brain & Spine',
+            clinicAddress: '78 Anna Salai, Teynampet, Chennai, Tamil Nadu, 600018',
+            city: 'Chennai', consultationFee: 1000
+        }
     ];
 
     const weekdaySchedule = {
-        monday:    [{ start: '09:00', end: '13:00' }, { start: '14:00', end: '18:00' }],
-        tuesday:   [{ start: '09:00', end: '13:00' }, { start: '14:00', end: '18:00' }],
+        monday: [{ start: '09:00', end: '13:00' }, { start: '14:00', end: '18:00' }],
+        tuesday: [{ start: '09:00', end: '13:00' }, { start: '14:00', end: '18:00' }],
         wednesday: [{ start: '09:00', end: '13:00' }, { start: '14:00', end: '18:00' }],
-        thursday:  [{ start: '09:00', end: '13:00' }, { start: '14:00', end: '18:00' }],
-        friday:    [{ start: '09:00', end: '13:00' }, { start: '14:00', end: '17:00' }],
-        saturday:  [{ start: '10:00', end: '13:00' }],
-        sunday:    []
+        thursday: [{ start: '09:00', end: '13:00' }, { start: '14:00', end: '18:00' }],
+        friday: [{ start: '09:00', end: '13:00' }, { start: '14:00', end: '17:00' }],
+        saturday: [{ start: '10:00', end: '13:00' }],
+        sunday: []
     };
 
     const doctorUsers = [];
@@ -166,7 +192,7 @@ const seedDatabase = async () => {
             licenseNumber: def.licenseNumber, registrationCouncil: def.registrationCouncil,
             qualification: def.qualification, specialization: def.specialization,
             yearsExperience: def.yearsExperience,
-            clinic: { name: def.clinicName, address: def.clinicAddress, city: def.city },
+            clinic: { name: def.clinicName, address: def.clinicAddress, city: def.city, phone: '+919812345001' },
             consultationFee: def.consultationFee,
             verificationStatus: constants.VERIFICATION_STATUS.VERIFIED,
             rating: parseFloat((3.8 + Math.random() * 1.2).toFixed(1)),
@@ -182,14 +208,18 @@ const seedDatabase = async () => {
 
     // ── Patient users ─────────────────────────────────────────────────────────
     const patientDefs = [
-        { firstName: 'Aarav',  lastName: 'Gupta',  email: 'aarav.gupta@gmail.com',
-          phone: '9876543210', gender: 'male',   dob: new Date('1990-04-12'),
-          address: { street: '23 Park Street', city: 'Kolkata', state: 'West Bengal', zip: '700016' },
-          bloodGroup: 'O+', emergencyContact: { name: 'Sunita Gupta', phone: '9876543200', relation: 'Mother' } },
-        { firstName: 'Sneha', lastName: 'Patel', email: 'sneha.patel@gmail.com',
-          phone: '9765432109', gender: 'female', dob: new Date('1995-11-25'),
-          address: { street: '7 Ashram Road', city: 'Ahmedabad', state: 'Gujarat', zip: '380009' },
-          bloodGroup: 'A+', emergencyContact: { name: 'Ramesh Patel', phone: '9765432100', relation: 'Father' } }
+        {
+            firstName: 'Aarav', lastName: 'Gupta', email: 'aarav.gupta@gmail.com',
+            phone: '9876543210', gender: 'male', dob: new Date('1990-04-12'),
+            address: { street: '23 Park Street', city: 'Kolkata', state: 'West Bengal', zip: '700016' },
+            bloodGroup: 'O+', emergencyContact: { name: 'Sunita Gupta', phone: '9876543200', relation: 'Mother' }
+        },
+        {
+            firstName: 'Sneha', lastName: 'Patel', email: 'sneha.patel@gmail.com',
+            phone: '9765432109', gender: 'female', dob: new Date('1995-11-25'),
+            address: { street: '7 Ashram Road', city: 'Ahmedabad', state: 'Gujarat', zip: '380009' },
+            bloodGroup: 'A+', emergencyContact: { name: 'Ramesh Patel', phone: '9765432100', relation: 'Father' }
+        }
     ];
 
     const patientUsers = [];
@@ -222,12 +252,16 @@ const seedDatabase = async () => {
 
     // ── MR users ──────────────────────────────────────────────────────────────
     const mrDefs = [
-        { firstName: 'Vikram', lastName: 'Singh', email: 'vikram.singh@pharmamax.com',
-          phone: '9812345678', companyName: 'PharmaMax Inc.', employeeId: 'PM-2021-001',
-          designation: 'Senior Medical Representative', territory: 'Bangalore North' },
-        { firstName: 'Kavya',  lastName: 'Nair',  email: 'kavya.nair@medilife.com',
-          phone: '9823456789', companyName: 'MediLife Pharma', employeeId: 'ML-2022-045',
-          designation: 'Medical Representative', territory: 'Mumbai West' }
+        {
+            firstName: 'Vikram', lastName: 'Singh', email: 'vikram.singh@pharmamax.com',
+            phone: '9812345678', companyName: 'PharmaMax Inc.', employeeId: 'PM-2021-001',
+            designation: 'Senior Medical Representative', territory: 'Bangalore North'
+        },
+        {
+            firstName: 'Kavya', lastName: 'Nair', email: 'kavya.nair@medilife.com',
+            phone: '9823456789', companyName: 'MediLife Pharma', employeeId: 'ML-2022-045',
+            designation: 'Medical Representative', territory: 'Mumbai West'
+        }
     ];
 
     const mrUsers = [];
@@ -242,12 +276,17 @@ const seedDatabase = async () => {
         const mr = await MedicalRep.create({
             userId: u._id,
             firstName: def.firstName, lastName: def.lastName,
-            companyName: def.companyName, employeeId: def.employeeId,
+            companyName: def.companyName,
             designation: def.designation, territory: def.territory,
             verificationStatus: constants.VERIFICATION_STATUS.VERIFIED,
+            employmentDetails: {
+                joiningDate: new Date(),
+                employeeId: def.employeeId,
+                department: 'Sales'
+            },
             sampleInventory: [
-                { productName: 'CardioPlus 10mg', batchNumber: 'CP2024Q2-001', quantity: 50, expiryDate: new Date('2025-12-31') },
-                { productName: 'NeuroClear 5mg',  batchNumber: 'NC2024Q1-010', quantity: 30, expiryDate: new Date('2025-06-30') }
+                { productId: products[0]._id, productName: 'CardioPlus 10mg', batchNo: 'CP2024Q2-001', quantity: 50, expiryDate: new Date('2025-12-31') },
+                { productId: products[1]._id, productName: 'NeuroClear 5mg', batchNo: 'NC2024Q1-010', quantity: 30, expiryDate: new Date('2025-06-30') }
             ]
         });
         mrUsers.push(u);
@@ -256,8 +295,8 @@ const seedDatabase = async () => {
     console.log(`🧑‍💼  Created ${mrProfiles.length} MRs`);
 
     // ── Appointments ──────────────────────────────────────────────────────────
-    const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1); tomorrow.setHours(0,0,0,0);
-    const dayAfter  = new Date(); dayAfter.setDate(dayAfter.getDate() + 3); dayAfter.setHours(0,0,0,0);
+    const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1); tomorrow.setHours(0, 0, 0, 0);
+    const dayAfter = new Date(); dayAfter.setDate(dayAfter.getDate() + 3); dayAfter.setHours(0, 0, 0, 0);
 
     const apt1 = await Appointment.create({
         patientId: patientProfiles[0]._id, doctorId: doctorProfiles[0]._id,
@@ -284,8 +323,8 @@ const seedDatabase = async () => {
         appointmentId: apt1._id, patientId: patientProfiles[0]._id, doctorId: doctorProfiles[0]._id,
         diagnosis: 'Stable Angina — further cardiac workup recommended.',
         medicines: [
-            { medicineName: 'Aspirin 75mg', dosage: '75mg', frequency: 'Once daily', duration: '30 days', instructions: 'Take after breakfast' },
-            { medicineName: 'Atorvastatin 20mg', dosage: '20mg', frequency: 'Once at night', duration: '30 days', instructions: 'Take after dinner' }
+            { medicineName: 'Aspirin 75mg', dosage: '75mg', frequency: 'Once daily', duration: '30 days', instructions: 'Take after breakfast', quantity: 30 },
+            { medicineName: 'Atorvastatin 20mg', dosage: '20mg', frequency: 'Once at night', duration: '30 days', instructions: 'Take after dinner', quantity: 30 }
         ],
         instructions: ['Avoid strenuous exercise', 'Low-salt diet', 'Follow up in 1 month'],
         followUpDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
@@ -295,9 +334,10 @@ const seedDatabase = async () => {
     // ── Pharmacy order ────────────────────────────────────────────────────────
     await PharmacyOrder.create({
         patientId: patientProfiles[0]._id,
+        orderNumber: 'ORD-12345',
         medicines: [
             { medicineName: 'Paracetamol 500mg', quantity: 2, price: 25 },
-            { medicineName: 'Omeprazole 20mg',   quantity: 1, price: 55 }
+            { medicineName: 'Omeprazole 20mg', quantity: 1, price: 55 }
         ],
         totalAmount: 105, discountApplied: 0, taxAmount: 0, finalAmount: 105,
         paymentMethod: 'UPI', paymentStatus: 'completed',
@@ -332,7 +372,7 @@ const seedDatabase = async () => {
     // ── Expenses for MR ───────────────────────────────────────────────────────
     await Expense.create({
         mrId: mrUsers[0]._id, amount: 850,
-        expenseType: 'travel', date: new Date(),
+        expenseType: 'travel', category: 'travel', date: new Date(),
         description: 'Cab fare for Bangalore North clinic visits', approvalStatus: 'pending'
     });
 
@@ -353,8 +393,11 @@ const seedDatabase = async () => {
     await MRMeetings.create({
         mrId: mrUsers[0]._id,
         doctorId: doctorProfiles[0]._id,
-        scheduledAt: dayAfter,
-        agenda: 'Product presentation: CardioPlus 10mg — efficacy and dosage discussion.',
+        requestId: 'MRM260712345',
+        requestedDate: new Date(),
+        proposedDate: dayAfter,
+        proposedTime: '10:00',
+        purpose: 'Product presentation: CardioPlus 10mg',
         status: 'pending'
     });
     console.log('🤝  Created 1 MR meeting request');
