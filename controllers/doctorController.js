@@ -79,10 +79,20 @@ exports.updateProfile = async (req, res, next) => {
         }
         if (req.body.clinic !== undefined) {
             if (typeof req.body.clinic === 'object') {
-                doctor.clinic = {
-                    ...doctor.clinic,
-                    ...req.body.clinic
-                };
+                const existing =
+                    doctor.clinic && typeof doctor.clinic.toObject === 'function'
+                        ? doctor.clinic.toObject()
+                        : (doctor.clinic || {});
+                const merged = { ...existing, ...req.body.clinic };
+                // Preserve coordinates; the update form doesn't collect them,
+                // so never assign `undefined` (Mongoose would fail to cast it).
+                if (merged.coordinates === undefined || merged.coordinates === null) {
+                    merged.coordinates = existing.coordinates || {
+                        latitude: 0,
+                        longitude: 0,
+                    };
+                }
+                doctor.clinic = merged;
             }
         }
         if (req.body.consultationFee !== undefined) {

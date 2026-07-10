@@ -67,7 +67,10 @@ console.log('✅  Body parser middleware applied');
 
 // CORS configuration
 app.use(cors({
-  origin: process.env.CLIENT_URL || 'http://localhost:3000',
+  origin: [
+    'http://localhost:3000',
+    'https://medonic-admin-yer9.vercel.app'
+  ],
   credentials: true
 }));
 console.log(`✅  CORS enabled for origin: ${process.env.CLIENT_URL || 'http://localhost:3000'}`);
