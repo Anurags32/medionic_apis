@@ -69,6 +69,7 @@ console.log('✅  Body parser middleware applied');
 app.use(cors({
   origin: [
     'http://localhost:3000',
+    'https://medonic-admin-kmfw.vercel.app',
     'https://medonic-admin-yer9.vercel.app'
   ],
   credentials: true
