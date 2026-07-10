@@ -378,3 +378,167 @@ exports.rejectExpense = async (req, res, next) => {
         next(error);
     }
 };
+
+// @desc    Get specific doctor profile
+// @route   GET /api/admin/doctors/:id
+// @access  Private/Admin
+exports.getDoctorProfile = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const doctor = await Doctor.findById(id).populate('userId', 'email role status isVerified lastLogin');
+        if (!doctor) {
+            return next(new ErrorResponse('Doctor profile not found', 404));
+        }
+
+        res.status(200).json({
+            success: true,
+            data: doctor
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+// @desc    Get specific MR profile
+// @route   GET /api/admin/mr/:id
+// @access  Private/Admin
+exports.getMRProfile = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const mr = await MedicalRep.findById(id).populate('userId', 'email role status isVerified lastLogin');
+        if (!mr) {
+            return next(new ErrorResponse('MR profile not found', 404));
+        }
+
+        res.status(200).json({
+            success: true,
+            data: mr
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+// @desc    Approve Doctor
+// @route   PUT /api/admin/doctors/:id/approve
+// @access  Private/Admin
+exports.approveDoctor = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const { remarks } = req.body;
+
+        const doctor = await Doctor.findById(id);
+        if (!doctor) {
+            return next(new ErrorResponse('Doctor profile not found', 404));
+        }
+
+        doctor.verificationStatus = 'verified';
+        if (remarks) {
+            doctor.bio = doctor.bio ? `${doctor.bio}\n[Admin Note]: ${remarks}` : `[Admin Note]: ${remarks}`;
+        }
+        await doctor.save();
+
+        await User.findByIdAndUpdate(doctor.userId, { isVerified: true });
+
+        res.status(200).json({
+            success: true,
+            message: 'Doctor profile approved successfully',
+            data: doctor
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+// @desc    Reject Doctor
+// @route   PUT /api/admin/doctors/:id/reject
+// @access  Private/Admin
+exports.rejectDoctor = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const { remarks } = req.body;
+
+        const doctor = await Doctor.findById(id);
+        if (!doctor) {
+            return next(new ErrorResponse('Doctor profile not found', 404));
+        }
+
+        doctor.verificationStatus = 'rejected';
+        if (remarks) {
+            doctor.bio = doctor.bio ? `${doctor.bio}\n[Admin Note]: ${remarks}` : `[Admin Note]: ${remarks}`;
+        }
+        await doctor.save();
+
+        await User.findByIdAndUpdate(doctor.userId, { isVerified: false });
+
+        res.status(200).json({
+            success: true,
+            message: 'Doctor profile rejected successfully',
+            data: doctor
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+// @desc    Approve MR
+// @route   PUT /api/admin/mr/:id/approve
+// @access  Private/Admin
+exports.approveMR = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const { remarks } = req.body;
+
+        const mr = await MedicalRep.findById(id);
+        if (!mr) {
+            return next(new ErrorResponse('MR profile not found', 404));
+        }
+
+        mr.verificationStatus = 'verified';
+        if (remarks) {
+            mr.remarks = remarks;
+        }
+        await mr.save();
+
+        await User.findByIdAndUpdate(mr.userId, { isVerified: true });
+
+        res.status(200).json({
+            success: true,
+            message: 'MR profile approved successfully',
+            data: mr
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+// @desc    Reject MR
+// @route   PUT /api/admin/mr/:id/reject
+// @access  Private/Admin
+exports.rejectMR = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const { remarks } = req.body;
+
+        const mr = await MedicalRep.findById(id);
+        if (!mr) {
+            return next(new ErrorResponse('MR profile not found', 404));
+        }
+
+        mr.verificationStatus = 'rejected';
+        if (remarks) {
+            mr.remarks = remarks;
+        }
+        await mr.save();
+
+        await User.findByIdAndUpdate(mr.userId, { isVerified: false });
+
+        res.status(200).json({
+            success: true,
+            message: 'MR profile rejected successfully',
+            data: mr
+        });
+    } catch (error) {
+        next(error);
+    }
+};

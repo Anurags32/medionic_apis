@@ -145,6 +145,10 @@ const medicalRepSchema = new mongoose.Schema({
         enum: ['pending', 'verified', 'rejected'],
         default: 'pending'
     },
+    remarks: {
+        type: String,
+        trim: true
+    },
     verificationDocuments: [{
         documentType: {
             type: String,

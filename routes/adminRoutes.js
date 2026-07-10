@@ -12,7 +12,13 @@ const {
     getDashboard,
     getPendingExpenses,
     approveExpense,
-    rejectExpense
+    rejectExpense,
+    getDoctorProfile,
+    getMRProfile,
+    approveDoctor,
+    rejectDoctor,
+    approveMR,
+    rejectMR
 } = require('../controllers/adminController');
 
 // Middlewares
@@ -26,10 +32,16 @@ router.post('/login', adminLogin);
 router.use(protect, authorize(constants.ROLES.ADMIN));
 
 router.get('/doctors', getDoctors);
+router.get('/doctors/:id', getDoctorProfile);
 router.put('/doctors/:id/verify', verifyDoctor);
+router.put('/doctors/:id/approve', approveDoctor);
+router.put('/doctors/:id/reject', rejectDoctor);
 
 router.get('/mr', getMRs);
+router.get('/mr/:id', getMRProfile);
 router.put('/mr/:id/verify', verifyMR);
+router.put('/mr/:id/approve', approveMR);
+router.put('/mr/:id/reject', rejectMR);
 
 router.get('/users', getUsers);
 router.put('/users/:id/suspend', suspendUser);
