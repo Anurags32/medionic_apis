@@ -184,7 +184,8 @@ const seedDatabase = async () => {
             firstName: def.firstName, lastName: def.lastName,
             email: def.email, password: 'Doctor@1234',
             phone: `98${Math.floor(10000000 + Math.random() * 89999999)}`,
-            role: constants.ROLES.DOCTOR, isVerified: true, status: constants.USER_STATUS.ACTIVE
+            role: constants.ROLES.DOCTOR, isVerified: true, status: constants.USER_STATUS.ACTIVE,
+            profileComplete: true
         });
         const d = await Doctor.create({
             userId: u._id,
@@ -229,7 +230,8 @@ const seedDatabase = async () => {
             firstName: def.firstName, lastName: def.lastName,
             email: def.email, password: 'Patient@1234',
             phone: def.phone, role: constants.ROLES.PATIENT,
-            isVerified: true, status: constants.USER_STATUS.ACTIVE
+            isVerified: true, status: constants.USER_STATUS.ACTIVE,
+            profileComplete: true
         });
         const p = await Patient.create({
             userId: u._id,
@@ -271,7 +273,8 @@ const seedDatabase = async () => {
             firstName: def.firstName, lastName: def.lastName,
             email: def.email, password: 'MRep@1234',
             phone: def.phone, role: constants.ROLES.MR,
-            isVerified: true, status: constants.USER_STATUS.ACTIVE
+            isVerified: true, status: constants.USER_STATUS.ACTIVE,
+            profileComplete: true
         });
         const mr = await MedicalRep.create({
             userId: u._id,

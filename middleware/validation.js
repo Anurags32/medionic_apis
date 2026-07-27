@@ -297,6 +297,9 @@ const schemas = {
         patientId: Joi.string().required().messages({
             'any.required': 'Patient ID is required'
         }),
+        appointmentId: Joi.string().required().messages({
+            'any.required': 'Appointment ID is required'
+        }),
         medicines: Joi.array().items(
             Joi.object({
                 medicineName: Joi.string().required().messages({
@@ -319,7 +322,12 @@ const schemas = {
         ).min(1).required().messages({
             'array.min': 'At least one medicine is required',
             'any.required': 'Medicines are required'
-        })
+        }),
+        testRecommendations: Joi.array().items(Joi.string()).optional(),
+        followUpDate: Joi.date().iso().allow('', null).optional(),
+        notes: Joi.string().allow('', null).optional(),
+        followUpInstructions: Joi.string().allow('', null).optional(),
+        validityPeriod: Joi.number().integer().min(1).optional()
     }),
 
     // Pharmacy order validation

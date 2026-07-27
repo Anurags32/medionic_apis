@@ -8,8 +8,8 @@ describe('Doctor Endpoints', () => {
         const loginResponse = await request(app)
             .post('/api/auth/login')
             .send({
-                email: 'dr.smith@hospital.com',
-                password: 'Password123!'
+                email: 'dr.sharma@hospital.com',
+                password: 'Doctor@1234'
             });
 
         doctorToken = loginResponse.body.token;
@@ -77,10 +77,12 @@ describe('Doctor Endpoints', () => {
                 return;
             }
 
+            const appointmentId = appointmentsResponse.body.data[0].appointmentId;
             const patientId = appointmentsResponse.body.data[0].patient.patientId;
 
             const prescriptionData = {
                 patientId,
+                appointmentId,
                 medicines: [
                     {
                         medicineName: 'Aspirin',

@@ -8,8 +8,8 @@ describe('Patient Endpoints', () => {
         const loginResponse = await request(app)
             .post('/api/auth/login')
             .send({
-                email: 'john.doe@email.com',
-                password: 'Password123!'
+                email: 'aarav.gupta@gmail.com',
+                password: 'Patient@1234'
             });
 
         patientToken = loginResponse.body.token;

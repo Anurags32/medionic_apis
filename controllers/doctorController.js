@@ -650,7 +650,8 @@ exports.getDashboard = async (req, res, next) => {
                     date: appointment.formattedDate,
                     time: appointment.formattedTime,
                     consultationType: appointment.consultationType,
-                    symptoms: appointment.symptoms?.substring(0, 100) + '...'
+                    symptoms: appointment.symptoms?.substring(0, 100) + '...',
+                    status: appointment.status
                 })),
                 doctor: {
                     name: doctor.fullName,

@@ -57,8 +57,8 @@ describe('Authentication Endpoints', () => {
     describe('POST /api/auth/login', () => {
         it('should login with valid credentials', async () => {
             const loginData = {
-                email: 'john.doe@email.com',
-                password: 'Password123!'
+                email: 'aarav.gupta@gmail.com',
+                password: 'Patient@1234'
             };
 
             const response = await request(app)
@@ -73,7 +73,7 @@ describe('Authentication Endpoints', () => {
 
         it('should not login with invalid credentials', async () => {
             const loginData = {
-                email: 'john.doe@email.com',
+                email: 'aarav.gupta@gmail.com',
                 password: 'wrongpassword'
             };
 
@@ -93,8 +93,8 @@ describe('Authentication Endpoints', () => {
             const loginResponse = await request(app)
                 .post('/api/auth/login')
                 .send({
-                    email: 'john.doe@email.com',
-                    password: 'Password123!'
+                    email: 'aarav.gupta@gmail.com',
+                    password: 'Patient@1234'
                 });
 
             token = loginResponse.body.token;
