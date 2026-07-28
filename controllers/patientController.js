@@ -1161,3 +1161,65 @@ exports.getAvailableSlots = async (req, res, next) => {
         next(error);
     }
 };
+
+// @desc    Rate / review doctor after completed appointment
+// @route   POST /api/patients/appointments/:id/rate
+// @access  Private (Patient only)
+exports.rateAppointment = [
+    validate('rateAppointment'),
+    async (req, res, next) => {
+        try {
+            const { id } = req.params;
+            const { rating, feedback } = req.body;
+            const user = req.user;
+
+            // Get patient
+            const patient = await Patient.findOne({ userId: user._id });
+            if (!patient) {
+                return next(new ErrorResponse('Patient profile not found', 404));
+            }
+
+            // Get appointment
+            const appointment = await Appointment.findOne({
+                _id: id,
+                patientId: patient._id
+            });
+
+            if (!appointment) {
+                return next(new ErrorResponse('Appointment not found', 404));
+            }
+
+            // Must be completed
+            if (appointment.status !== constants.APPOINTMENT_STATUS.COMPLETED) {
+                return next(new ErrorResponse('You can only rate a completed appointment', 400));
+            }
+
+            // Save rating on appointment
+            appointment.rating = {
+                value: rating,
+                feedback: feedback || '',
+                submittedAt: new Date()
+            };
+
+            await appointment.save();
+
+            // Update doctor's overall rating
+            const doctor = await Doctor.findById(appointment.doctorId);
+            if (doctor) {
+                doctor.updateRating(rating);
+                await doctor.save();
+            }
+
+            res.status(200).json({
+                success: true,
+                message: 'Thank you for your rating and feedback!',
+                data: {
+                    appointmentId: appointment._id,
+                    rating: appointment.rating
+                }
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
+];

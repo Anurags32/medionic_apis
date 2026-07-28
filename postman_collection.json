@@ -1334,6 +1334,39 @@
           }
         },
         {
+          "name": "Rate Appointment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{patientToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rating\": 5,\n  \"feedback\": \"Excellent consultation. Very professional and polite!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/patients/appointments/{{appointmentId}}/rate",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "patients",
+                "appointments",
+                "{{appointmentId}}",
+                "rate"
+              ]
+            }
+          }
+        },
+        {
           "name": "Get My Prescriptions",
           "request": {
             "method": "GET",

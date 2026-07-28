@@ -617,6 +617,17 @@ const schemas = {
         designation: Joi.string().optional(),
         territory: Joi.string().optional(),
         profilePhoto: Joi.string().allow('', null).optional()
+    }).unknown(false),
+
+    rateAppointment: Joi.object({
+        rating: Joi.number().min(1).max(5).required().messages({
+            'number.min': 'Rating must be at least 1',
+            'number.max': 'Rating cannot exceed 5',
+            'any.required': 'Rating is required'
+        }),
+        feedback: Joi.string().max(500).allow('', null).optional().messages({
+            'string.max': 'Feedback cannot exceed 500 characters'
+        })
     }).unknown(false)
 };
 

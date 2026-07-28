@@ -135,4 +135,123 @@ describe('Doctor Endpoints', () => {
             expect(response.body.success).toBe(true);
         });
     });
+
+    describe('Comprehensive Appointment, Completion, and Rating Flow', () => {
+        let patientToken;
+        let appointmentId;
+        let doctorId;
+
+        beforeAll(async () => {
+            // Login as patient
+            const patientLoginRes = await request(app)
+                .post('/api/auth/login')
+                .send({
+                    email: 'aarav.gupta@gmail.com',
+                    password: 'Patient@1234'
+                });
+            patientToken = patientLoginRes.body.token;
+
+            // Get a doctor ID matching Dr. Sharma
+            const doctorsRes = await request(app)
+                .get('/api/patients/doctors')
+                .set('Authorization', `Bearer ${patientToken}`);
+            
+            const sharmaDoctor = doctorsRes.body.data.find(d => d.fullName.includes('Sharma') || d.fullName.includes('Rajesh'));
+            doctorId = sharmaDoctor.doctorId;
+        });
+
+        it('should book appointment for today and verify it shows in doctor dashboard', async () => {
+            const todayStr = new Date().toISOString().split('T')[0]; // date-only format like 2026-07-28
+
+            const appointmentData = {
+                doctorId,
+                appointmentDate: todayStr,
+                appointmentTime: '11:00',
+                consultationType: 'clinic',
+                symptoms: 'Mild fever and cough since today morning'
+            };
+
+            // Book patient appointment
+            const bookRes = await request(app)
+                .post('/api/patients/appointments')
+                .set('Authorization', `Bearer ${patientToken}`)
+                .send(appointmentData)
+                .expect(201);
+
+            appointmentId = bookRes.body.data.appointmentId;
+            expect(appointmentId).toBeDefined();
+
+            // Check doctor dashboard. Since the appointment is scheduled for today, 
+            // it must show up in upcomingAppointments list.
+            const dashboardRes = await request(app)
+                .get('/api/doctors/dashboard')
+                .set('Authorization', `Bearer ${doctorToken}`)
+                .expect(200);
+
+            expect(dashboardRes.body.success).toBe(true);
+            const upcomingList = dashboardRes.body.data.upcomingAppointments;
+            expect(upcomingList).toBeDefined();
+            
+            const found = upcomingList.find(apt => apt.appointmentId.toString() === appointmentId.toString());
+            expect(found).toBeDefined();
+            expect(found.status).toBe('pending');
+        });
+
+        it('should fail to mark a future appointment as completed', async () => {
+            const tomorrowStr = new Date();
+            tomorrowStr.setDate(tomorrowStr.getDate() + 2);
+            const tomorrowDateStr = tomorrowStr.toISOString().split('T')[0];
+
+            // 1. Patient books a future appointment
+            const futureApt = await request(app)
+                .post('/api/patients/appointments')
+                .set('Authorization', `Bearer ${patientToken}`)
+                .send({
+                    doctorId,
+                    appointmentDate: tomorrowDateStr,
+                    appointmentTime: '12:00',
+                    consultationType: 'clinic',
+                    symptoms: 'Checkup for next week'
+                })
+                .expect(201);
+
+            const futureAptId = futureApt.body.data.appointmentId;
+
+            // 2. Doctor attempts to complete future appointment
+            const completeRes = await request(app)
+                .put(`/api/doctors/appointments/${futureAptId}/complete`)
+                .set('Authorization', `Bearer ${doctorToken}`)
+                .send({ notes: 'Completed in future', diagnosis: 'None' })
+                .expect(400);
+
+            expect(completeRes.body.success).toBe(false);
+            expect(completeRes.body.message).toContain('Cannot mark a future appointment as completed');
+        });
+
+        it('should complete today\'s appointment and let the patient rate it', async () => {
+            // 1. Doctor marks today's appointment as completed
+            const completeRes = await request(app)
+                .put(`/api/doctors/appointments/${appointmentId}/complete`)
+                .set('Authorization', `Bearer ${doctorToken}`)
+                .send({ notes: 'Patient had normal temperature. Prescribed rest.', diagnosis: 'Mild viral fever' })
+                .expect(200);
+
+            expect(completeRes.body.success).toBe(true);
+            expect(completeRes.body.data.status).toBe('completed');
+
+            // 2. Patient rates the completed appointment
+            const rateRes = await request(app)
+                .post(`/api/patients/appointments/${appointmentId}/rate`)
+                .set('Authorization', `Bearer ${patientToken}`)
+                .send({
+                    rating: 5,
+                    feedback: 'Great diagnostic session, very patient doctor.'
+                })
+                .expect(200);
+
+            expect(rateRes.body.success).toBe(true);
+            expect(rateRes.body.data.rating.value).toBe(5);
+            expect(rateRes.body.data.rating.feedback).toBe('Great diagnostic session, very patient doctor.');
+        });
+    });
 });

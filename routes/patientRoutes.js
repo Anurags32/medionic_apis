@@ -20,7 +20,8 @@ const {
     getHealthStatistics,
     getAvailableSlots,
     getEmergencyContacts,
-    updateEmergencyContact
+    updateEmergencyContact,
+    rateAppointment
 } = require('../controllers/patientController');
 
 // Import extended controller functions
@@ -80,6 +81,7 @@ router.route('/appointments/:id')
 router.put('/appointments/:id/reschedule', canModifyAppointment, rescheduleAppointment);
 router.put('/appointments/:id/cancel', canModifyAppointment, cancelAppointment);
 router.post('/appointments/:id/pay', canModifyAppointment, payAppointment);
+router.post('/appointments/:id/rate', canAccessAppointment, rateAppointment);
 
 // Prescription routes
 router.route('/prescriptions')

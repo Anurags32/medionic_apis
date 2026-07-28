@@ -19,18 +19,24 @@ exports.rescheduleAppointment = async (req, res, next) => {
             return next(new ErrorResponse('New date and time are required', 400));
         }
 
+        // Get patient
+        const patient = await Patient.findOne({ userId: req.user._id });
+        if (!patient) {
+            return next(new ErrorResponse('Patient profile not found', 404));
+        }
+
         const appointment = await Appointment.findById(id);
         if (!appointment) {
             return next(new ErrorResponse('Appointment not found', 404));
         }
 
-        if (appointment.patientId.toString() !== req.user._id.toString()) {
+        if (appointment.patientId.toString() !== patient._id.toString()) {
             return next(new ErrorResponse('Not authorized to reschedule this appointment', 403));
         }
 
-        if (appointment.status === constants.APPOINTMENT_STATUS.COMPLETED ||
-            appointment.status === constants.APPOINTMENT_STATUS.CANCELLED) {
-            return next(new ErrorResponse(`Cannot reschedule ${appointment.status} appointment`, 400));
+        // Check if appointment can be rescheduled
+        if (!appointment.canBeRescheduled()) {
+            return next(new ErrorResponse('Appointment cannot be rescheduled (rescheduling allowed up to 4 hours before the appointment time)', 400));
         }
 
         appointment.appointmentDate = newDate;

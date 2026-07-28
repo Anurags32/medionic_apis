@@ -239,12 +239,19 @@ exports.getAppointments = async (req, res, next) => {
         // Pagination
         const skip = (parseInt(page) - 1) * parseInt(limit);
 
+        // Determine sorting: if status is pending or confirmed, sort nearest first (ascending)
+        // Otherwise, sort most recent first (descending)
+        const isUpcomingQuery = status && [constants.APPOINTMENT_STATUS.PENDING, constants.APPOINTMENT_STATUS.CONFIRMED].includes(status);
+        const sortOptions = isUpcomingQuery
+            ? { appointmentDate: 1, appointmentTime: 1 }
+            : { appointmentDate: -1, appointmentTime: -1 };
+
         // Get appointments with patient details
         const appointments = await Appointment.find(query)
             .populate('patientId', 'firstName lastName dob gender bloodGroup emergencyContact')
             .skip(skip)
             .limit(parseInt(limit))
-            .sort({ appointmentDate: -1, appointmentTime: -1 });
+            .sort(sortOptions);
 
         const total = await Appointment.countDocuments(query);
 
@@ -373,6 +380,15 @@ exports.completeAppointment = async (req, res, next) => {
             return next(new ErrorResponse('Appointment already completed', 400));
         }
 
+        // Check if appointment date is in the future
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const apptDate = new Date(appointment.appointmentDate);
+        apptDate.setHours(0, 0, 0, 0);
+        if (apptDate > today) {
+            return next(new ErrorResponse('Cannot mark a future appointment as completed', 400));
+        }
+
         // Mark as completed
         appointment.markAsCompleted(notes, diagnosis);
         appointment.followUpRequired = followUpRequired || false;
@@ -456,6 +472,13 @@ exports.createPrescription = [
                 validityPeriod,
                 status: constants.PRESCRIPTION_STATUS.ACTIVE
             });
+
+            // Update appointment to link prescription
+            if (appointmentId) {
+                await Appointment.findByIdAndUpdate(appointmentId, {
+                    prescriptionId: prescription._id
+                });
+            }
 
             res.status(201).json({
                 success: true,
@@ -615,16 +638,32 @@ exports.getDashboard = async (req, res, next) => {
             }
         });
 
-        const totalEarnings = completedAppointments * doctor.consultationFee;
+        // Calculate real total earnings from all completed appointments in the database
+        const totalEarningsResult = await Appointment.aggregate([
+            {
+                $match: {
+                    doctorId: doctor._id,
+                    status: constants.APPOINTMENT_STATUS.COMPLETED
+                }
+            },
+            {
+                $group: {
+                    _id: null,
+                    total: { $sum: '$amount' }
+                }
+            }
+        ]);
+        const totalEarnings = totalEarningsResult.length > 0 ? totalEarningsResult[0].total : 0;
 
-        // Get upcoming appointments (next 7 days)
-        const nextWeek = new Date();
-        nextWeek.setDate(now.getDate() + 7);
+        // Get upcoming appointments (today and next 7 days, starting 00:00:00 local time)
+        const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const nextWeek = new Date(todayStart);
+        nextWeek.setDate(todayStart.getDate() + 7);
 
         const upcomingAppointments = await Appointment.find({
             doctorId: doctor._id,
             appointmentDate: {
-                $gte: now,
+                $gte: todayStart,
                 $lte: nextWeek
             },
             status: { $in: [constants.APPOINTMENT_STATUS.PENDING, constants.APPOINTMENT_STATUS.CONFIRMED] }
@@ -1042,6 +1081,17 @@ exports.updateAppointmentStatus = async (req, res, next) => {
         if (appointment.status === constants.APPOINTMENT_STATUS.COMPLETED ||
             appointment.status === constants.APPOINTMENT_STATUS.CANCELLED) {
             return next(new ErrorResponse(`Cannot update a ${appointment.status} appointment`, 400));
+        }
+
+        // Prevent completing future appointments via generic status update route
+        if (status === constants.APPOINTMENT_STATUS.COMPLETED) {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const apptDate = new Date(appointment.appointmentDate);
+            apptDate.setHours(0, 0, 0, 0);
+            if (apptDate > today) {
+                return next(new ErrorResponse('Cannot mark a future appointment as completed', 400));
+            }
         }
 
         appointment.status = status;
