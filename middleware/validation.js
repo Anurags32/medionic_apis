@@ -293,38 +293,44 @@ const schemas = {
     }),
 
     // Prescription validation
+    // Accepts both legacy field names (medicineName/frequency/quantity) AND
+    // Flutter frontend field names (name/timing — no quantity required from client)
     createPrescription: Joi.object({
         patientId: Joi.string().required().messages({
             'any.required': 'Patient ID is required'
         }),
-        appointmentId: Joi.string().required().messages({
-            'any.required': 'Appointment ID is required'
-        }),
+        appointmentId: Joi.string().optional().allow('', null),
+        diagnosis: Joi.string().allow('', null).optional(),
+        instructions: Joi.array().items(Joi.string()).optional(),
         medicines: Joi.array().items(
             Joi.object({
-                medicineName: Joi.string().required().messages({
-                    'any.required': 'Medicine name is required'
-                }),
-                dosage: Joi.string().required().messages({
-                    'any.required': 'Dosage is required'
-                }),
-                frequency: Joi.string().required().messages({
-                    'any.required': 'Frequency is required'
-                }),
-                duration: Joi.string().required().messages({
-                    'any.required': 'Duration is required'
-                }),
-                quantity: Joi.number().min(1).required().messages({
-                    'number.min': 'Quantity must be at least 1',
-                    'any.required': 'Quantity is required'
-                })
+                // Flutter sends "name"; legacy sends "medicineName" — accept both
+                name: Joi.string().optional(),
+                medicineName: Joi.string().optional(),
+                genericName: Joi.string().optional().allow('', null),
+                dosage: Joi.string().optional().allow('', null),
+                // Flutter sends "timing"; legacy sends "frequency" — accept both
+                timing: Joi.string().optional().allow('', null),
+                frequency: Joi.string().optional().allow('', null),
+                duration: Joi.alternatives().try(
+                    Joi.string(),
+                    Joi.number()
+                ).optional().allow('', null),
+                // quantity is optional from the client (defaults to 1 in controller)
+                quantity: Joi.number().min(1).optional(),
+                instructions: Joi.string().optional().allow('', null),
+                beforeMeal: Joi.boolean().optional(),
+                withFood: Joi.boolean().optional()
             })
         ).min(1).required().messages({
             'array.min': 'At least one medicine is required',
             'any.required': 'Medicines are required'
         }),
         testRecommendations: Joi.array().items(Joi.string()).optional(),
-        followUpDate: Joi.date().iso().allow('', null).optional(),
+        followUpDate: Joi.alternatives().try(
+            Joi.date().iso(),
+            Joi.string().allow('', null)
+        ).optional(),
         notes: Joi.string().allow('', null).optional(),
         followUpInstructions: Joi.string().allow('', null).optional(),
         validityPeriod: Joi.number().integer().min(1).optional()

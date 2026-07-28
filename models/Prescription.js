@@ -16,6 +16,15 @@ const prescriptionSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Appointment'
     },
+    diagnosis: {
+        type: String,
+        trim: true,
+        maxlength: [1000, 'Diagnosis cannot exceed 1000 characters']
+    },
+    instructions: [{
+        type: String,
+        trim: true
+    }],
     medicines: [{
         medicineName: {
             type: String,

@@ -421,13 +421,30 @@ exports.createPrescription = [
             const {
                 patientId,
                 appointmentId,
-                medicines,
+                diagnosis,
+                instructions,        // top-level string array from Flutter
+                medicines: rawMedicines,
                 testRecommendations = [],
                 followUpDate,
                 notes,
                 followUpInstructions,
                 validityPeriod = 30
             } = req.body;
+
+            // ── Normalize medicine fields ───────────────────────────────────────
+            // Flutter sends: { name, dosage, timing, duration, instructions }
+            // Model expects:  { medicineName, dosage, frequency, duration, quantity, instructions }
+            const medicines = (rawMedicines || []).map(m => ({
+                medicineName:  m.medicineName  || m.name || 'Unknown',
+                genericName:   m.genericName   || '',
+                dosage:        m.dosage        || '',
+                frequency:     m.frequency     || m.timing || '',
+                duration:      String(m.duration || ''),
+                quantity:      m.quantity      || 1,
+                instructions:  m.instructions  || '',
+                beforeMeal:    m.beforeMeal    || false,
+                withFood:      m.withFood      || false
+            }));
 
             const doctor = await Doctor.findOne({ userId: user._id });
 
@@ -464,7 +481,9 @@ exports.createPrescription = [
                 doctorId: doctor._id,
                 patientId,
                 appointmentId,
+                diagnosis,
                 medicines,
+                instructions,
                 testRecommendations,
                 followUpDate,
                 notes,
