@@ -31,10 +31,15 @@ const labRoutes = require('./routes/labRoutes');
 const pharmacyRoutes = require('./routes/pharmacyRoutes');
 const emergencyRoutes = require('./routes/emergencyRoutes');
 const consultationRoutes = require('./routes/consultationRoutes');
+const appDataRoutes = require('./routes/appDataRoutes');
 
 const doctorAuthRoutes = require('./routes/auth/doctor/doctorRoutes');
 const patientAuthRoutes = require('./routes/auth/patient/patientRoutes');
 const mrAuthRoutes = require('./routes/auth/mr/mrRoutes');
+
+// Initialize Firebase Admin SDK
+const { initializeFirebase } = require('./config/firebase');
+initializeFirebase();
 
 // Import Socket.io service
 const { initSocket } = require('./services/socketService');
@@ -176,6 +181,7 @@ app.use('/api/lab', labRoutes);
 app.use('/api/pharmacy', pharmacyRoutes);
 app.use('/api/emergency', emergencyRoutes);
 app.use('/api/consultations', consultationRoutes);
+app.use('/api/app_data', appDataRoutes);
 
 console.log('\n✅  All API routes registered:');
 console.log('    POST /api/auth/patient/register');
@@ -191,6 +197,7 @@ console.log('    POST /api/lab/bookings');
 console.log('    GET  /api/pharmacy/products');
 console.log('    POST /api/payments/create-order');
 console.log('    POST /api/emergency/sos');
+console.log('    POST /api/app_data/send_call_notification');
 console.log('    GET  /api/health');
 
 // Error handling middleware (should be last)

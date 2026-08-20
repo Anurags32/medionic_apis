@@ -181,3 +181,6 @@ coverage/
 *.pem
 *.key
 *.cert
+*firebase*.json
+*service-account*.json
+firebase-service-account.json
