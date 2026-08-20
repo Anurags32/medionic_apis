@@ -22,11 +22,24 @@ const initializeFirebase = () => {
   try {
     let serviceAccount = null;
 
-    // Option 1: Direct JSON string in environment variable (useful for cloud/CI/CD)
-    const jsonEnv = process.env.FIREBASE_SERVICE_ACCOUNT_KEY || process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
+    // Option 1: Direct JSON string or Base64 string in environment variable (for Render / Vercel / Heroku)
+    const jsonEnv = process.env.FIREBASE_SERVICE_ACCOUNT_KEY || 
+                    process.env.FIREBASE_SERVICE_ACCOUNT_JSON || 
+                    process.env.FIREBASE_SERVICE_ACCOUNT_BASE64;
     if (jsonEnv) {
       try {
-        serviceAccount = typeof jsonEnv === 'string' ? JSON.parse(jsonEnv) : jsonEnv;
+        let parsed = jsonEnv;
+        if (typeof parsed === 'string') {
+          const trimmed = parsed.trim();
+          if (trimmed.startsWith('{')) {
+            parsed = JSON.parse(trimmed);
+          } else {
+            // Attempt Base64 decode
+            const decoded = Buffer.from(trimmed, 'base64').toString('utf8');
+            parsed = JSON.parse(decoded);
+          }
+        }
+        serviceAccount = parsed;
       } catch (parseErr) {
         console.error('❌ Failed to parse FIREBASE_SERVICE_ACCOUNT_KEY JSON string:', parseErr.message);
       }
@@ -36,6 +49,8 @@ const initializeFirebase = () => {
     if (!serviceAccount) {
       const potentialPaths = [
         process.env.FIREBASE_SERVICE_ACCOUNT_PATH,
+        '/etc/secrets/firebase-service-account.json',
+        '/etc/secrets/firebase.json',
         path.join(__dirname, 'firebase-service-account.json'),
         path.join(__dirname, '../firebase-service-account.json'),
         path.join(process.cwd(), 'firebase-service-account.json'),
@@ -54,6 +69,11 @@ const initializeFirebase = () => {
     }
 
     if (serviceAccount) {
+      // Fix potential escaped newline issues in private_key when injected via env
+      if (serviceAccount.private_key && typeof serviceAccount.private_key === 'string') {
+        serviceAccount.private_key = serviceAccount.private_key.replace(/\\n/g, '\n');
+      }
+
       appInstance = initializeApp({
         credential: cert(serviceAccount)
       });
@@ -61,7 +81,7 @@ const initializeFirebase = () => {
       return appInstance;
     } else {
       console.warn('⚠️  Firebase Admin SDK not initialized: Service account key not found.');
-      console.warn('💡  Set FIREBASE_SERVICE_ACCOUNT_PATH in .env or place firebase-service-account.json in ./config/');
+      console.warn('💡  Set FIREBASE_SERVICE_ACCOUNT_KEY / FIREBASE_SERVICE_ACCOUNT_BASE64 in Render Environment variables, or add a Secret File at /etc/secrets/firebase-service-account.json');
     }
   } catch (error) {
     console.error('❌ Error initializing Firebase Admin SDK:', error.message);
