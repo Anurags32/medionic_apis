@@ -215,19 +215,19 @@ exports.searchDoctors = async (req, res, next) => {
                 currency: 'INR',
                 video: {
                     feeMinor: doctor.consultationTypes.includes(constants.CONSULTATION_TYPES.VIDEO)
-                        ? Math.round(doctor.consultationFee * 100)
+                        ? Math.round((doctor.videoFee || doctor.consultationFee || 500) * 100)
                         : null,
                     available: doctor.consultationTypes.includes(constants.CONSULTATION_TYPES.VIDEO)
                 },
                 inClinic: {
                     feeMinor: doctor.consultationTypes.includes(constants.CONSULTATION_TYPES.CLINIC)
-                        ? Math.round(doctor.consultationFee * 100)
+                        ? Math.round((doctor.clinicFee || doctor.consultationFee || 600) * 100)
                         : null,
                     available: doctor.consultationTypes.includes(constants.CONSULTATION_TYPES.CLINIC)
                 },
                 chat: {
                     feeMinor: doctor.consultationTypes.includes(constants.CONSULTATION_TYPES.CHAT)
-                        ? Math.round(doctor.consultationFee * 100)
+                        ? Math.round((doctor.chatFee || doctor.consultationFee || 300) * 100)
                         : null,
                     available: doctor.consultationTypes.includes(constants.CONSULTATION_TYPES.CHAT)
                 }
@@ -364,6 +364,15 @@ exports.bookAppointment = [
             }
 
             // Create appointment
+            let appointmentAmount = doctor.consultationFee;
+            if (normalizedConsultationType === constants.CONSULTATION_TYPES.VIDEO) {
+                appointmentAmount = doctor.videoFee || doctor.consultationFee;
+            } else if (normalizedConsultationType === constants.CONSULTATION_TYPES.CLINIC) {
+                appointmentAmount = doctor.clinicFee || doctor.consultationFee;
+            } else if (normalizedConsultationType === constants.CONSULTATION_TYPES.CHAT) {
+                appointmentAmount = doctor.chatFee || doctor.consultationFee;
+            }
+
             const appointment = await Appointment.create({
                 patientId: patient._id,
                 doctorId,
@@ -372,7 +381,7 @@ exports.bookAppointment = [
                 consultationType: normalizedConsultationType,
                 symptoms,
                 status: constants.APPOINTMENT_STATUS.PENDING,
-                amount: doctor.consultationFee
+                amount: appointmentAmount
             });
 
             res.status(201).json({
@@ -436,7 +445,7 @@ exports.getAppointments = async (req, res, next) => {
 
         // Get appointments with doctor details
         const appointments = await Appointment.find(query)
-            .populate('doctorId', 'firstName lastName specialization clinic consultationFee')
+            .populate('doctorId', 'firstName lastName specialization clinic consultationFee videoFee clinicFee chatFee')
             .skip(skip)
             .limit(parseInt(limit))
             .sort({ appointmentDate: -1, appointmentTime: -1 });

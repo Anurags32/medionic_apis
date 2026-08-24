@@ -335,7 +335,12 @@ exports.updateDoctorProfile = async (req, res, next) => {
             clinicAddress,
             city,
             phone,
-            bio
+            bio,
+            consultationFee,
+            videoFee,
+            clinicFee,
+            chatFee,
+            fees
         } = req.body;
 
         // Update name if passed
@@ -361,6 +366,28 @@ exports.updateDoctorProfile = async (req, res, next) => {
                 doctor.clinic.phone = `+91${digits}`;
                 console.log(`    📝  Clinic phone updated: +91${digits}`);
             }
+        }
+
+        // Update fees
+        if (consultationFee !== undefined) {
+            doctor.consultationFee = Number(consultationFee);
+            console.log(`    📝  Consultation fee updated: ${consultationFee}`);
+        }
+        if (videoFee !== undefined) {
+            doctor.videoFee = Number(videoFee);
+            console.log(`    📝  Video fee updated: ${videoFee}`);
+        }
+        if (clinicFee !== undefined) {
+            doctor.clinicFee = Number(clinicFee);
+            console.log(`    📝  Clinic fee updated: ${clinicFee}`);
+        }
+        if (chatFee !== undefined) {
+            doctor.chatFee = Number(chatFee);
+            console.log(`    📝  Chat fee updated: ${chatFee}`);
+        }
+        if (fees) {
+            doctor.fees = fees;
+            console.log(`    📝  Fees object updated`);
         }
 
         // Update profile picture if uploaded

@@ -75,7 +75,29 @@ const doctorSchema = new mongoose.Schema({
     consultationFee: {
         type: Number,
         required: [true, 'Consultation fee is required'],
-        min: [0, 'Consultation fee cannot be negative']
+        min: [0, 'Consultation fee cannot be negative'],
+        default: 500
+    },
+    videoFee: {
+        type: Number,
+        default: 500,
+        min: [0, 'Video fee cannot be negative']
+    },
+    clinicFee: {
+        type: Number,
+        default: 600,
+        min: [0, 'Clinic fee cannot be negative']
+    },
+    chatFee: {
+        type: Number,
+        default: 300,
+        min: [0, 'Chat fee cannot be negative']
+    },
+    fees: {
+        video: { type: Number, default: 500, min: [0, 'Video fee cannot be negative'] },
+        clinic: { type: Number, default: 600, min: [0, 'Clinic fee cannot be negative'] },
+        chat: { type: Number, default: 300, min: [0, 'Chat fee cannot be negative'] },
+        consultationFee: { type: Number, default: 500, min: [0, 'Consultation fee cannot be negative'] }
     },
     consultationTypes: [{
         type: String,

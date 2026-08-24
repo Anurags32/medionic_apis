@@ -613,6 +613,15 @@ const schemas = {
             })
         ).optional(),
         consultationFee: Joi.number().min(0).optional(),
+        videoFee: Joi.number().min(0).optional(),
+        clinicFee: Joi.number().min(0).optional(),
+        chatFee: Joi.number().min(0).optional(),
+        fees: Joi.object({
+            video: Joi.number().min(0).optional(),
+            clinic: Joi.number().min(0).optional(),
+            chat: Joi.number().min(0).optional(),
+            consultationFee: Joi.number().min(0).optional()
+        }).optional(),
         bio: Joi.string().allow('', null).optional(),
         profilePhoto: Joi.string().allow('', null).optional(),
         shift: shiftSchema.optional(),

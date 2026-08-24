@@ -40,6 +40,10 @@ exports.getProfile = async (req, res, next) => {
                     city: doctor.clinic.city
                 },
                 consultationFee: doctor.consultationFee,
+                videoFee: doctor.videoFee,
+                clinicFee: doctor.clinicFee,
+                chatFee: doctor.chatFee,
+                fees: doctor.fees,
                 verificationStatus: doctor.verificationStatus,
                 bio: doctor.bio,
                 profilePhoto: user.profilePhoto || doctor.profilePicture,
@@ -98,7 +102,19 @@ exports.updateProfile = async (req, res, next) => {
             }
         }
         if (req.body.consultationFee !== undefined) {
-            doctor.consultationFee = req.body.consultationFee;
+            doctor.consultationFee = Number(req.body.consultationFee);
+        }
+        if (req.body.videoFee !== undefined) {
+            doctor.videoFee = Number(req.body.videoFee);
+        }
+        if (req.body.clinicFee !== undefined) {
+            doctor.clinicFee = Number(req.body.clinicFee);
+        }
+        if (req.body.chatFee !== undefined) {
+            doctor.chatFee = Number(req.body.chatFee);
+        }
+        if (req.body.fees) {
+            doctor.fees = req.body.fees;
         }
         if (req.body.bio !== undefined) {
             doctor.bio = req.body.bio;
@@ -135,6 +151,10 @@ exports.updateProfile = async (req, res, next) => {
                     city: doctor.clinic.city
                 },
                 consultationFee: doctor.consultationFee,
+                videoFee: doctor.videoFee,
+                clinicFee: doctor.clinicFee,
+                chatFee: doctor.chatFee,
+                fees: doctor.fees,
                 verificationStatus: doctor.verificationStatus,
                 bio: doctor.bio,
                 profilePhoto: user.profilePhoto || doctor.profilePicture,
