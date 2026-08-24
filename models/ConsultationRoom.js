@@ -10,7 +10,7 @@ const consultationRoomSchema = new mongoose.Schema({
     state: { type: String, enum: ['pending', 'open', 'active', 'ended', 'missed'], default: 'pending' }
 }, { timestamps: true });
 
-consultationRoomSchema.index({ roomId: 1 }, { unique: true });
+// Note: appointmentId and roomId already have { unique: true } defined on field schemas
 consultationRoomSchema.index({ joinUntil: 1 });
 
 module.exports = mongoose.model('ConsultationRoom', consultationRoomSchema);

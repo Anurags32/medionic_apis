@@ -14,12 +14,7 @@ const idempotent = (options = {}) => async (req, res, next) => {
     const expiresAt = new Date(Date.now() + (options.ttlMs || 24 * 60 * 60 * 1000));
 
     try {
-        const record = await IdempotencyKey.findOneAndUpdate(
-            { key, scope },
-            { $setOnInsert: { key, scope, requestHash, expiresAt } },
-            { upsert: true, new: true, rawResult: true }
-        );
-        const existing = record.lastErrorObject?.updatedExisting ? record.value : null;
+        const existing = await IdempotencyKey.findOne({ key, scope });
 
         if (existing) {
             if (existing.requestHash !== requestHash) {
@@ -28,22 +23,57 @@ const idempotent = (options = {}) => async (req, res, next) => {
             if (existing.status === 'processing') {
                 return next(new ErrorResponse('A request with this Idempotency-Key is already processing', 409));
             }
-            res.status(existing.statusCode || 200).json(existing.responseBody);
-            return;
+            return res.status(existing.statusCode || 200).json(existing.responseBody);
+        }
+
+        let record;
+        try {
+            record = await IdempotencyKey.create({
+                key,
+                scope,
+                requestHash,
+                status: 'processing',
+                expiresAt
+            });
+        } catch (insertError) {
+            if (insertError.code === 11000) {
+                const duplicate = await IdempotencyKey.findOne({ key, scope });
+                if (duplicate && duplicate.requestHash !== requestHash) {
+                    return next(new ErrorResponse('Idempotency-Key was reused with a different request', 409));
+                }
+                return next(new ErrorResponse('A request with this Idempotency-Key is already processing', 409));
+            }
+            throw insertError;
         }
 
         const originalJson = res.json.bind(res);
-        res.json = async body => {
-            await IdempotencyKey.updateOne({ _id: record.value._id }, {
-                $set: { status: 'completed', statusCode: res.statusCode, responseBody: body }
-            });
+        res.json = function (body) {
+            res.json = originalJson;
+
+            if (record && record._id) {
+                if (res.statusCode >= 200 && res.statusCode < 400) {
+                    IdempotencyKey.findByIdAndUpdate(record._id, {
+                        $set: {
+                            status: 'completed',
+                            statusCode: res.statusCode,
+                            responseBody: body
+                        }
+                    }).catch(err => {
+                        console.error('⚠️  Failed to cache idempotent response:', err.message);
+                    });
+                } else {
+                    // On error (4xx/5xx), remove record so user can retry
+                    IdempotencyKey.findByIdAndDelete(record._id).catch(err => {
+                        console.error('⚠️  Failed to clear failed idempotent record:', err.message);
+                    });
+                }
+            }
+
             return originalJson(body);
         };
+
         next();
     } catch (error) {
-        if (error.code === 11000) {
-            return next(new ErrorResponse('A request with this Idempotency-Key is already processing', 409));
-        }
         next(error);
     }
 };

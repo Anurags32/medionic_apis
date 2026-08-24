@@ -52,6 +52,9 @@ const errorHandler = require('./middleware/errorHandler');
 // Initialize express app
 const app = express();
 
+// Trust reverse proxy (Render, Heroku, Nginx, Cloudflare) for accurate client IP & rate limiting
+app.set('trust proxy', 1);
+
 // Security middleware
 app.use(helmet());
 console.log('✅  Helmet security middleware applied');
