@@ -6,6 +6,7 @@ const helmet = require('helmet');
 const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
 const dotenv = require('dotenv');
+const crypto = require('crypto');
 
 // Load environment variables
 dotenv.config();
@@ -15,7 +16,6 @@ console.log('🚀  Medionic Backend Server Starting...');
 console.log('==========================================================');
 console.log(`📌  NODE_ENV     : ${process.env.NODE_ENV || 'development'}`);
 console.log(`📌  PORT         : ${process.env.PORT || 5001}`);
-console.log(`📌  MONGODB_URI  : ${process.env.MONGODB_URI || 'mongodb://localhost:27017/healthcare_db'}`);
 console.log(`📌  CLIENT_URL   : ${process.env.CLIENT_URL || 'http://localhost:3000'}`);
 console.log('==========================================================');
 
@@ -66,17 +66,15 @@ app.use('/api/', limiter);
 console.log('✅  Rate limiter applied on /api/');
 
 // Body parsing middleware
+// Webhook signatures require the exact incoming bytes.
+app.use('/api/payments/webhook', express.raw({ type: 'application/json', limit: '1mb' }));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 console.log('✅  Body parser middleware applied');
 
 // CORS configuration
 app.use(cors({
-  origin: [
-    'http://localhost:3000',
-    'https://medonic-admin-kmfw.vercel.app',
-    'https://medonic-admin-yer9.vercel.app'
-  ],
+  origin: (process.env.CLIENT_URL || 'http://localhost:3000').split(',').map(origin => origin.trim()),
   credentials: true
 }));
 console.log(`✅  CORS enabled for origin: ${process.env.CLIENT_URL || 'http://localhost:3000'}`);
@@ -130,13 +128,11 @@ if (process.env.NODE_ENV !== 'test') {
 
 // Request logger middleware (log all incoming API requests)
 app.use((req, res, next) => {
+  req.requestId = req.headers['x-request-id'] || crypto.randomUUID();
+  res.setHeader('X-Request-Id', req.requestId);
   const start = Date.now();
   console.log(`\n📥  [${new Date().toISOString()}] ${req.method} ${req.originalUrl}`);
-  if (Object.keys(req.body || {}).length > 0) {
-    const safeBody = { ...req.body };
-    if (safeBody.password) safeBody.password = '****';
-    console.log(`    Body:`, JSON.stringify(safeBody));
-  }
+  // Request bodies may contain credentials, payment data, or PHI.
   res.on('finish', () => {
     const duration = Date.now() - start;
     const statusIcon = res.statusCode < 400 ? '✅' : '❌';
@@ -159,7 +155,17 @@ app.get('/api/health', (req, res) => {
     timestamp: new Date().toISOString(),
     database: dbStatus,
     environment: process.env.NODE_ENV || 'development',
-    port: process.env.PORT || 5001
+    port: process.env.PORT || 5001,
+    requestId: req.requestId
+  });
+});
+
+app.get('/api/ready', (req, res) => {
+  const ready = mongoose.connection.readyState === 1;
+  res.status(ready ? 200 : 503).json({
+    success: ready,
+    data: { database: ready ? 'connected' : 'unavailable' },
+    requestId: req.requestId
   });
 });
 

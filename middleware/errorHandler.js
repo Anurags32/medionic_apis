@@ -67,8 +67,11 @@ const errorHandler = (err, req, res, next) => {
     // Send error response
     res.status(statusCode).json({
         success: false,
+        code: error.code || (statusCode >= 500 ? 'INTERNAL_ERROR' : 'REQUEST_ERROR'),
         message,
-        error: process.env.NODE_ENV === 'development' ? err.stack : null
+        requestId: req.requestId,
+        errors: error.errors || [],
+        error: process.env.NODE_ENV === 'development' ? err.stack : undefined
     });
 };
 

@@ -84,7 +84,7 @@ const doctorSchema = new mongoose.Schema({
     }],
     rating: {
         type: Number,
-        default: 5.0,
+        default: null,
         min: [0, 'Rating cannot be negative'],
         max: [5, 'Rating cannot exceed 5']
     },

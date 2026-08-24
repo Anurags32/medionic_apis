@@ -1,5 +1,41 @@
 const Appointment = require('../models/Appointment');
 const ErrorResponse = require('../utils/errorResponse');
+const Patient = require('../models/Patient');
+const Doctor = require('../models/Doctor');
+const ConsultationRoom = require('../models/ConsultationRoom');
+const { ensureConsultationRoom } = require('../services/consultationRoomService');
+
+exports.getConsultationSession = async (req, res, next) => {
+    try {
+        const appointment = await Appointment.findById(req.params.appointmentId);
+        if (!appointment) return next(new ErrorResponse('Appointment not found', 404));
+
+        const [patient, doctor] = await Promise.all([
+            Patient.findOne({ userId: req.user._id }).select('_id'),
+            Doctor.findOne({ userId: req.user._id }).select('_id')
+        ]);
+        const authorized = (patient && appointment.patientId.equals(patient._id)) ||
+            (doctor && appointment.doctorId.equals(doctor._id));
+        if (!authorized) return next(new ErrorResponse('Not authorized to access this consultation', 403));
+
+        const room = await ensureConsultationRoom(appointment);
+        if (!room) return next(new ErrorResponse('Consultation room is not available for this appointment', 409));
+
+        res.status(200).json({
+            success: true,
+            data: {
+                roomId: room.roomId,
+                appointmentId: room.appointmentId,
+                joinFrom: room.joinFrom,
+                joinUntil: room.joinUntil,
+                state: room.state
+            },
+            requestId: req.requestId
+        });
+    } catch (error) {
+        next(error);
+    }
+};
 
 // Try to access the Socket.io instance — may not be ready in test environments
 const getIO = () => {
@@ -37,21 +73,20 @@ exports.videoSignal = async (req, res, next) => {
         }
 
         // Verify the roomId belongs to a real appointment that involves this user
-        const appointment = await Appointment.findOne({
+        const [patient, doctor] = await Promise.all([
+            Patient.findOne({ userId: req.user._id }).select('_id'),
+            Doctor.findOne({ userId: req.user._id }).select('_id')
+        ]);
+        const participantIds = [patient?._id, doctor?._id].filter(Boolean);
+        const room = await ConsultationRoom.findOne({ roomId });
+        const appointment = room && await Appointment.findOne({
+            _id: room.appointmentId,
             roomId,
-            $or: [
-                { patientId: req.user._id },
-                { doctorId: req.user._id }
-            ]
+            status: { $in: ['confirmed', 'in_progress'] },
+            $or: participantIds.map(id => ({ patientId: id })).concat(participantIds.map(id => ({ doctorId: id })))
         });
 
-        // Note: patientId / doctorId on Appointment refers to the profile doc ID,
-        // but req.user._id is the User ID. We do a lenient check — if no match by
-        // userId, we also check via populated lookup. For MVP we allow any authenticated
-        // user who knows the roomId (the room itself is the secret).
-        // In a stricter build, enforce patient/doctor profile ID check here.
-
-        if (!appointment && process.env.NODE_ENV === 'production') {
+        if (!appointment) {
             return next(new ErrorResponse('Invalid room — no active appointment found for this room', 403));
         }
 

@@ -1,8 +1,8 @@
 {
   "info": {
     "_postman_id": "healthcare-plus-complete-v2",
-    "name": "HealthCare+ Backend API — Complete (71 endpoints)",
-    "description": "Full Postman collection for the HealthCare+ backend. Covers Auth, Patient, Doctor, MR, Admin, Pharmacy & Lab, AI & Emergency, Payments, and Real-time.\n\nSetup:\n1. Set `baseUrl` collection variable to `http://localhost:5001`\n2. Run `POST Patient Login` or `POST Patient Register` — tokens are auto-captured\n3. All protected endpoints use the `authToken` variable automatically",
+    "name": "HealthCare+ Backend API — Latest (91 requests)",
+    "description": "Postman collection for the current HealthCare+ backend. Covers Auth, Patient, Doctor, MR, Admin, Pharmacy & Lab, AI & Emergency, Payments, and consultation APIs. Appointment responses include consultation room identifiers when available; patient history requests expose only backend-provided records and metadata.\n\nSetup:\n1. Set the `baseUrl` collection variable to your running API URL (default: `http://localhost:5001`)\n2. Run a login request — tokens are auto-captured by the request scripts\n3. Protected endpoints use the role-specific token variables automatically",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -1276,6 +1276,31 @@
           }
         },
         {
+          "name": "Get Consultation Session",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{patientToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/patients/appointments/{{appointmentId}}/consultation-session",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "patients",
+                "appointments",
+                "{{appointmentId}}",
+                "consultation-session"
+              ]
+            }
+          }
+        },
+        {
           "name": "Reschedule Appointment",
           "request": {
             "method": "PUT",
@@ -1746,6 +1771,97 @@
                 "appointments",
                 "{{appointmentId}}",
                 "status"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Confirm Appointment",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{doctorToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/doctors/appointments/{{appointmentId}}/confirm",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "doctors",
+                "appointments",
+                "{{appointmentId}}",
+                "confirm"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Complete Appointment",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{doctorToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"notes\": \"Consultation notes\",\n  \"diagnosis\": \"Diagnosis\",\n  \"followUpRequired\": false\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/doctors/appointments/{{appointmentId}}/complete",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "doctors",
+                "appointments",
+                "{{appointmentId}}",
+                "complete"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Cancel Appointment (Doctor)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{doctorToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Doctor unavailable\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/doctors/appointments/{{appointmentId}}/cancel",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "doctors",
+                "appointments",
+                "{{appointmentId}}",
+                "cancel"
               ]
             }
           }

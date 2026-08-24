@@ -40,6 +40,7 @@ const { protect, authorize, profileComplete } = require('../middleware/auth');
 const { canAccessDoctorData, canAccessPatientData, canAccessAppointment, canWritePrescription, canAccessMRMeeting } = require('../middleware/roleAuth');
 const { validate } = require('../middleware/validation');
 const constants = require('../config/constants');
+const idempotent = require('../middleware/idempotency');
 
 // All routes are protected and require doctor role
 router.use(protect, authorize(constants.ROLES.DOCTOR), profileComplete);
@@ -77,7 +78,7 @@ router.get('/patients/:id/history', canAccessPatientData, getPatientProfileForDo
 // Prescription routes
 router.route('/prescriptions')
     .get(getPrescriptions)
-    .post(canWritePrescription, createPrescription);
+    .post(idempotent(), canWritePrescription, createPrescription);
 
 // MR meeting routes
 router.get('/mr-meetings', getMRMeetings);

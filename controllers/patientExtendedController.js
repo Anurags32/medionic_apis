@@ -142,6 +142,7 @@ exports.uploadMedicalRecord = async (req, res, next) => {
             description,
             fileUrl,
             fileName: req.file.filename,
+            mimeType: req.file.mimetype,
             fileSize: req.file.size,
             uploadedAt: new Date()
         };

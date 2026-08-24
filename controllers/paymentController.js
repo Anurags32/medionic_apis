@@ -6,6 +6,7 @@ const Patient = require('../models/Patient');
 const ErrorResponse = require('../utils/errorResponse');
 const constants = require('../config/constants');
 const helpers = require('../utils/helpers');
+const { ensureConsultationRoom } = require('../services/consultationRoomService');
 
 // ─── Razorpay client (lazy-init so missing keys don't crash startup) ──────────
 let razorpayClient = null;
@@ -27,24 +28,44 @@ const getRazorpay = () => {
 // @access  Private (Patient)
 exports.createOrder = async (req, res, next) => {
     try {
-        const { amount, purpose, referenceId } = req.body;
+        const { purpose, referenceId } = req.body;
         // purpose: 'appointment' | 'pharmacy'
         // referenceId: appointmentId or pharmacyOrderId
-
-        if (!amount || isNaN(amount) || Number(amount) <= 0) {
-            return next(new ErrorResponse('Please provide a valid amount', 400));
-        }
 
         const validPurposes = ['appointment', 'pharmacy'];
         if (!purpose || !validPurposes.includes(purpose)) {
             return next(new ErrorResponse(`purpose must be one of: ${validPurposes.join(', ')}`, 400));
         }
 
-        const amountInPaise = Math.round(Number(amount) * 100); // Razorpay uses smallest currency unit
+        if (!referenceId) {
+            return next(new ErrorResponse('referenceId is required', 400));
+        }
+
+        let authoritativeAmount;
+        if (purpose === 'appointment') {
+            const patient = await Patient.findOne({ userId: req.user._id });
+            const appointment = await Appointment.findOne({ _id: referenceId, patientId: patient?._id });
+            if (!appointment) return next(new ErrorResponse('Appointment not found', 404));
+            authoritativeAmount = appointment.amount;
+        } else {
+            const order = await PharmacyOrder.findOne({ _id: referenceId, patientId: req.user._id });
+            if (!order) return next(new ErrorResponse('Pharmacy order not found', 404));
+            authoritativeAmount = order.finalAmount;
+        }
+
+        if (!Number.isFinite(authoritativeAmount) || authoritativeAmount <= 0) {
+            return next(new ErrorResponse('Reference has no payable amount', 400));
+        }
+
+        const amountInPaise = Math.round(authoritativeAmount * 100); // Razorpay uses smallest currency unit
 
         const rzp = getRazorpay();
 
         // ── Mock mode (no real Razorpay keys) ─────────────────────────────────
+        if (!rzp && process.env.NODE_ENV === 'production') {
+            return next(new ErrorResponse('Payment gateway is not configured', 503));
+        }
+
         if (!rzp) {
             const mockOrderId = 'order_mock_' + helpers.generateRandomString(14);
             return res.status(200).json({
@@ -53,7 +74,7 @@ exports.createOrder = async (req, res, next) => {
                 data: {
                     orderId: mockOrderId,
                     amount: amountInPaise,
-                    amountDisplay: Number(amount),
+                    amountDisplay: authoritativeAmount,
                     currency: 'INR',
                     purpose,
                     referenceId: referenceId || null,
@@ -83,7 +104,7 @@ exports.createOrder = async (req, res, next) => {
             data: {
                 orderId: razorpayOrder.id,
                 amount: razorpayOrder.amount,
-                amountDisplay: Number(amount),
+                amountDisplay: authoritativeAmount,
                 currency: razorpayOrder.currency,
                 purpose,
                 referenceId: referenceId || null,
@@ -101,20 +122,30 @@ exports.createOrder = async (req, res, next) => {
 // @access  Public
 exports.paymentWebhook = async (req, res, next) => {
     try {
+        const rawBody = Buffer.isBuffer(req.body)
+            ? req.body
+            : Buffer.from(JSON.stringify(req.body || {}));
+        const payload = JSON.parse(rawBody.toString('utf8'));
         const signature = req.headers['x-razorpay-signature'];
         const keySecret = process.env.RAZORPAY_KEY_SECRET;
 
         // ── Verify Razorpay signature when keys are configured ─────────────────
         if (signature && keySecret && !keySecret.startsWith('your_razorpay')) {
-            const body = JSON.stringify(req.body);
             const expectedSig = crypto
                 .createHmac('sha256', keySecret)
-                .update(body)
+                .update(rawBody)
                 .digest('hex');
 
-            if (expectedSig !== signature) {
+            const receivedSignature = Buffer.from(String(signature));
+            const expectedSignature = Buffer.from(expectedSig);
+            if (receivedSignature.length !== expectedSignature.length ||
+                !crypto.timingSafeEqual(expectedSignature, receivedSignature)) {
                 return res.status(400).json({ success: false, message: 'Invalid webhook signature' });
             }
+        }
+
+        if (process.env.NODE_ENV === 'production' && (!signature || !keySecret)) {
+            return res.status(400).json({ success: false, message: 'Webhook signature is required' });
         }
 
         // ── Parse payload (supports Razorpay standard format and mock format) ──
@@ -123,19 +154,19 @@ exports.paymentWebhook = async (req, res, next) => {
         let payStatus = 'failed';
         let txId = null;
 
-        if (req.body.payload && req.body.payload.payment && req.body.payload.payment.entity) {
+        if (payload.payload && payload.payload.payment && payload.payload.payment.entity) {
             // Razorpay webhook format
-            const entity = req.body.payload.payment.entity;
+            const entity = payload.payload.payment.entity;
             referenceId = entity.notes ? entity.notes.referenceId || entity.notes.appointmentId : null;
             purpose = entity.notes ? entity.notes.purpose || 'appointment' : 'appointment';
             payStatus = ['captured', 'authorized'].includes(entity.status) ? 'completed' : 'failed';
             txId = entity.id;
         } else {
             // Simple mock / manual format
-            referenceId = req.body.referenceId || req.body.appointmentId;
-            purpose = req.body.purpose || 'appointment';
-            payStatus = req.body.status === 'success' ? 'completed' : 'failed';
-            txId = req.body.transactionId || 'tx_' + helpers.generateRandomString(12);
+            referenceId = payload.referenceId || payload.appointmentId;
+            purpose = payload.purpose || 'appointment';
+            payStatus = payload.status === 'success' ? 'completed' : 'failed';
+            txId = payload.transactionId || 'tx_' + helpers.generateRandomString(12);
         }
 
         if (!referenceId) {
@@ -178,6 +209,7 @@ exports.paymentWebhook = async (req, res, next) => {
 
         if (payStatus === 'completed') {
             appointment.status = constants.APPOINTMENT_STATUS.CONFIRMED;
+            await ensureConsultationRoom(appointment);
         } else {
             appointment.status = constants.APPOINTMENT_STATUS.CANCELLED;
             appointment.cancelledBy = 'system';

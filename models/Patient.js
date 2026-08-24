@@ -1,6 +1,38 @@
 const mongoose = require('mongoose');
 const constants = require('../config/constants');
 
+const medicalRecordSchema = new mongoose.Schema({
+    category: {
+        type: String,
+        enum: ['lab_report', 'test_result', 'prescription', 'other'],
+        required: true
+    },
+    description: {
+        type: String,
+        trim: true,
+        maxlength: 500
+    },
+    fileUrl: {
+        type: String,
+        required: true,
+        trim: true
+    },
+    fileName: {
+        type: String,
+        required: true,
+        trim: true
+    },
+    mimeType: {
+        type: String,
+        trim: true
+    },
+    fileSize: Number,
+    uploadedAt: {
+        type: Date,
+        default: Date.now
+    }
+}, { _id: true });
+
 const patientSchema = new mongoose.Schema({
     userId: {
         type: mongoose.Schema.Types.ObjectId,
@@ -107,6 +139,7 @@ const patientSchema = new mongoose.Schema({
         },
         reaction: String
     }],
+    medicalRecords: [medicalRecordSchema],
     insuranceDetails: {
         provider: {
             type: String,

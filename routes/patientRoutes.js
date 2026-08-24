@@ -39,6 +39,7 @@ const {
 } = require('../controllers/patientExtendedController');
 
 const { payAppointment } = require('../controllers/paymentController');
+const { getConsultationSession } = require('../controllers/consultationController');
 
 // Import middleware
 const upload = require('../services/uploadService');
@@ -46,6 +47,7 @@ const { protect, authorize, profileComplete } = require('../middleware/auth');
 const { canAccessPatientData, canAccessAppointment, canAccessPrescription, canModifyAppointment } = require('../middleware/roleAuth');
 const { validate } = require('../middleware/validation');
 const constants = require('../config/constants');
+const idempotent = require('../middleware/idempotency');
 
 // All routes are protected and require patient role
 router.use(protect, authorize(constants.ROLES.PATIENT), profileComplete);
@@ -72,7 +74,7 @@ router.get('/doctors/:id/slots', getAvailableSlots);
 // Appointment routes
 router.route('/appointments')
     .get(getAppointments)
-    .post(bookAppointment);
+    .post(idempotent(), bookAppointment);
 
 router.route('/appointments/:id')
     .get(canAccessAppointment, getAppointmentDetails)
@@ -81,6 +83,7 @@ router.route('/appointments/:id')
 router.put('/appointments/:id/reschedule', canModifyAppointment, rescheduleAppointment);
 router.put('/appointments/:id/cancel', canModifyAppointment, cancelAppointment);
 router.post('/appointments/:id/pay', canModifyAppointment, payAppointment);
+router.get('/appointments/:appointmentId/consultation-session', canAccessAppointment, getConsultationSession);
 router.post('/appointments/:id/rate', canAccessAppointment, rateAppointment);
 
 // Prescription routes

@@ -4,12 +4,14 @@ const router = express.Router();
 const { createOrder, paymentWebhook } = require('../controllers/paymentController');
 const { protect, authorize } = require('../middleware/auth');
 const constants = require('../config/constants');
+const idempotent = require('../middleware/idempotency');
 
 // POST /api/payments/create-order — authenticated patient creates a gateway order
 router.post(
     '/create-order',
     protect,
     authorize(constants.ROLES.PATIENT),
+    idempotent(),
     createOrder
 );
 

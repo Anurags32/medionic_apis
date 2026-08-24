@@ -206,12 +206,34 @@ exports.searchDoctors = async (req, res, next) => {
             doctorId: doctor._id,
             fullName: doctor.fullName,
             specialization: doctor.specialization,
-            experience: doctor.experience,
+            qualification: doctor.qualification,
+            yearsExperience: doctor.yearsExperience,
             clinic: doctor.clinic,
-            consultationFee: doctor.consultationFee,
-            consultationTypes: doctor.consultationTypes,
-            rating: doctor.rating,
-            totalRatings: doctor.totalRatings,
+            verificationStatus: doctor.verificationStatus,
+            supportedModes: doctor.consultationTypes,
+            pricing: {
+                currency: 'INR',
+                video: {
+                    feeMinor: doctor.consultationTypes.includes(constants.CONSULTATION_TYPES.VIDEO)
+                        ? Math.round(doctor.consultationFee * 100)
+                        : null,
+                    available: doctor.consultationTypes.includes(constants.CONSULTATION_TYPES.VIDEO)
+                },
+                inClinic: {
+                    feeMinor: doctor.consultationTypes.includes(constants.CONSULTATION_TYPES.CLINIC)
+                        ? Math.round(doctor.consultationFee * 100)
+                        : null,
+                    available: doctor.consultationTypes.includes(constants.CONSULTATION_TYPES.CLINIC)
+                },
+                chat: {
+                    feeMinor: doctor.consultationTypes.includes(constants.CONSULTATION_TYPES.CHAT)
+                        ? Math.round(doctor.consultationFee * 100)
+                        : null,
+                    available: doctor.consultationTypes.includes(constants.CONSULTATION_TYPES.CHAT)
+                }
+            },
+            rating: doctor.totalRatings > 0 ? doctor.rating : null,
+            totalReviews: doctor.totalRatings || 0,
             bio: doctor.bio?.substring(0, 200) + (doctor.bio?.length > 200 ? '...' : '')
         }));
 
@@ -306,8 +328,20 @@ exports.bookAppointment = [
                 return next(new ErrorResponse('Doctor not verified', 400));
             }
 
+            const normalizedConsultationType = String(consultationType || '').toLowerCase();
+            if (!Object.values(constants.CONSULTATION_TYPES).includes(normalizedConsultationType)) {
+                return next(new ErrorResponse('Invalid consultation type', 400));
+            }
+
+            if (!doctor.consultationTypes.includes(normalizedConsultationType)) {
+                return next(new ErrorResponse('Doctor does not support this consultation type', 400));
+            }
+
             // Check doctor availability
             const appointmentDateTime = new Date(appointmentDate);
+            if (Number.isNaN(appointmentDateTime.getTime())) {
+                return next(new ErrorResponse('A valid appointment date is required', 400));
+            }
             if (!doctor.isAvailable(appointmentDateTime, appointmentTime)) {
                 return next(new ErrorResponse('Doctor not available at this time', 400));
             }
@@ -335,7 +369,7 @@ exports.bookAppointment = [
                 doctorId,
                 appointmentDate: appointmentDateTime,
                 appointmentTime,
-                consultationType,
+                consultationType: normalizedConsultationType,
                 symptoms,
                 status: constants.APPOINTMENT_STATUS.PENDING,
                 amount: doctor.consultationFee
@@ -349,10 +383,13 @@ exports.bookAppointment = [
                     appointmentDate: appointment.formattedDate,
                     appointmentTime: appointment.formattedTime,
                     doctorName: doctor.fullName,
-                    consultationType,
+                    consultationType: appointment.consultationType,
                     symptoms,
                     status: appointment.status,
-                    amount: appointment.amount
+                    amount: appointment.amount,
+                    roomId: appointment.roomId || null,
+                    meetingId: appointment.meetingId || null,
+                    consultationLink: appointment.consultationLink || null,
                 }
             });
         } catch (error) {
@@ -417,6 +454,9 @@ exports.getAppointments = async (req, res, next) => {
                 symptoms: appointment.symptoms,
                 status: appointment.status,
                 amount: appointment.amount,
+                roomId: appointment.roomId || null,
+                meetingId: appointment.meetingId || null,
+                consultationLink: appointment.consultationLink || null,
                 doctor: doctor ? {
                     doctorId: doctor._id,
                     name: doctor.fullName,
@@ -425,7 +465,10 @@ exports.getAppointments = async (req, res, next) => {
                 } : null,
                 canBeCancelled: appointment.canBeCancelled(),
                 canBeRescheduled: appointment.canBeRescheduled(),
-                timeUntil: appointment.timeUntil
+                timeUntil: appointment.timeUntil,
+                roomId: appointment.roomId || null,
+                meetingId: appointment.meetingId || null,
+                consultationLink: appointment.consultationLink || null
             };
         });
 
@@ -471,7 +514,10 @@ exports.getAppointmentDetails = async (req, res, next) => {
                 formattedTime: appointment.formattedTime,
                 timeUntil: appointment.timeUntil,
                 canBeCancelled: appointment.canBeCancelled(),
-                canBeRescheduled: appointment.canBeRescheduled()
+                canBeRescheduled: appointment.canBeRescheduled(),
+                roomId: appointment.roomId || null,
+                meetingId: appointment.meetingId || null,
+                consultationLink: appointment.consultationLink || null
             }
         });
     } catch (error) {

@@ -2,6 +2,8 @@ const Doctor = require('../models/Doctor');
 const Patient = require('../models/Patient');
 const Appointment = require('../models/Appointment');
 const Prescription = require('../models/Prescription');
+const MedicalRecord = require('../models/MedicalRecord');
+const HealthMetric = require('../models/HealthMetric');
 const MRMeetings = require('../models/MRMeetings');
 const ErrorResponse = require('../utils/errorResponse');
 const { validate } = require('../middleware/validation');
@@ -280,6 +282,9 @@ exports.getAppointments = async (req, res, next) => {
                 symptoms: appointment.symptoms,
                 status: appointment.status,
                 amount: appointment.amount,
+                roomId: appointment.roomId || null,
+                meetingId: appointment.meetingId || null,
+                consultationLink: appointment.consultationLink || null,
                 patient: patient ? {
                     patientId: patient._id,
                     name: patient.fullName,
@@ -333,6 +338,16 @@ exports.getAppointmentDetails = async (req, res, next) => {
             patientId: patient._id,
             doctorId: doctor._id
         }).sort({ issuedAt: -1 }).limit(5);
+        const [healthMetrics, medicalRecords] = await Promise.all([
+            HealthMetric.find({ patientId: patient._id })
+                .sort({ timestamp: -1 })
+                .limit(20)
+                .lean(),
+            MedicalRecord.find({ patientId: patient._id })
+                .sort({ uploadedAt: -1 })
+                .limit(20)
+                .lean()
+        ]);
 
         res.status(200).json({
             success: true,
@@ -340,10 +355,29 @@ exports.getAppointmentDetails = async (req, res, next) => {
                 ...appointment.toObject(),
                 formattedDate: appointment.formattedDate,
                 formattedTime: appointment.formattedTime,
+                roomId: appointment.roomId || null,
+                meetingId: appointment.meetingId || null,
+                consultationLink: appointment.consultationLink || null,
                 patientHistory: {
+                    patient: {
+                        patientId: patient._id,
+                        name: patient.fullName,
+                        dateOfBirth: patient.dob || null,
+                        gender: patient.gender || null,
+                        bloodGroup: patient.bloodGroup || null,
+                        address: patient.address || null
+                    },
                     medicalHistory: patient.medicalHistory,
                     allergies: patient.allergies,
-                    recentPrescriptions: patientPrescriptions
+                    recentPrescriptions: patientPrescriptions,
+                    vitals: healthMetrics,
+                    labReports: medicalRecords.filter(record =>
+                        ['lab_report', 'test_result'].includes(record.recordType)
+                    ),
+                    medicalRecords: [
+                        ...(patient.medicalRecords || []).map(record => record.toObject()),
+                        ...medicalRecords
+                    ]
                 }
             }
         });
@@ -1058,9 +1092,36 @@ exports.getPatientProfileForDoctor = async (req, res, next) => {
             return next(new ErrorResponse('Patient not found', 404));
         }
 
+        const [appointments, prescriptions, vitals, medicalRecords] = await Promise.all([
+            Appointment.find({ patientId: patient._id })
+                .sort({ appointmentDate: -1, appointmentTime: -1 })
+                .lean(),
+            Prescription.find({ patientId: patient._id })
+                .sort({ issuedAt: -1 })
+                .limit(20)
+                .lean(),
+            HealthMetric.find({ patientId: patient._id })
+                .sort({ timestamp: -1 })
+                .limit(20)
+                .lean(),
+            MedicalRecord.find({ patientId: patient._id })
+                .sort({ uploadedAt: -1 })
+                .limit(20)
+                .lean()
+        ]);
+
         res.status(200).json({
             success: true,
-            data: patient
+            data: {
+                ...patient.toObject(),
+                appointments,
+                prescriptions,
+                vitals,
+                medicalRecords: [
+                    ...(patient.medicalRecords || []).map(record => record.toObject()),
+                    ...medicalRecords
+                ]
+            }
         });
     } catch (error) {
         next(error);
