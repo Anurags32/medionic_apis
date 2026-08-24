@@ -129,6 +129,16 @@ exports.updateProfile = async (req, res, next) => {
         if (req.body.slotDurationMinutes !== undefined) {
             doctor.slotDurationMinutes = req.body.slotDurationMinutes;
         }
+        if (req.body.consultationTypes !== undefined) {
+            let types = req.body.consultationTypes;
+            if (typeof types === 'string') {
+                try { types = JSON.parse(types); } catch (e) { types = [types]; }
+            }
+            if (Array.isArray(types)) {
+                const validTypes = Object.values(constants.CONSULTATION_TYPES);
+                doctor.consultationTypes = types.filter(t => validTypes.includes(String(t).toLowerCase()));
+            }
+        }
 
         await doctor.save();
 
@@ -159,7 +169,8 @@ exports.updateProfile = async (req, res, next) => {
                 bio: doctor.bio,
                 profilePhoto: user.profilePhoto || doctor.profilePicture,
                 shift: doctor.shift,
-                slotDurationMinutes: doctor.slotDurationMinutes
+                slotDurationMinutes: doctor.slotDurationMinutes,
+                consultationTypes: doctor.consultationTypes
             }
         });
     } catch (error) {

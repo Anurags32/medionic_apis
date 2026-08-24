@@ -172,7 +172,7 @@ exports.searchDoctors = async (req, res, next) => {
         }
 
         if (consultationType) {
-            query.consultationTypes = consultationType;
+            query.consultationTypes = { $in: [consultationType, constants.CONSULTATION_TYPES.CLINIC] };
         }
 
         if (search) {
@@ -202,40 +202,52 @@ exports.searchDoctors = async (req, res, next) => {
         const total = await Doctor.countDocuments(query);
 
         // Format response
-        const formattedDoctors = doctors.map(doctor => ({
-            doctorId: doctor._id,
-            fullName: doctor.fullName,
-            specialization: doctor.specialization,
-            qualification: doctor.qualification,
-            yearsExperience: doctor.yearsExperience,
-            clinic: doctor.clinic,
-            verificationStatus: doctor.verificationStatus,
-            supportedModes: doctor.consultationTypes,
-            pricing: {
-                currency: 'INR',
-                video: {
-                    feeMinor: doctor.consultationTypes.includes(constants.CONSULTATION_TYPES.VIDEO)
-                        ? Math.round((doctor.videoFee || doctor.consultationFee || 500) * 100)
-                        : null,
-                    available: doctor.consultationTypes.includes(constants.CONSULTATION_TYPES.VIDEO)
+        const formattedDoctors = doctors.map(doctor => {
+            const rawTypes = Array.isArray(doctor.consultationTypes) && doctor.consultationTypes.length > 0
+                ? doctor.consultationTypes
+                : Object.values(constants.CONSULTATION_TYPES);
+            const isLegacyClinicOnly = rawTypes.length === 1 && rawTypes[0] === constants.CONSULTATION_TYPES.CLINIC;
+            const effectiveModes = isLegacyClinicOnly ? Object.values(constants.CONSULTATION_TYPES) : rawTypes;
+
+            const isVideoAvailable = effectiveModes.includes(constants.CONSULTATION_TYPES.VIDEO);
+            const isClinicAvailable = effectiveModes.includes(constants.CONSULTATION_TYPES.CLINIC);
+            const isChatAvailable = effectiveModes.includes(constants.CONSULTATION_TYPES.CHAT);
+
+            return {
+                doctorId: doctor._id,
+                fullName: doctor.fullName,
+                specialization: doctor.specialization,
+                qualification: doctor.qualification,
+                yearsExperience: doctor.yearsExperience,
+                clinic: doctor.clinic,
+                verificationStatus: doctor.verificationStatus,
+                supportedModes: effectiveModes,
+                pricing: {
+                    currency: 'INR',
+                    video: {
+                        feeMinor: isVideoAvailable
+                            ? Math.round((doctor.videoFee || doctor.fees?.video || doctor.consultationFee || 500) * 100)
+                            : null,
+                        available: isVideoAvailable
+                    },
+                    inClinic: {
+                        feeMinor: isClinicAvailable
+                            ? Math.round((doctor.clinicFee || doctor.fees?.clinic || doctor.consultationFee || 600) * 100)
+                            : null,
+                        available: isClinicAvailable
+                    },
+                    chat: {
+                        feeMinor: isChatAvailable
+                            ? Math.round((doctor.chatFee || doctor.fees?.chat || doctor.consultationFee || 300) * 100)
+                            : null,
+                        available: isChatAvailable
+                    }
                 },
-                inClinic: {
-                    feeMinor: doctor.consultationTypes.includes(constants.CONSULTATION_TYPES.CLINIC)
-                        ? Math.round((doctor.clinicFee || doctor.consultationFee || 600) * 100)
-                        : null,
-                    available: doctor.consultationTypes.includes(constants.CONSULTATION_TYPES.CLINIC)
-                },
-                chat: {
-                    feeMinor: doctor.consultationTypes.includes(constants.CONSULTATION_TYPES.CHAT)
-                        ? Math.round((doctor.chatFee || doctor.consultationFee || 300) * 100)
-                        : null,
-                    available: doctor.consultationTypes.includes(constants.CONSULTATION_TYPES.CHAT)
-                }
-            },
-            rating: doctor.totalRatings > 0 ? doctor.rating : null,
-            totalReviews: doctor.totalRatings || 0,
-            bio: doctor.bio?.substring(0, 200) + (doctor.bio?.length > 200 ? '...' : '')
-        }));
+                rating: doctor.totalRatings > 0 ? doctor.rating : null,
+                totalReviews: doctor.totalRatings || 0,
+                bio: doctor.bio?.substring(0, 200) + (doctor.bio?.length > 200 ? '...' : '')
+            };
+        });
 
         res.status(200).json({
             success: true,
@@ -333,7 +345,15 @@ exports.bookAppointment = [
                 return next(new ErrorResponse('Invalid consultation type', 400));
             }
 
-            if (!doctor.consultationTypes.includes(normalizedConsultationType)) {
+            const rawConsultationTypes = Array.isArray(doctor.consultationTypes) && doctor.consultationTypes.length > 0
+                ? doctor.consultationTypes
+                : Object.values(constants.CONSULTATION_TYPES);
+            const isLegacyClinicOnly = rawConsultationTypes.length === 1 && rawConsultationTypes[0] === constants.CONSULTATION_TYPES.CLINIC;
+            const effectiveConsultationTypes = isLegacyClinicOnly
+                ? Object.values(constants.CONSULTATION_TYPES)
+                : rawConsultationTypes;
+
+            if (!effectiveConsultationTypes.includes(normalizedConsultationType)) {
                 return next(new ErrorResponse('Doctor does not support this consultation type', 400));
             }
 

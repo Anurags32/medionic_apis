@@ -102,7 +102,7 @@ const doctorSchema = new mongoose.Schema({
     consultationTypes: [{
         type: String,
         enum: Object.values(constants.CONSULTATION_TYPES),
-        default: [constants.CONSULTATION_TYPES.CLINIC]
+        default: Object.values(constants.CONSULTATION_TYPES)
     }],
     rating: {
         type: Number,

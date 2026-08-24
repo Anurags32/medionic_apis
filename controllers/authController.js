@@ -245,7 +245,7 @@ exports.completeDoctorProfile = [
                 yearsExperience,
                 clinic,
                 consultationFee,
-                consultationTypes = [constants.CONSULTATION_TYPES.CLINIC],
+                consultationTypes = Object.values(constants.CONSULTATION_TYPES),
                 bio = '',
                 certificates = []
             } = req.body;
