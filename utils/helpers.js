@@ -1,6 +1,5 @@
 const constants = require('../config/constants');
 
-// Generate random string
 exports.generateRandomString = (length = 10) => {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
     let result = '';
@@ -10,7 +9,6 @@ exports.generateRandomString = (length = 10) => {
     return result;
 };
 
-// Generate numeric OTP
 exports.generateOTP = (length = 6) => {
     const digits = '0123456789';
     let otp = '';
@@ -20,7 +18,6 @@ exports.generateOTP = (length = 6) => {
     return otp;
 };
 
-// Format date to readable string
 exports.formatDate = (date, format = 'long') => {
     if (!date) return null;
 
@@ -54,7 +51,6 @@ exports.formatDate = (date, format = 'long') => {
     return d.toString();
 };
 
-// Format time
 exports.formatTime = (time) => {
     if (!time) return null;
 
@@ -69,7 +65,7 @@ exports.formatTime = (time) => {
     return time;
 };
 
-// Calculate age from date of birth
+
 exports.calculateAge = (dob) => {
     if (!dob) return null;
 
@@ -85,7 +81,6 @@ exports.calculateAge = (dob) => {
     return age;
 };
 
-// Calculate time difference
 exports.timeDifference = (date1, date2) => {
     const diffMs = Math.abs(new Date(date2) - new Date(date1));
     const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
@@ -102,7 +97,6 @@ exports.timeDifference = (date1, date2) => {
     };
 };
 
-// Format currency
 exports.formatCurrency = (amount, currency = 'USD') => {
     return new Intl.NumberFormat('en-US', {
         style: 'currency',
@@ -110,7 +104,6 @@ exports.formatCurrency = (amount, currency = 'USD') => {
     }).format(amount);
 };
 
-// Format file size
 exports.formatFileSize = (bytes) => {
     if (bytes === 0) return '0 Bytes';
 
@@ -121,7 +114,6 @@ exports.formatFileSize = (bytes) => {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 };
 
-// Sanitize input
 exports.sanitizeInput = (input) => {
     if (typeof input === 'string') {
         return input
@@ -135,7 +127,6 @@ exports.sanitizeInput = (input) => {
     return input;
 };
 
-// Validate and parse JSON
 exports.safeParseJSON = (jsonString) => {
     try {
         return JSON.parse(jsonString);
@@ -144,12 +135,10 @@ exports.safeParseJSON = (jsonString) => {
     }
 };
 
-// Deep clone object
 exports.deepClone = (obj) => {
     return JSON.parse(JSON.stringify(obj));
 };
 
-// Merge objects
 exports.mergeObjects = (target, source) => {
     const output = Object.assign({}, target);
     if (this.isObject(target) && this.isObject(source)) {
@@ -168,12 +157,10 @@ exports.mergeObjects = (target, source) => {
     return output;
 };
 
-// Check if value is object
 exports.isObject = (item) => {
     return item && typeof item === 'object' && !Array.isArray(item);
 };
 
-// Generate pagination metadata
 exports.generatePagination = (page, limit, total) => {
     const totalPages = Math.ceil(total / limit);
     const hasNextPage = page < totalPages;
@@ -191,7 +178,6 @@ exports.generatePagination = (page, limit, total) => {
     };
 };
 
-// Generate search query
 exports.generateSearchQuery = (searchTerm, fields) => {
     if (!searchTerm || !fields || fields.length === 0) {
         return {};
@@ -205,7 +191,6 @@ exports.generateSearchQuery = (searchTerm, fields) => {
     return { $or: orConditions };
 };
 
-// Generate filter query
 exports.generateFilterQuery = (filters) => {
     const query = {};
 
@@ -217,7 +202,7 @@ exports.generateFilterQuery = (filters) => {
         const value = filters[key];
 
         if (value !== undefined && value !== null && value !== '') {
-            // Handle date range filters
+
             if (key.endsWith('From') || key.endsWith('To')) {
                 const field = key.replace(/From$|To$/, '');
                 const operator = key.endsWith('From') ? '$gte' : '$lte';
@@ -228,22 +213,22 @@ exports.generateFilterQuery = (filters) => {
 
                 query[field][operator] = new Date(value);
             }
-            // Handle array filters
+
             else if (Array.isArray(value) && value.length > 0) {
                 query[key] = { $in: value };
             }
-            // Handle boolean filters
+
             else if (typeof value === 'boolean') {
                 query[key] = value;
             }
-            // Handle numeric filters with range
+
             else if (typeof value === 'object' && value.min !== undefined && value.max !== undefined) {
                 query[key] = {
                     $gte: value.min,
                     $lte: value.max
                 };
             }
-            // Handle exact match
+
             else {
                 query[key] = value;
             }
@@ -253,7 +238,6 @@ exports.generateFilterQuery = (filters) => {
     return query;
 };
 
-// Generate sort object
 exports.generateSort = (sortBy, sortOrder = 'desc') => {
     if (!sortBy) {
         return { createdAt: -1 };
@@ -264,7 +248,7 @@ exports.generateSort = (sortBy, sortOrder = 'desc') => {
     return sort;
 };
 
-// Calculate distance between coordinates (Haversine formula)
+
 exports.calculateDistance = (lat1, lon1, lat2, lon2) => {
     const R = 6371; // Earth's radius in km
     const dLat = (lat2 - lat1) * Math.PI / 180;
@@ -279,7 +263,7 @@ exports.calculateDistance = (lat1, lon1, lat2, lon2) => {
     return distance;
 };
 
-// Generate tracking number
+
 exports.generateTrackingNumber = () => {
     const prefix = 'TRK';
     const date = new Date();
@@ -289,7 +273,7 @@ exports.generateTrackingNumber = () => {
     return `${prefix}${year}${month}${random}`;
 };
 
-// Generate prescription number
+
 exports.generatePrescriptionNumber = () => {
     const prefix = 'RX';
     const date = new Date();
@@ -299,7 +283,6 @@ exports.generatePrescriptionNumber = () => {
     return `${prefix}${year}${month}${random}`;
 };
 
-// Generate appointment ID
 exports.generateAppointmentId = () => {
     const prefix = 'APT';
     const date = new Date();
@@ -309,7 +292,6 @@ exports.generateAppointmentId = () => {
     return `${prefix}${year}${month}${random}`;
 };
 
-// Mask sensitive data
 exports.maskData = (data, visibleChars = 4) => {
     if (!data || typeof data !== 'string') return data;
 
@@ -325,7 +307,6 @@ exports.maskData = (data, visibleChars = 4) => {
     return firstPart + maskedPart + lastPart;
 };
 
-// Validate and format blood pressure
 exports.formatBloodPressure = (systolic, diastolic) => {
     if (!systolic || !diastolic) return null;
 
@@ -339,19 +320,18 @@ exports.formatBloodPressure = (systolic, diastolic) => {
     return `${sys}/${dia}`;
 };
 
-// Calculate BMI
 exports.calculateBMI = (weight, height, weightUnit = 'kg', heightUnit = 'cm') => {
     if (!weight || !height) return null;
 
     let weightKg = weight;
     let heightM = height;
 
-    // Convert weight to kg
+
     if (weightUnit === 'lbs') {
         weightKg = weight * 0.453592;
     }
 
-    // Convert height to meters
+
     if (heightUnit === 'cm') {
         heightM = height / 100;
     } else if (heightUnit === 'inches') {
@@ -364,7 +344,6 @@ exports.calculateBMI = (weight, height, weightUnit = 'kg', heightUnit = 'cm') =>
     return parseFloat(bmi.toFixed(1));
 };
 
-// Get BMI category
 exports.getBMICategory = (bmi) => {
     if (!bmi) return null;
 
@@ -374,7 +353,6 @@ exports.getBMICategory = (bmi) => {
     return 'Obese';
 };
 
-// Parse full name into first and last name
 exports.parseFullName = (fullName) => {
     if (!fullName) return { firstName: 'Default', lastName: 'Name' };
     const names = fullName.trim().split(/\s+/);
@@ -383,7 +361,6 @@ exports.parseFullName = (fullName) => {
     return { firstName, lastName };
 };
 
-// Normalize DOB from string DD/MM/YYYY or ISO to Date object
 exports.normalizeDob = (dobStr) => {
     if (!dobStr) return new Date();
     if (dobStr instanceof Date) return dobStr;
@@ -398,7 +375,6 @@ exports.normalizeDob = (dobStr) => {
     return isNaN(d.getTime()) ? new Date() : d;
 };
 
-// Parse plain text address string or object into standard schema address
 exports.parseAddress = (addressInput) => {
     let street = 'Default Street';
     let city = 'Default City';
@@ -433,7 +409,6 @@ exports.parseAddress = (addressInput) => {
         }
     }
 
-    // Ensure ZIP is valid 5 or 6 digits
     const zipDigits = zip.replace(/\D/g, '');
     if (zipDigits.length >= 5 && zipDigits.length <= 6) {
         zip = zipDigits;
@@ -444,7 +419,6 @@ exports.parseAddress = (addressInput) => {
     return { street, city, state, zip };
 };
 
-// Normalize medical conditions to medicalHistory array schema
 exports.normalizeMedicalHistory = (medicalConditions) => {
     if (!medicalConditions) return [];
     if (Array.isArray(medicalConditions)) {

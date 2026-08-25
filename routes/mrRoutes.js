@@ -1,7 +1,6 @@
 const express = require('express');
 const router = express.Router();
 
-// Import controller functions
 const {
     getProfile,
     updateProfile,
@@ -16,7 +15,6 @@ const {
     getExpenseReport
 } = require('../controllers/mrController');
 
-// Import extended controller functions
 const {
     getTourPlan,
     createTourPlan,
@@ -32,7 +30,6 @@ const {
     getDCRList
 } = require('../controllers/mrExtendedController');
 
-// Import middleware
 const { protect, authorize, profileComplete } = require('../middleware/auth');
 const { canAccessMRMeeting } = require('../middleware/roleAuth');
 const { validate } = require('../middleware/validation');

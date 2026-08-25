@@ -1,9 +1,6 @@
 const geminiService = require('../services/geminiService');
 const ErrorResponse = require('../utils/errorResponse');
 
-// @desc    AI Symptom Checker
-// @route   POST /api/ai/symptom-checker
-// @access  Private (any authenticated user)
 exports.checkSymptoms = async (req, res, next) => {
     try {
         const { symptoms } = req.body;
@@ -28,7 +25,6 @@ exports.checkSymptoms = async (req, res, next) => {
             }
         });
     } catch (error) {
-        // Gemini quota / network errors — return a safe fallback
         if (error.message && (error.message.includes('quota') || error.message.includes('429'))) {
             return res.status(429).json({
                 success: false,
@@ -40,9 +36,6 @@ exports.checkSymptoms = async (req, res, next) => {
     }
 };
 
-// @desc    AI Medical Report Analyzer
-// @route   POST /api/ai/analyze-report
-// @access  Private (any authenticated user)
 exports.analyzeReport = async (req, res, next) => {
     try {
         if (!req.file) {

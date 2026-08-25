@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 
-// Import controller functions
+
 const {
     getProfile,
     updateProfile,
@@ -23,7 +23,6 @@ const {
     rejectMRMeeting
 } = require('../controllers/doctorController');
 
-// Import extended controller functions
 const {
     getRevenueAnalytics,
     getRatingAnalytics,
@@ -35,30 +34,24 @@ const {
     getDoctorAnalytics
 } = require('../controllers/doctorExtendedController');
 
-// Import middleware
 const { protect, authorize, profileComplete } = require('../middleware/auth');
 const { canAccessDoctorData, canAccessPatientData, canAccessAppointment, canWritePrescription, canAccessMRMeeting } = require('../middleware/roleAuth');
 const { validate } = require('../middleware/validation');
 const constants = require('../config/constants');
 const idempotent = require('../middleware/idempotency');
 
-// All routes are protected and require doctor role
 router.use(protect, authorize(constants.ROLES.DOCTOR), profileComplete);
 
-// Doctor profile routes
 router.route('/profile')
     .get(getProfile)
     .put(validate('updateDoctorProfile'), updateProfile);
 
-// Schedule routes
 router.route('/schedule')
     .get(getSchedule)
     .put(updateSchedule);
 
-// Dashboard
 router.get('/dashboard', getDashboard);
 
-// Appointment routes
 router.route('/appointments')
     .get(getAppointments);
 
@@ -70,33 +63,27 @@ router.put('/appointments/:id/confirm', canAccessAppointment, confirmAppointment
 router.put('/appointments/:id/cancel', canAccessAppointment, cancelAppointmentDoctor);
 router.put('/appointments/:id/status', canAccessAppointment, updateAppointmentStatus);
 
-// Patient routes
 router.get('/patients', getPatients);
 router.get('/patients/:id', canAccessPatientData, getPatientProfileForDoctor);
 router.get('/patients/:id/history', canAccessPatientData, getPatientProfileForDoctor);
 
-// Prescription routes
 router.route('/prescriptions')
     .get(getPrescriptions)
     .post(idempotent(), canWritePrescription, createPrescription);
 
-// MR meeting routes
 router.get('/mr-meetings', getMRMeetings);
 router.post('/mr-meetings/:id/approve', canAccessMRMeeting, approveMRMeeting);
 router.post('/mr-meetings/:id/reject', canAccessMRMeeting, rejectMRMeeting);
 
-// Analytics routes
 router.get('/analytics', getDoctorAnalytics);
 router.get('/analytics/revenue', getRevenueAnalytics);
 router.get('/analytics/ratings', getRatingAnalytics);
 router.get('/analytics/appointments', getAppointmentTrends);
 
-// Earnings routes
 router.get('/earnings', getEarnings);
 router.post('/earnings/withdraw', requestWithdrawal);
 router.get('/earnings/history', getEarningsHistory);
 
-// Verification routes
 router.post('/profile/verify', submitVerificationDocuments);
 
 module.exports = router;

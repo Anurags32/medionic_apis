@@ -6,9 +6,7 @@ const { validate } = require('../middleware/validation');
 const constants = require('../config/constants');
 const helpers = require('../utils/helpers');
 
-// @desc    Get MR profile
-// @route   GET /api/mr/profile
-// @access  Private (MR only)
+
 exports.getProfile = async (req, res, next) => {
     try {
         const user = req.user;
@@ -38,9 +36,7 @@ exports.getProfile = async (req, res, next) => {
     }
 };
 
-// @desc    Update MR profile
-// @route   PUT /api/mr/profile
-// @access  Private (MR only)
+
 exports.updateProfile = async (req, res, next) => {
     try {
         const user = req.user;
@@ -50,7 +46,6 @@ exports.updateProfile = async (req, res, next) => {
             return next(new ErrorResponse('MR profile not found', 404));
         }
 
-        // Update User fields if present in req.body
         let userUpdated = false;
         if (req.body.profilePhoto !== undefined) {
             user.profilePhoto = req.body.profilePhoto;
@@ -61,7 +56,6 @@ exports.updateProfile = async (req, res, next) => {
             await user.save();
         }
 
-        // Update MR fields if present in req.body
         if (req.body.designation !== undefined) {
             mr.designation = req.body.designation;
         }
@@ -92,9 +86,7 @@ exports.updateProfile = async (req, res, next) => {
     }
 };
 
-// @desc    Get doctors in territory
-// @route   GET /api/mr/doctors
-// @access  Private (MR only)
+
 exports.getDoctors = async (req, res, next) => {
     try {
         const user = req.user;
@@ -113,7 +105,6 @@ exports.getDoctors = async (req, res, next) => {
             return next(new ErrorResponse('MR profile not found', 404));
         }
 
-        // Build query - doctors in MR's territory
         const query = {
             'clinic.city': { $regex: mr.territory, $options: 'i' },
             verificationStatus: constants.VERIFICATION_STATUS.VERIFIED
@@ -144,10 +135,8 @@ exports.getDoctors = async (req, res, next) => {
             ];
         }
 
-        // Pagination
         const skip = (parseInt(page) - 1) * parseInt(limit);
 
-        // Get doctors
         const doctors = await Doctor.find(query)
             .skip(skip)
             .limit(parseInt(limit))
@@ -155,7 +144,6 @@ exports.getDoctors = async (req, res, next) => {
 
         const total = await Doctor.countDocuments(query);
 
-        // Get meeting history with each doctor
         const doctorsWithHistory = await Promise.all(
             doctors.map(async (doctor) => {
                 const lastMeeting = await MRMeetings.findOne({
@@ -198,9 +186,6 @@ exports.getDoctors = async (req, res, next) => {
     }
 };
 
-// @desc    Get doctor details with history
-// @route   GET /api/mr/doctors/:id
-// @access  Private (MR only)
 exports.getDoctorDetails = async (req, res, next) => {
     try {
         const { id } = req.params;
@@ -218,7 +203,6 @@ exports.getDoctorDetails = async (req, res, next) => {
             return next(new ErrorResponse('Doctor not found', 404));
         }
 
-        // Get meeting history
         const meetings = await MRMeetings.find({
             mrId: mr._id,
             doctorId: doctor._id
@@ -253,9 +237,6 @@ exports.getDoctorDetails = async (req, res, next) => {
     }
 };
 
-// @desc    Request meeting with doctor
-// @route   POST /api/mr/meeting-requests
-// @access  Private (MR only)
 exports.requestMeeting = [
     validate('requestMeeting'),
     async (req, res, next) => {
@@ -276,18 +257,15 @@ exports.requestMeeting = [
                 return next(new ErrorResponse('MR profile not found', 404));
             }
 
-            // Validate doctor
             const doctor = await Doctor.findById(doctorId);
             if (!doctor) {
                 return next(new ErrorResponse('Doctor not found', 404));
             }
 
-            // Check if doctor is in MR's territory
             if (!doctor.clinic.city.toLowerCase().includes(mr.territory.toLowerCase())) {
                 return next(new ErrorResponse('Doctor is not in your territory', 403));
             }
 
-            // Check for pending meetings
             const pendingMeeting = await MRMeetings.findOne({
                 mrId: mr._id,
                 doctorId,
@@ -298,7 +276,7 @@ exports.requestMeeting = [
                 return next(new ErrorResponse('You already have a pending meeting request with this doctor', 400));
             }
 
-            // Create meeting request
+
             const meetingRequest = await MRMeetings.create({
                 mrId: mr._id,
                 doctorId,
@@ -329,9 +307,6 @@ exports.requestMeeting = [
     }
 ];
 
-// @desc    Get meeting requests
-// @route   GET /api/mr/meeting-requests
-// @access  Private (MR only)
 exports.getMeetingRequests = async (req, res, next) => {
     try {
         const user = req.user;
@@ -349,8 +324,6 @@ exports.getMeetingRequests = async (req, res, next) => {
         if (!mr) {
             return next(new ErrorResponse('MR profile not found', 404));
         }
-
-        // Build query
         const query = { mrId: mr._id };
 
         if (status) {
@@ -362,11 +335,7 @@ exports.getMeetingRequests = async (req, res, next) => {
             if (fromDate) query.proposedDate.$gte = new Date(fromDate);
             if (toDate) query.proposedDate.$lte = new Date(toDate);
         }
-
-        // Pagination
         const skip = (parseInt(page) - 1) * parseInt(limit);
-
-        // Get meeting requests with doctor details
         const meetings = await MRMeetings.find(query)
             .populate('doctorId', 'firstName lastName specialization clinic')
             .skip(skip)
@@ -375,7 +344,6 @@ exports.getMeetingRequests = async (req, res, next) => {
 
         const total = await MRMeetings.countDocuments(query);
 
-        // Filter by doctor name if provided
         let filteredMeetings = meetings;
         if (doctorName) {
             const nameRegex = new RegExp(doctorName, 'i');
@@ -389,7 +357,6 @@ exports.getMeetingRequests = async (req, res, next) => {
             });
         }
 
-        // Format response
         const formattedMeetings = filteredMeetings.map(meeting => {
             const doctor = meeting.doctorId;
             return {
@@ -422,9 +389,6 @@ exports.getMeetingRequests = async (req, res, next) => {
     }
 };
 
-// @desc    Get visit plan
-// @route   GET /api/mr/visit-plan
-// @access  Private (MR only)
 exports.getVisitPlan = async (req, res, next) => {
     try {
         const user = req.user;
@@ -435,8 +399,6 @@ exports.getVisitPlan = async (req, res, next) => {
         if (!mr) {
             return next(new ErrorResponse('MR profile not found', 404));
         }
-
-        // Get approved meetings for the date
         const visitDate = new Date(date);
         const meetings = await MRMeetings.find({
             mrId: mr._id,
@@ -447,7 +409,6 @@ exports.getVisitPlan = async (req, res, next) => {
             status: constants.MEETING_STATUS.APPROVED
         }).populate('doctorId', 'firstName lastName clinic').sort({ meetingTime: 1 });
 
-        // Get sample inventory
         const sampleInventory = mr.sampleInventory.filter(sample => sample.quantity > 0);
 
         res.status(200).json({
@@ -473,10 +434,6 @@ exports.getVisitPlan = async (req, res, next) => {
         next(error);
     }
 };
-
-// @desc    Submit DCR (Daily Call Report)
-// @route   POST /api/mr/dcr
-// @access  Private (MR only)
 exports.submitDCR = async (req, res, next) => {
     try {
         const user = req.user;
@@ -496,13 +453,11 @@ exports.submitDCR = async (req, res, next) => {
             return next(new ErrorResponse('MR profile not found', 404));
         }
 
-        // Validate doctor
         const doctor = await Doctor.findById(doctorId);
         if (!doctor) {
             return next(new ErrorResponse('Doctor not found', 404));
         }
 
-        // Find corresponding meeting
         const meeting = await MRMeetings.findOne({
             mrId: mr._id,
             doctorId,
@@ -514,13 +469,11 @@ exports.submitDCR = async (req, res, next) => {
             return next(new ErrorResponse('No approved meeting found for this date and doctor', 404));
         }
 
-        // Update meeting as completed
         meeting.complete(feedback, samplesDistributed, {
             submittedBy: 'mr',
             submittedAt: new Date()
         });
 
-        // Update next follow-up
         if (nextFollowUp) {
             meeting.nextFollowUp = {
                 date: nextFollowUp,
@@ -529,14 +482,12 @@ exports.submitDCR = async (req, res, next) => {
             };
         }
 
-        // Add expenses
         if (expensesIncurred > 0) {
             meeting.addExpense('misc', expensesIncurred, 'DCR reported expenses');
         }
 
         await meeting.save();
 
-        // Update MR performance metrics
         mr.updatePerformance(true, 0, false);
         await mr.save();
 
@@ -556,9 +507,6 @@ exports.submitDCR = async (req, res, next) => {
     }
 };
 
-// @desc    Get DCR list
-// @route   GET /api/mr/dcr
-// @access  Private (MR only)
 exports.getDCRList = async (req, res, next) => {
     try {
         const user = req.user;
@@ -575,8 +523,6 @@ exports.getDCRList = async (req, res, next) => {
         if (!mr) {
             return next(new ErrorResponse('MR profile not found', 404));
         }
-
-        // Build query
         const query = {
             mrId: mr._id,
             status: constants.MEETING_STATUS.COMPLETED
@@ -588,10 +534,8 @@ exports.getDCRList = async (req, res, next) => {
             if (toDate) query.completedAt.$lte = new Date(toDate);
         }
 
-        // Pagination
         const skip = (parseInt(page) - 1) * parseInt(limit);
 
-        // Get DCRs with doctor details
         const dcrs = await MRMeetings.find(query)
             .populate('doctorId', 'firstName lastName specialization clinic')
             .skip(skip)
@@ -600,7 +544,6 @@ exports.getDCRList = async (req, res, next) => {
 
         const total = await MRMeetings.countDocuments(query);
 
-        // Format response
         const formattedDCRs = dcrs.map(dcr => {
             const doctor = dcr.doctorId;
             return {
@@ -631,9 +574,6 @@ exports.getDCRList = async (req, res, next) => {
     }
 };
 
-// @desc    Get sample inventory
-// @route   GET /api/mr/samples
-// @access  Private (MR only)
 exports.getSampleInventory = async (req, res, next) => {
     try {
         const user = req.user;
@@ -644,7 +584,6 @@ exports.getSampleInventory = async (req, res, next) => {
             return next(new ErrorResponse('MR profile not found', 404));
         }
 
-        // Get inventory with low stock alerts
         const inventory = mr.sampleInventory.map(sample => ({
             ...sample.toObject(),
             isLowStock: sample.quantity < 10,
@@ -674,9 +613,6 @@ exports.getSampleInventory = async (req, res, next) => {
     }
 };
 
-// @desc    Distribute samples
-// @route   POST /api/mr/samples/distribute
-// @access  Private (MR only)
 exports.distributeSamples = async (req, res, next) => {
     try {
         const user = req.user;
@@ -696,7 +632,6 @@ exports.distributeSamples = async (req, res, next) => {
             return next(new ErrorResponse('Doctor not found', 404));
         }
 
-        // Validate and distribute samples
         for (const sample of samples) {
             if (!sample.sampleName || !sample.quantity) {
                 return next(new ErrorResponse('Sample name and quantity are required for each item', 400));
@@ -730,9 +665,7 @@ exports.distributeSamples = async (req, res, next) => {
     }
 };
 
-// @desc    Get territory analytics
-// @route   GET /api/mr/analytics
-// @access  Private (MR only)
+
 exports.getTerritoryAnalytics = async (req, res, next) => {
     try {
         const user = req.user;
@@ -743,8 +676,6 @@ exports.getTerritoryAnalytics = async (req, res, next) => {
         if (!mr) {
             return next(new ErrorResponse('MR profile not found', 404));
         }
-
-        // Calculate date range based on period
         const now = new Date();
         let startDate;
 
@@ -763,27 +694,22 @@ exports.getTerritoryAnalytics = async (req, res, next) => {
                 startDate = new Date(now.getFullYear(), now.getMonth(), 1);
         }
 
-        // Get completed meetings in the period
         const completedMeetings = await MRMeetings.find({
             mrId: mr._id,
             status: constants.MEETING_STATUS.COMPLETED,
             completedAt: { $gte: startDate, $lte: now }
         });
 
-        // Get unique doctors visited
         const uniqueDoctors = [...new Set(completedMeetings.map(m => m.doctorId.toString()))];
 
-        // Calculate total samples distributed
         const totalSamplesDistributed = completedMeetings.reduce((total, meeting) => {
             return total + (meeting.samplesProvided?.length || 0);
         }, 0);
 
-        // Calculate total expenses
         const totalExpenses = completedMeetings.reduce((total, meeting) => {
             return total + meeting.getTotalExpenses();
         }, 0);
 
-        // Get product-wise distribution
         const productDistribution = {};
         completedMeetings.forEach(meeting => {
             meeting.products?.forEach(product => {
@@ -831,9 +757,6 @@ exports.getTerritoryAnalytics = async (req, res, next) => {
     }
 };
 
-// @desc    Get expense report
-// @route   GET /api/mr/expenses
-// @access  Private (MR only)
 exports.getExpenseReport = async (req, res, next) => {
     try {
         const user = req.user;
@@ -851,7 +774,6 @@ exports.getExpenseReport = async (req, res, next) => {
             return next(new ErrorResponse('MR profile not found', 404));
         }
 
-        // Build query for meetings with expenses
         const query = {
             mrId: mr._id,
             status: constants.MEETING_STATUS.COMPLETED,
@@ -864,10 +786,9 @@ exports.getExpenseReport = async (req, res, next) => {
             if (toDate) query.completedAt.$lte = new Date(toDate);
         }
 
-        // Pagination
+
         const skip = (parseInt(page) - 1) * parseInt(limit);
 
-        // Get meetings with expenses
         const meetings = await MRMeetings.find(query)
             .populate('doctorId', 'firstName lastName clinic')
             .skip(skip)
@@ -876,7 +797,6 @@ exports.getExpenseReport = async (req, res, next) => {
 
         const total = await MRMeetings.countDocuments(query);
 
-        // Format expenses
         const expenses = [];
         meetings.forEach(meeting => {
             meeting.expenses?.forEach(expense => {
@@ -897,7 +817,6 @@ exports.getExpenseReport = async (req, res, next) => {
             });
         });
 
-        // Calculate totals by type
         const totalsByType = expenses.reduce((acc, expense) => {
             acc[expense.type] = (acc[expense.type] || 0) + expense.amount;
             return acc;

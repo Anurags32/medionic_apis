@@ -9,7 +9,6 @@ const connectDB = async () => {
 
         console.log(`MongoDB Connected: ${conn.connection.host}`);
 
-        // Handle connection events
         mongoose.connection.on('connected', () => {
             console.log('Mongoose connected to DB');
         });

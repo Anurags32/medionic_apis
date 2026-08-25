@@ -4,9 +4,6 @@ const Patient = require('../models/Patient');
 const ErrorResponse = require('../utils/errorResponse');
 const helpers = require('../utils/helpers');
 
-// @desc    Get all lab tests (with optional search)
-// @route   GET /api/lab/tests?search=
-// @access  Private
 exports.getLabTests = async (req, res, next) => {
     try {
         const { search, page = 1, limit = 20 } = req.query;
@@ -36,9 +33,7 @@ exports.getLabTests = async (req, res, next) => {
     }
 };
 
-// @desc    Get single lab test
-// @route   GET /api/lab/tests/:id
-// @access  Private
+
 exports.getLabTest = async (req, res, next) => {
     try {
         const test = await LabTest.findById(req.params.id);
@@ -51,9 +46,7 @@ exports.getLabTest = async (req, res, next) => {
     }
 };
 
-// @desc    Book lab tests
-// @route   POST /api/lab/bookings
-// @access  Private (Patient)
+
 exports.bookLabTest = async (req, res, next) => {
     try {
         const { testIds, scheduledAt, address } = req.body;
@@ -68,13 +61,12 @@ exports.bookLabTest = async (req, res, next) => {
             return next(new ErrorResponse('Please provide a sample collection address', 400));
         }
 
-        // Verify all test IDs exist
         const tests = await LabTest.find({ _id: { $in: testIds } });
         if (tests.length !== testIds.length) {
             return next(new ErrorResponse('One or more lab test IDs are invalid', 400));
         }
 
-        // Validate scheduled date is in the future
+
         const scheduledDate = new Date(scheduledAt);
         if (isNaN(scheduledDate.getTime())) {
             return next(new ErrorResponse('Invalid scheduled date format', 400));
@@ -83,7 +75,6 @@ exports.bookLabTest = async (req, res, next) => {
             return next(new ErrorResponse('Scheduled date must be in the future', 400));
         }
 
-        // Find patient profile
         const patient = await Patient.findOne({ userId: req.user._id });
         if (!patient) {
             return next(new ErrorResponse('Patient profile not found', 404));
@@ -97,7 +88,6 @@ exports.bookLabTest = async (req, res, next) => {
             status: 'pending'
         });
 
-        // Populate tests in response
         const populatedBooking = await LabBooking.findById(booking._id).populate('testIds');
 
         const totalAmount = tests.reduce((sum, t) => sum + t.price, 0);
@@ -116,9 +106,7 @@ exports.bookLabTest = async (req, res, next) => {
     }
 };
 
-// @desc    Get patient's lab bookings
-// @route   GET /api/lab/bookings
-// @access  Private (Patient)
+
 exports.getMyLabBookings = async (req, res, next) => {
     try {
         const { status, page = 1, limit = 10 } = req.query;

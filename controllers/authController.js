@@ -10,22 +10,17 @@ const constants = require('../config/constants');
 const helpers = require('../utils/helpers');
 const jwt = require('jsonwebtoken');
 
-// @desc    Register user
-// @route   POST /api/auth/register
-// @access  Public
 exports.register = [
     validate('register'),
     async (req, res, next) => {
         try {
             const { email, password, role } = req.body;
 
-            // Check if user already exists
             const existingUser = await User.findOne({ email });
             if (existingUser) {
                 return next(new ErrorResponse('Email already registered', 400));
             }
 
-            // Create user
             const user = await User.create({
                 email,
                 password,
@@ -33,7 +28,6 @@ exports.register = [
                 status: constants.USER_STATUS.ACTIVE
             });
 
-            // Generate tokens
             const token = generateToken(user._id);
             const refreshToken = generateRefreshToken(user._id);
 
@@ -55,37 +49,27 @@ exports.register = [
     }
 ];
 
-// @desc    Login user
-// @route   POST /api/auth/login
-// @access  Public
 exports.login = [
     validate('login'),
     async (req, res, next) => {
         try {
             const { email, password } = req.body;
-
-            // Check if user exists
             const user = await User.findOne({ email });
             if (!user) {
                 return next(new ErrorResponse('Invalid credentials', 401));
             }
 
-            // Check if user is active
             if (!user.isActive()) {
                 return next(new ErrorResponse('Account is not active', 403));
             }
-
-            // Check password
             const isPasswordValid = await user.comparePassword(password);
             if (!isPasswordValid) {
                 return next(new ErrorResponse('Invalid credentials', 401));
             }
 
-            // Update last login
             user.lastLogin = new Date();
             await user.save();
 
-            // Generate tokens
             const token = generateToken(user._id);
             const refreshToken = generateRefreshToken(user._id);
 
@@ -108,21 +92,15 @@ exports.login = [
     }
 ];
 
-// @desc    Complete patient profile
-// @route   POST /api/auth/complete-profile/patient
-// @access  Private
+
 exports.completePatientProfile = [
     validate('patientProfile'),
     async (req, res, next) => {
         try {
             const user = req.user;
-
-            // Check if user is a patient
             if (user.role !== constants.ROLES.PATIENT) {
                 return next(new ErrorResponse('Only patients can complete patient profile', 403));
             }
-
-            // Check if profile already completed
             const existingPatient = await Patient.findOne({ userId: user._id });
             if (existingPatient) {
                 return next(new ErrorResponse('Patient profile already completed', 400));
@@ -152,7 +130,6 @@ exports.completePatientProfile = [
             const parsedDob = helpers.normalizeDob(dob);
             const parsedAddress = helpers.parseAddress(address);
 
-            // Normalize emergencyContact
             let parsedEmergencyContact = emergencyContact;
             if (typeof emergencyContact === 'string') {
                 parsedEmergencyContact = {
@@ -179,11 +156,7 @@ exports.completePatientProfile = [
                     relation: 'Contact'
                 };
             }
-
-            // Normalize medicalHistory
             const parsedMedicalHistory = helpers.normalizeMedicalHistory(req.body.medicalConditions || medicalHistory);
-
-            // Create patient profile
             const patient = await Patient.create({
                 userId: user._id,
                 firstName: fName,
@@ -197,8 +170,6 @@ exports.completePatientProfile = [
                 allergies,
                 insuranceDetails
             });
-
-            // Update user profile completion status
             user.profileComplete = true;
             await user.save();
 
@@ -217,21 +188,14 @@ exports.completePatientProfile = [
     }
 ];
 
-// @desc    Complete doctor profile
-// @route   POST /api/auth/complete-profile/doctor
-// @access  Private
 exports.completeDoctorProfile = [
     validate('doctorProfile'),
     async (req, res, next) => {
         try {
             const user = req.user;
-
-            // Check if user is a doctor
             if (user.role !== constants.ROLES.DOCTOR) {
                 return next(new ErrorResponse('Only doctors can complete doctor profile', 403));
             }
-
-            // Check if profile already completed
             const existingDoctor = await Doctor.findOne({ userId: user._id });
             if (existingDoctor) {
                 return next(new ErrorResponse('Doctor profile already completed', 400));
@@ -258,7 +222,6 @@ exports.completeDoctorProfile = [
                 lName = names.lastName;
             }
 
-            // Parse clinic
             let parsedClinic = clinic;
             if (typeof clinic === 'string') {
                 parsedClinic = {
@@ -268,14 +231,10 @@ exports.completeDoctorProfile = [
                     phone: '+919999999999'
                 };
             }
-
-            // Check if license number is unique
             const existingLicense = await Doctor.findOne({ licenseNumber });
             if (existingLicense) {
                 return next(new ErrorResponse('License number already registered', 400));
             }
-
-            // Create doctor profile
             const doctor = await Doctor.create({
                 userId: user._id,
                 firstName: fName,
@@ -292,8 +251,6 @@ exports.completeDoctorProfile = [
                 slotDurationMinutes: req.body.slotDurationMinutes || 30,
                 verificationStatus: constants.VERIFICATION_STATUS.PENDING
             });
-
-            // Update user profile completion status
             user.profileComplete = true;
             await user.save();
 
@@ -313,21 +270,14 @@ exports.completeDoctorProfile = [
     }
 ];
 
-// @desc    Complete MR profile
-// @route   POST /api/auth/complete-profile/mr
-// @access  Private
 exports.completeMRProfile = [
     validate('mrProfile'),
     async (req, res, next) => {
         try {
             const user = req.user;
-
-            // Check if user is an MR
             if (user.role !== constants.ROLES.MR) {
                 return next(new ErrorResponse('Only medical representatives can complete MR profile', 403));
             }
-
-            // Check if profile already completed
             const existingMR = await MedicalRep.findOne({ userId: user._id });
             if (existingMR) {
                 return next(new ErrorResponse('MR profile already completed', 400));
@@ -352,7 +302,6 @@ exports.completeMRProfile = [
                 lName = names.lastName;
             }
 
-            // Create MR profile
             const medicalRep = await MedicalRep.create({
                 userId: user._id,
                 firstName: fName,
@@ -370,7 +319,6 @@ exports.completeMRProfile = [
                 }
             });
 
-            // Update user profile completion status
             user.profileComplete = true;
             await user.save();
 
@@ -390,9 +338,6 @@ exports.completeMRProfile = [
     }
 ];
 
-// @desc    Refresh token
-// @route   POST /api/auth/refresh-token
-// @access  Public
 exports.refreshToken = async (req, res, next) => {
     try {
         const { refreshToken } = req.body;
@@ -401,16 +346,13 @@ exports.refreshToken = async (req, res, next) => {
             return next(new ErrorResponse('Refresh token required', 400));
         }
 
-        // Verify refresh token
         const decoded = jwt.verify(refreshToken, process.env.JWT_SECRET || constants.JWT_SECRET);
 
-        // Check if user exists
         const user = await User.findById(decoded.id);
         if (!user) {
             return next(new ErrorResponse('User not found', 404));
         }
 
-        // Generate new access token
         const newAccessToken = generateToken(user._id);
 
         res.status(200).json({
@@ -428,9 +370,6 @@ exports.refreshToken = async (req, res, next) => {
     }
 };
 
-// @desc    Logout user
-// @route   POST /api/auth/logout
-// @access  Private
 exports.logout = async (req, res, next) => {
     try {
         let token;
@@ -443,8 +382,7 @@ exports.logout = async (req, res, next) => {
         if (token) {
             const decoded = jwt.decode(token);
             const expiresAt = decoded && decoded.exp ? new Date(decoded.exp * 1000) : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-            
-            // Save to blacklist if it isn't already blacklisted
+
             const isBlacklisted = await TokenBlacklist.findOne({ token });
             if (!isBlacklisted) {
                 await TokenBlacklist.create({ token, expiresAt });
@@ -460,34 +398,23 @@ exports.logout = async (req, res, next) => {
     }
 };
 
-// @desc    Forgot password
-// @route   POST /api/auth/forgot-password
-// @access  Public
 exports.forgotPassword = [
     validate('forgotPassword'),
     async (req, res, next) => {
         try {
             const { email } = req.body;
 
-            // Check if user exists
             const user = await User.findOne({ email });
             if (!user) {
-                // Don't reveal that user doesn't exist (security best practice)
                 return res.status(200).json({
                     success: true,
                     message: 'If your email is registered, you will receive a password reset link'
                 });
             }
 
-            // Generate reset token
             const resetToken = user.getResetPasswordToken();
             await user.save();
-
-            // In production, send email with reset link
-            // For now, we'll return the token (in production, this should be sent via email)
             const resetUrl = `${req.protocol}://${req.get('host')}/api/auth/reset-password/${resetToken}`;
-
-            // Log the reset URL (in development only)
             if (process.env.NODE_ENV === 'development') {
                 console.log('Password reset URL:', resetUrl);
             }
@@ -496,7 +423,6 @@ exports.forgotPassword = [
                 success: true,
                 message: 'Password reset instructions sent to email',
                 data: {
-                    // In production, don't return the token in response
                     resetToken: process.env.NODE_ENV === 'development' ? resetToken : undefined
                 }
             });
@@ -506,16 +432,12 @@ exports.forgotPassword = [
     }
 ];
 
-// @desc    Reset password
-// @route   POST /api/auth/reset-password
-// @access  Public
 exports.resetPassword = [
     validate('resetPassword'),
     async (req, res, next) => {
         try {
             const { resetToken, newPassword } = req.body;
 
-            // Find user by reset token and check expiry
             const user = await User.findOne({
                 resetPasswordToken: resetToken,
                 resetPasswordExpire: { $gt: Date.now() }
@@ -524,8 +446,6 @@ exports.resetPassword = [
             if (!user) {
                 return next(new ErrorResponse('Invalid or expired reset token', 400));
             }
-
-            // Update password
             user.password = newPassword;
             user.resetPasswordToken = undefined;
             user.resetPasswordExpire = undefined;
@@ -541,14 +461,10 @@ exports.resetPassword = [
     }
 ];
 
-// @desc    Get current user profile
-// @route   GET /api/auth/me
-// @access  Private
 exports.getMe = async (req, res, next) => {
     try {
         const user = req.user;
 
-        // Get profile based on role
         let profile = null;
         let profileData = null;
 
@@ -611,18 +527,12 @@ exports.getMe = async (req, res, next) => {
         next(error);
     }
 };
-
-// @desc    Update user profile
-// @route   PUT /api/auth/me
-// @access  Private
 exports.updateMe = async (req, res, next) => {
     try {
         const user = req.user;
         const { email, currentPassword, newPassword } = req.body;
 
-        // Update email if provided
         if (email && email !== user.email) {
-            // Check if email is already taken
             const existingUser = await User.findOne({ email });
             if (existingUser) {
                 return next(new ErrorResponse('Email already registered', 400));
@@ -630,15 +540,12 @@ exports.updateMe = async (req, res, next) => {
             user.email = email;
         }
 
-        // Update password if provided
         if (currentPassword && newPassword) {
-            // Verify current password
             const isPasswordValid = await user.comparePassword(currentPassword);
             if (!isPasswordValid) {
                 return next(new ErrorResponse('Current password is incorrect', 400));
             }
 
-            // Validate new password
             const validators = require('../utils/validators');
             if (!validators.isValidPassword(newPassword)) {
                 return next(new ErrorResponse('New password does not meet requirements', 400));

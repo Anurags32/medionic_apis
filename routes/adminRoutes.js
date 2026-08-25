@@ -21,14 +21,12 @@ const {
     rejectMR
 } = require('../controllers/adminController');
 
-// Middlewares
+
 const { protect, authorize } = require('../middleware/auth');
 const constants = require('../config/constants');
 
-// Public route
 router.post('/login', adminLogin);
 
-// Protected routes (Admin only)
 router.use(protect, authorize(constants.ROLES.ADMIN));
 
 router.get('/doctors', getDoctors);

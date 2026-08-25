@@ -37,7 +37,6 @@ exports.getConsultationSession = async (req, res, next) => {
     }
 };
 
-// Try to access the Socket.io instance — may not be ready in test environments
 const getIO = () => {
     try {
         const { getIO: socketGetIO } = require('../services/socketService');
@@ -47,10 +46,7 @@ const getIO = () => {
     }
 };
 
-// @desc    WebRTC signaling relay via REST (fallback / companion to Socket.io events)
-// @route   POST /api/consultations/video/signal
-// @access  Private (Doctor or Patient)
-// Body: { sdp, candidate, roomId, targetUserId, type: 'offer'|'answer'|'ice-candidate' }
+
 exports.videoSignal = async (req, res, next) => {
     try {
         const { sdp, candidate, roomId, targetUserId, type } = req.body;
@@ -72,7 +68,6 @@ exports.videoSignal = async (req, res, next) => {
             return next(new ErrorResponse('candidate is required for ice-candidate signals', 400));
         }
 
-        // Verify the roomId belongs to a real appointment that involves this user
         const [patient, doctor] = await Promise.all([
             Patient.findOne({ userId: req.user._id }).select('_id'),
             Doctor.findOne({ userId: req.user._id }).select('_id')
@@ -90,7 +85,6 @@ exports.videoSignal = async (req, res, next) => {
             return next(new ErrorResponse('Invalid room — no active appointment found for this room', 403));
         }
 
-        // Relay via Socket.io if available
         const io = getIO();
         if (io) {
             const eventMap = {
@@ -122,9 +116,6 @@ exports.videoSignal = async (req, res, next) => {
     }
 };
 
-// @desc    Get messages for a consultation room (chat history)
-// @route   GET /api/consultations/:roomId/messages
-// @access  Private
 exports.getRoomMessages = async (req, res, next) => {
     try {
         const Message = require('../models/Message');
@@ -142,7 +133,7 @@ exports.getRoomMessages = async (req, res, next) => {
 
         res.status(200).json({
             success: true,
-            data: messages.reverse() // chronological order
+            data: messages.reverse()
         });
     } catch (error) {
         next(error);

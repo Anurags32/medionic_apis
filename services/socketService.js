@@ -16,7 +16,6 @@ const initSocket = (server) => {
 
     console.log('🔌  Socket.io server initialized');
 
-    // Authenticate socket connections via handshake auth token
     io.use(async (socket, next) => {
         try {
             const token = socket.handshake.auth.token || socket.handshake.headers['authorization']?.split(' ')[1];
@@ -45,14 +44,13 @@ const initSocket = (server) => {
     io.on('connection', (socket) => {
         console.log(`🟢  Socket connected: User ${socket.user._id} (${socket.user.role})`);
 
-        // Join room (appointment roomId)
         socket.on('join-room', ({ roomId }) => {
             socket.join(roomId);
             console.log(`🚪  User ${socket.user._id} joined room ${roomId}`);
             socket.to(roomId).emit('user-joined', { userId: socket.user._id, role: socket.user.role });
         });
 
-        // Send chat message
+
         socket.on('send-message', async ({ roomId, text }) => {
             try {
                 if (!roomId || !text) return;
@@ -61,7 +59,7 @@ const initSocket = (server) => {
 
                 const senderRole = socket.user.role === 'doctor' ? 'doctor' : 'patient';
 
-                // Persist to Database first
+
                 const message = await Message.create({
                     roomId,
                     senderId: socket.user._id,
@@ -69,7 +67,6 @@ const initSocket = (server) => {
                     text
                 });
 
-                // Broadcast to room (including sender)
                 io.to(roomId).emit('receive-message', {
                     messageId: message._id,
                     roomId: message.roomId,
@@ -84,7 +81,6 @@ const initSocket = (server) => {
             }
         });
 
-        // WebRTC Signaling relays
         socket.on('video-offer', ({ sdp, roomId }) => {
             console.log(`📹  Relaying video offer in room ${roomId}`);
             socket.to(roomId).emit('video-offer', { sdp, roomId });
@@ -100,7 +96,6 @@ const initSocket = (server) => {
             socket.to(roomId).emit('ice-candidate', { candidate, roomId });
         });
 
-        // Disconnect handling
         socket.on('disconnect', () => {
             console.log(`🔴  Socket disconnected: User ${socket.user._id}`);
         });

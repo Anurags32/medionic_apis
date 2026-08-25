@@ -2,7 +2,7 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 
-// Ensure upload directory exists
+
 const uploadDir = path.join(__dirname, '../uploads');
 if (!fs.existsSync(uploadDir)) {
     fs.mkdirSync(uploadDir, { recursive: true });
@@ -14,9 +14,7 @@ const driver = process.env.STORAGE_DRIVER || 'local';
 
 if (driver === 's3') {
     console.log('📦  Using S3 Storage Driver (Mock/Fallback enabled if credentials empty)');
-    // In production, we'd use multer-s3 and @aws-sdk/client-s3.
-    // To remain functional without credentials, we implement a fallback to disk storage
-    // but log s3 storage routing.
+
     storage = multer.diskStorage({
         destination: function (req, file, cb) {
             cb(null, uploadDir);
@@ -50,7 +48,7 @@ const fileFilter = (req, file, cb) => {
 
 const upload = multer({
     storage: storage,
-    limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+    limits: { fileSize: 5 * 1024 * 1024 },
     fileFilter: fileFilter
 });
 

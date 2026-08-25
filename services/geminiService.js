@@ -5,7 +5,6 @@ const apiKey = process.env.GEMINI_API_KEY || 'dummy_api_key';
 const isOpenRouter = apiKey.startsWith('sk-or-');
 const genAI = !isOpenRouter ? new GoogleGenerativeAI(apiKey) : null;
 
-// Helper to convert local file to generative part object
 function fileToGenerativePart(path, mimeType) {
     return {
         inlineData: {
@@ -25,7 +24,7 @@ exports.checkSymptoms = async (symptoms) => {
         if (!process.env.GEMINI_API_KEY) {
             return "⚠️ [Mock AI Mode] Gemini API key not found. You are experiencing symptoms: " + symptoms + ". Please see a general practitioner.";
         }
-        
+
         if (isOpenRouter) {
             const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
                 method: 'POST',
@@ -63,7 +62,7 @@ exports.checkSymptoms = async (symptoms) => {
             throw new Error(`Unexpected OpenRouter response format: ${JSON.stringify(data)}`);
         }
 
-        const model = genAI.getGenerativeModel({ 
+        const model = genAI.getGenerativeModel({
             model: 'gemini-1.5-flash',
             systemInstruction: "You are an AI Health Assistant. Provide a disclaimer that you are not a doctor. Analyze user symptoms and suggest possible medical fields and general recommendations. Keep it concise."
         });

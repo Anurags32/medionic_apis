@@ -9,9 +9,7 @@ const { generateToken, generateRefreshToken } = require('../middleware/auth');
 const constants = require('../config/constants');
 const helpers = require('../utils/helpers');
 
-// @desc    Admin Login
-// @route   POST /api/auth/admin/login
-// @access  Public
+
 exports.adminLogin = async (req, res, next) => {
     try {
         const { email, password } = req.body;
@@ -62,9 +60,7 @@ exports.adminLogin = async (req, res, next) => {
     }
 };
 
-// @desc    Get doctors list (filterable by status)
-// @route   GET /api/admin/doctors
-// @access  Private/Admin
+
 exports.getDoctors = async (req, res, next) => {
     try {
         const { status, page = 1, limit = 10 } = req.query;
@@ -93,9 +89,6 @@ exports.getDoctors = async (req, res, next) => {
     }
 };
 
-// @desc    Verify Doctor
-// @route   PUT /api/admin/doctors/:id/verify
-// @access  Private/Admin
 exports.verifyDoctor = async (req, res, next) => {
     try {
         const { id } = req.params;
@@ -116,7 +109,6 @@ exports.verifyDoctor = async (req, res, next) => {
         }
         await doctor.save();
 
-        // Update corresponding User isVerified status
         if (status === 'verified') {
             await User.findByIdAndUpdate(doctor.userId, { isVerified: true });
         } else {
@@ -133,9 +125,6 @@ exports.verifyDoctor = async (req, res, next) => {
     }
 };
 
-// @desc    Get MR list (filterable by status)
-// @route   GET /api/admin/mr
-// @access  Private/Admin
 exports.getMRs = async (req, res, next) => {
     try {
         const { status, page = 1, limit = 10 } = req.query;
@@ -164,9 +153,6 @@ exports.getMRs = async (req, res, next) => {
     }
 };
 
-// @desc    Verify MR
-// @route   PUT /api/admin/mr/:id/verify
-// @access  Private/Admin
 exports.verifyMR = async (req, res, next) => {
     try {
         const { id } = req.params;
@@ -183,12 +169,9 @@ exports.verifyMR = async (req, res, next) => {
 
         mr.verificationStatus = status;
         if (remarks) {
-            // we can log MR remarks or append to designation/description. Let's save remarks if possible.
             mr.remarks = remarks;
         }
         await mr.save();
-
-        // Update corresponding User isVerified status
         if (status === 'verified') {
             await User.findByIdAndUpdate(mr.userId, { isVerified: true });
         } else {
@@ -205,9 +188,6 @@ exports.verifyMR = async (req, res, next) => {
     }
 };
 
-// @desc    Get all platform users
-// @route   GET /api/admin/users
-// @access  Private/Admin
 exports.getUsers = async (req, res, next) => {
     try {
         const { role, status, search, page = 1, limit = 10 } = req.query;
@@ -215,7 +195,7 @@ exports.getUsers = async (req, res, next) => {
 
         if (role) query.role = role;
         if (status) query.status = status;
-        
+
         if (search) {
             query.email = { $regex: search, $options: 'i' };
         }
@@ -240,9 +220,7 @@ exports.getUsers = async (req, res, next) => {
     }
 };
 
-// @desc    Suspend/Unsuspend User
-// @route   PUT /api/admin/users/:id/suspend
-// @access  Private/Admin
+
 exports.suspendUser = async (req, res, next) => {
     try {
         const { id } = req.params;
@@ -256,9 +234,8 @@ exports.suspendUser = async (req, res, next) => {
             return next(new ErrorResponse('Admin accounts cannot be suspended', 400));
         }
 
-        // Toggle status
-        user.status = user.status === constants.USER_STATUS.ACTIVE 
-            ? constants.USER_STATUS.SUSPENDED 
+        user.status = user.status === constants.USER_STATUS.ACTIVE
+            ? constants.USER_STATUS.SUSPENDED
             : constants.USER_STATUS.ACTIVE;
 
         await user.save();
@@ -278,17 +255,13 @@ exports.suspendUser = async (req, res, next) => {
     }
 };
 
-// @desc    Platform wide dashboard analytics stats
-// @route   GET /api/admin/dashboard
-// @access  Private/Admin
+
 exports.getDashboard = async (req, res, next) => {
     try {
         const totalPatients = await Patient.countDocuments();
         const totalDoctors = await Doctor.countDocuments();
         const totalMRs = await MedicalRep.countDocuments();
         const totalAppointments = await Appointment.countDocuments();
-
-        // Calculate total platform revenue from completed appointments
         const completedAppointments = await Appointment.find({ paymentStatus: 'completed' });
         const revenue = completedAppointments.reduce((sum, apt) => sum + (apt.amount || 0), 0);
 
@@ -307,9 +280,6 @@ exports.getDashboard = async (req, res, next) => {
     }
 };
 
-// @desc    Get pending MR expenses
-// @route   GET /api/admin/expenses/pending-approvals
-// @access  Private/Admin
 exports.getPendingExpenses = async (req, res, next) => {
     try {
         const expenses = await Expense.find({ approvalStatus: 'pending' })
@@ -325,9 +295,6 @@ exports.getPendingExpenses = async (req, res, next) => {
     }
 };
 
-// @desc    Approve Expense
-// @route   PUT /api/admin/expenses/:id/approve
-// @access  Private/Admin
 exports.approveExpense = async (req, res, next) => {
     try {
         const { id } = req.params;
@@ -350,9 +317,6 @@ exports.approveExpense = async (req, res, next) => {
     }
 };
 
-// @desc    Reject Expense
-// @route   PUT /api/admin/expenses/:id/reject
-// @access  Private/Admin
 exports.rejectExpense = async (req, res, next) => {
     try {
         const { id } = req.params;
@@ -379,9 +343,6 @@ exports.rejectExpense = async (req, res, next) => {
     }
 };
 
-// @desc    Get specific doctor profile
-// @route   GET /api/admin/doctors/:id
-// @access  Private/Admin
 exports.getDoctorProfile = async (req, res, next) => {
     try {
         const { id } = req.params;
@@ -399,9 +360,6 @@ exports.getDoctorProfile = async (req, res, next) => {
     }
 };
 
-// @desc    Get specific MR profile
-// @route   GET /api/admin/mr/:id
-// @access  Private/Admin
 exports.getMRProfile = async (req, res, next) => {
     try {
         const { id } = req.params;
@@ -419,9 +377,6 @@ exports.getMRProfile = async (req, res, next) => {
     }
 };
 
-// @desc    Approve Doctor
-// @route   PUT /api/admin/doctors/:id/approve
-// @access  Private/Admin
 exports.approveDoctor = async (req, res, next) => {
     try {
         const { id } = req.params;
@@ -450,9 +405,6 @@ exports.approveDoctor = async (req, res, next) => {
     }
 };
 
-// @desc    Reject Doctor
-// @route   PUT /api/admin/doctors/:id/reject
-// @access  Private/Admin
 exports.rejectDoctor = async (req, res, next) => {
     try {
         const { id } = req.params;
@@ -481,9 +433,6 @@ exports.rejectDoctor = async (req, res, next) => {
     }
 };
 
-// @desc    Approve MR
-// @route   PUT /api/admin/mr/:id/approve
-// @access  Private/Admin
 exports.approveMR = async (req, res, next) => {
     try {
         const { id } = req.params;
@@ -512,9 +461,6 @@ exports.approveMR = async (req, res, next) => {
     }
 };
 
-// @desc    Reject MR
-// @route   PUT /api/admin/mr/:id/reject
-// @access  Private/Admin
 exports.rejectMR = async (req, res, next) => {
     try {
         const { id } = req.params;

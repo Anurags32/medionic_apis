@@ -8,11 +8,7 @@ const ErrorResponse = require('../utils/errorResponse');
 const constants = require('../config/constants');
 const helpers = require('../utils/helpers');
 
-// ============= TOUR PLANNING =============
 
-// @desc    Get monthly tour plan
-// @route   GET /api/mr/tour-plan
-// @access  Private/MR
 exports.getTourPlan = async (req, res, next) => {
     try {
         const mrId = req.user._id;
@@ -44,9 +40,6 @@ exports.getTourPlan = async (req, res, next) => {
     }
 };
 
-// @desc    Create/Update tour plan
-// @route   POST /api/mr/tour-plan
-// @access  Private/MR
 exports.createTourPlan = async (req, res, next) => {
     try {
         const mrId = req.user._id;
@@ -56,7 +49,6 @@ exports.createTourPlan = async (req, res, next) => {
             return next(new ErrorResponse('Month, year, and routes list are required', 400));
         }
 
-        // Check if plan already exists
         let tourPlan = await TourPlan.findOne({ mrId, month, year });
 
         if (tourPlan) {
@@ -81,9 +73,6 @@ exports.createTourPlan = async (req, res, next) => {
     }
 };
 
-// @desc    Get weekly breakdown
-// @route   GET /api/mr/tour-plan/:id/weekly
-// @access  Private/MR
 exports.getWeeklyBreakdown = async (req, res, next) => {
     try {
         const { id } = req.params;
@@ -94,7 +83,6 @@ exports.getWeeklyBreakdown = async (req, res, next) => {
             return next(new ErrorResponse('Tour plan not found', 404));
         }
 
-        // Divide routes into weeks of 7 days
         const weeks = [];
         let currentWeek = [];
         let weekNumber = 1;
@@ -122,11 +110,6 @@ exports.getWeeklyBreakdown = async (req, res, next) => {
     }
 };
 
-// ============= CHEMIST MANAGEMENT =============
-
-// @desc    Add chemist
-// @route   POST /api/mr/chemists
-// @access  Private/MR
 exports.addChemist = async (req, res, next) => {
     try {
         const { chemistName, contactPerson, phone, address, city } = req.body;
@@ -151,9 +134,6 @@ exports.addChemist = async (req, res, next) => {
     }
 };
 
-// @desc    Get all chemists
-// @route   GET /api/mr/chemists
-// @access  Private/MR
 exports.getChemists = async (req, res, next) => {
     try {
         const mrId = req.user._id;
@@ -168,9 +148,7 @@ exports.getChemists = async (req, res, next) => {
     }
 };
 
-// @desc    Update chemist
-// @route   PUT /api/mr/chemists/:id
-// @access  Private/MR
+
 exports.updateChemist = async (req, res, next) => {
     try {
         const { id } = req.params;
@@ -196,9 +174,6 @@ exports.updateChemist = async (req, res, next) => {
     }
 };
 
-// @desc    Delete chemist
-// @route   DELETE /api/mr/chemists/:id
-// @access  Private/MR
 exports.deleteChemist = async (req, res, next) => {
     try {
         const { id } = req.params;
@@ -218,11 +193,7 @@ exports.deleteChemist = async (req, res, next) => {
     }
 };
 
-// ============= EXPENSE MANAGEMENT =============
 
-// @desc    Log expense
-// @route   POST /api/mr/expenses
-// @access  Private/MR
 exports.logExpense = async (req, res, next) => {
     try {
         const { amount, expenseType, date, description } = req.body;
@@ -246,9 +217,6 @@ exports.logExpense = async (req, res, next) => {
     }
 };
 
-// @desc    Get expenses
-// @route   GET /api/mr/expenses
-// @access  Private/MR
 exports.getExpenses = async (req, res, next) => {
     try {
         const mrId = req.user._id;
@@ -269,9 +237,6 @@ exports.getExpenses = async (req, res, next) => {
     }
 };
 
-// @desc    Get pending approvals
-// @route   GET /api/mr/expenses/pending-approvals
-// @access  Private/MR
 exports.getPendingApprovals = async (req, res, next) => {
     try {
         const mrId = req.user._id;
@@ -286,11 +251,7 @@ exports.getPendingApprovals = async (req, res, next) => {
     }
 };
 
-// ============= DAILY CALL REPORT (DCR) =============
 
-// @desc    Submit DCR
-// @route   POST /api/mr/dcr
-// @access  Private/MR
 exports.submitDCR = async (req, res, next) => {
     try {
         const mrId = req.user._id;
@@ -305,7 +266,6 @@ exports.submitDCR = async (req, res, next) => {
             return next(new ErrorResponse('MR profile not found', 404));
         }
 
-        // Deduct distributed samples from MR's inventory
         if (samplesDistributed && Array.isArray(samplesDistributed)) {
             for (const sample of samplesDistributed) {
                 const item = mr.sampleInventory.find(s => s.productName.toLowerCase() === sample.sampleName.toLowerCase());
@@ -339,9 +299,6 @@ exports.submitDCR = async (req, res, next) => {
     }
 };
 
-// @desc    Get DCR list
-// @route   GET /api/mr/dcr
-// @access  Private/MR
 exports.getDCRList = async (req, res, next) => {
     try {
         const mrId = req.user._id;

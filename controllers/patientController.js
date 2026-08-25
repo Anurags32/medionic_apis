@@ -9,9 +9,6 @@ const { validate } = require('../middleware/validation');
 const constants = require('../config/constants');
 const helpers = require('../utils/helpers');
 
-// @desc    Get patient profile
-// @route   GET /api/patients/profile
-// @access  Private (Patient only)
 exports.getProfile = async (req, res, next) => {
     try {
         const user = req.user;
@@ -43,9 +40,6 @@ exports.getProfile = async (req, res, next) => {
     }
 };
 
-// @desc    Update patient profile
-// @route   PUT /api/patients/profile
-// @access  Private (Patient only)
 exports.updateProfile = async (req, res, next) => {
     try {
         const user = req.user;
@@ -54,8 +48,6 @@ exports.updateProfile = async (req, res, next) => {
         if (!patient) {
             return next(new ErrorResponse('Patient profile not found', 404));
         }
-
-        // Update User fields if present in req.body (email changes are blocked)
         let userUpdated = false;
         if (req.body.firstName !== undefined) {
             user.firstName = req.body.firstName;
@@ -79,8 +71,6 @@ exports.updateProfile = async (req, res, next) => {
         if (userUpdated) {
             await user.save();
         }
-
-        // Update Patient fields if present in req.body
         if (req.body.dob !== undefined) {
             patient.dob = helpers.normalizeDob(req.body.dob);
         }
@@ -136,9 +126,6 @@ exports.updateProfile = async (req, res, next) => {
     }
 };
 
-// @desc    Search doctors
-// @route   GET /api/patients/doctors
-// @access  Private (Patient only)
 exports.searchDoctors = async (req, res, next) => {
     try {
         const {
@@ -152,7 +139,6 @@ exports.searchDoctors = async (req, res, next) => {
             search
         } = req.query;
 
-        // Build query
         const query = {};
 
         if (specialization) {
@@ -186,13 +172,10 @@ exports.searchDoctors = async (req, res, next) => {
             ];
         }
 
-        // Only show verified doctors
         query.verificationStatus = constants.VERIFICATION_STATUS.VERIFIED;
 
-        // Pagination
         const skip = (parseInt(page) - 1) * parseInt(limit);
 
-        // Execute query
         const doctors = await Doctor.find(query)
             .select('-certificates -verificationDocuments -availability -holidays')
             .skip(skip)
@@ -201,7 +184,6 @@ exports.searchDoctors = async (req, res, next) => {
 
         const total = await Doctor.countDocuments(query);
 
-        // Format response
         const formattedDoctors = doctors.map(doctor => {
             const rawTypes = Array.isArray(doctor.consultationTypes) && doctor.consultationTypes.length > 0
                 ? doctor.consultationTypes
@@ -259,9 +241,6 @@ exports.searchDoctors = async (req, res, next) => {
     }
 };
 
-// @desc    Get doctor details
-// @route   GET /api/patients/doctors/:id
-// @access  Private (Patient only)
 exports.getDoctorDetails = async (req, res, next) => {
     try {
         const { id } = req.params;
@@ -277,7 +256,6 @@ exports.getDoctorDetails = async (req, res, next) => {
             return next(new ErrorResponse('Doctor not verified', 404));
         }
 
-        // Get availability for next 7 days
         const availability = {};
         const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
         const today = new Date();
@@ -308,9 +286,6 @@ exports.getDoctorDetails = async (req, res, next) => {
     }
 };
 
-// @desc    Book appointment
-// @route   POST /api/patients/appointments
-// @access  Private (Patient only)
 exports.bookAppointment = [
     validate('bookAppointment'),
     async (req, res, next) => {
@@ -324,13 +299,12 @@ exports.bookAppointment = [
                 symptoms
             } = req.body;
 
-            // Get patient
+
             const patient = await Patient.findOne({ userId: user._id });
             if (!patient) {
                 return next(new ErrorResponse('Patient profile not found', 404));
             }
 
-            // Get doctor
             const doctor = await Doctor.findById(doctorId);
             if (!doctor) {
                 return next(new ErrorResponse('Doctor not found', 404));
@@ -357,7 +331,6 @@ exports.bookAppointment = [
                 return next(new ErrorResponse('Doctor does not support this consultation type', 400));
             }
 
-            // Check doctor availability
             const appointmentDateTime = new Date(appointmentDate);
             if (Number.isNaN(appointmentDateTime.getTime())) {
                 return next(new ErrorResponse('A valid appointment date is required', 400));
@@ -366,7 +339,6 @@ exports.bookAppointment = [
                 return next(new ErrorResponse('Doctor not available at this time', 400));
             }
 
-            // Check if appointment slot is already booked
             const startOfDay = new Date(appointmentDateTime);
             startOfDay.setHours(0, 0, 0, 0);
             const endOfDay = new Date(appointmentDateTime);
@@ -383,7 +355,6 @@ exports.bookAppointment = [
                 return next(new ErrorResponse('Time slot already booked', 409));
             }
 
-            // Create appointment
             let appointmentAmount = doctor.consultationFee;
             if (normalizedConsultationType === constants.CONSULTATION_TYPES.VIDEO) {
                 appointmentAmount = doctor.videoFee || doctor.consultationFee;
@@ -427,9 +398,6 @@ exports.bookAppointment = [
     }
 ];
 
-// @desc    Get patient appointments
-// @route   GET /api/patients/appointments
-// @access  Private (Patient only)
 exports.getAppointments = async (req, res, next) => {
     try {
         const user = req.user;
@@ -441,13 +409,11 @@ exports.getAppointments = async (req, res, next) => {
             limit = 10
         } = req.query;
 
-        // Get patient
         const patient = await Patient.findOne({ userId: user._id });
         if (!patient) {
             return next(new ErrorResponse('Patient profile not found', 404));
         }
 
-        // Build query
         const query = { patientId: patient._id };
 
         if (status) {
@@ -460,10 +426,8 @@ exports.getAppointments = async (req, res, next) => {
             if (toDate) query.appointmentDate.$lte = new Date(toDate);
         }
 
-        // Pagination
         const skip = (parseInt(page) - 1) * parseInt(limit);
 
-        // Get appointments with doctor details
         const appointments = await Appointment.find(query)
             .populate('doctorId', 'firstName lastName specialization clinic consultationFee videoFee clinicFee chatFee')
             .skip(skip)
@@ -472,7 +436,6 @@ exports.getAppointments = async (req, res, next) => {
 
         const total = await Appointment.countDocuments(query);
 
-        // Format response
         const formattedAppointments = appointments.map(appointment => {
             const doctor = appointment.doctorId;
             return {
@@ -511,21 +474,16 @@ exports.getAppointments = async (req, res, next) => {
     }
 };
 
-// @desc    Get appointment details
-// @route   GET /api/patients/appointments/:id
-// @access  Private (Patient only)
 exports.getAppointmentDetails = async (req, res, next) => {
     try {
         const { id } = req.params;
         const user = req.user;
 
-        // Get patient
         const patient = await Patient.findOne({ userId: user._id });
         if (!patient) {
             return next(new ErrorResponse('Patient profile not found', 404));
         }
 
-        // Get appointment
         const appointment = await Appointment.findOne({
             _id: id,
             patientId: patient._id
@@ -554,21 +512,14 @@ exports.getAppointmentDetails = async (req, res, next) => {
     }
 };
 
-// @desc    Cancel appointment
-// @route   DELETE /api/patients/appointments/:id
-// @access  Private (Patient only)
 exports.cancelAppointment = async (req, res, next) => {
     try {
         const { id } = req.params;
         const user = req.user;
-
-        // Get patient
         const patient = await Patient.findOne({ userId: user._id });
         if (!patient) {
             return next(new ErrorResponse('Patient profile not found', 404));
         }
-
-        // Get appointment
         const appointment = await Appointment.findOne({
             _id: id,
             patientId: patient._id
@@ -578,12 +529,10 @@ exports.cancelAppointment = async (req, res, next) => {
             return next(new ErrorResponse('Appointment not found', 404));
         }
 
-        // Check if appointment can be cancelled
         if (!appointment.canBeCancelled()) {
             return next(new ErrorResponse('Appointment cannot be cancelled', 400));
         }
 
-        // Cancel appointment
         appointment.cancel('patient', req.body.reason || 'Patient cancelled');
         await appointment.save();
 
@@ -596,9 +545,6 @@ exports.cancelAppointment = async (req, res, next) => {
     }
 };
 
-// @desc    Get patient prescriptions
-// @route   GET /api/patients/prescriptions
-// @access  Private (Patient only)
 exports.getPrescriptions = async (req, res, next) => {
     try {
         const user = req.user;
@@ -610,13 +556,11 @@ exports.getPrescriptions = async (req, res, next) => {
             limit = 10
         } = req.query;
 
-        // Get patient
         const patient = await Patient.findOne({ userId: user._id });
         if (!patient) {
             return next(new ErrorResponse('Patient profile not found', 404));
         }
 
-        // Build query
         const query = { patientId: patient._id };
 
         if (status) {
@@ -629,10 +573,7 @@ exports.getPrescriptions = async (req, res, next) => {
             if (toDate) query.issuedAt.$lte = new Date(toDate);
         }
 
-        // Pagination
         const skip = (parseInt(page) - 1) * parseInt(limit);
-
-        // Get prescriptions with doctor details
         const prescriptions = await Prescription.find(query)
             .populate('doctorId', 'firstName lastName specialization')
             .skip(skip)
@@ -641,7 +582,6 @@ exports.getPrescriptions = async (req, res, next) => {
 
         const total = await Prescription.countDocuments(query);
 
-        // Format response
         const formattedPrescriptions = prescriptions.map(prescription => {
             const doctor = prescription.doctorId;
             return {
@@ -672,21 +612,14 @@ exports.getPrescriptions = async (req, res, next) => {
     }
 };
 
-// @desc    Get prescription details
-// @route   GET /api/patients/prescriptions/:id
-// @access  Private (Patient only)
 exports.getPrescriptionDetails = async (req, res, next) => {
     try {
         const { id } = req.params;
         const user = req.user;
-
-        // Get patient
         const patient = await Patient.findOne({ userId: user._id });
         if (!patient) {
             return next(new ErrorResponse('Patient profile not found', 404));
         }
-
-        // Get prescription
         const prescription = await Prescription.findOne({
             _id: id,
             patientId: patient._id
@@ -713,9 +646,6 @@ exports.getPrescriptionDetails = async (req, res, next) => {
     }
 };
 
-// @desc    Create pharmacy order
-// @route   POST /api/patients/pharmacy-orders
-// @access  Private (Patient only)
 exports.createPharmacyOrder = [
     validate('createOrder'),
     async (req, res, next) => {
@@ -728,13 +658,11 @@ exports.createPharmacyOrder = [
                 paymentMethod
             } = req.body;
 
-            // Get patient
             const patient = await Patient.findOne({ userId: user._id });
             if (!patient) {
                 return next(new ErrorResponse('Patient profile not found', 404));
             }
 
-            // Validate prescription if provided
             if (prescriptionId) {
                 const prescription = await Prescription.findOne({
                     _id: prescriptionId,
@@ -749,19 +677,16 @@ exports.createPharmacyOrder = [
                     return next(new ErrorResponse('Prescription is not valid or has expired', 400));
                 }
             }
-
-            // Calculate total amount
             const totalAmount = medicines.reduce((total, medicine) => {
                 return total + (medicine.price * medicine.quantity);
             }, 0);
 
-            // Create order
             const order = await PharmacyOrder.create({
                 patientId: patient._id,
                 prescriptionId,
                 medicines,
                 totalAmount,
-                finalAmount: totalAmount, // No discount or tax for now
+                finalAmount: totalAmount,
                 paymentMethod,
                 deliveryAddress: deliveryAddress || patient.address,
                 status: constants.ORDER_STATUS.PENDING
@@ -786,9 +711,6 @@ exports.createPharmacyOrder = [
     }
 ];
 
-// @desc    Get patient orders
-// @route   GET /api/patients/pharmacy-orders
-// @access  Private (Patient only)
 exports.getPharmacyOrders = async (req, res, next) => {
     try {
         const user = req.user;
@@ -800,13 +722,11 @@ exports.getPharmacyOrders = async (req, res, next) => {
             limit = 10
         } = req.query;
 
-        // Get patient
         const patient = await Patient.findOne({ userId: user._id });
         if (!patient) {
             return next(new ErrorResponse('Patient profile not found', 404));
         }
 
-        // Build query
         const query = { patientId: patient._id };
 
         if (status) {
@@ -818,11 +738,8 @@ exports.getPharmacyOrders = async (req, res, next) => {
             if (fromDate) query.createdAt.$gte = new Date(fromDate);
             if (toDate) query.createdAt.$lte = new Date(toDate);
         }
-
-        // Pagination
         const skip = (parseInt(page) - 1) * parseInt(limit);
 
-        // Get orders
         const orders = await PharmacyOrder.find(query)
             .skip(skip)
             .limit(parseInt(limit))
@@ -830,7 +747,6 @@ exports.getPharmacyOrders = async (req, res, next) => {
 
         const total = await PharmacyOrder.countDocuments(query);
 
-        // Format response
         const formattedOrders = orders.map(order => ({
             orderId: order._id,
             orderNumber: order.orderNumber,
@@ -856,9 +772,6 @@ exports.getPharmacyOrders = async (req, res, next) => {
     }
 };
 
-// @desc    Log health metric
-// @route   POST /api/patients/health-tracking
-// @access  Private (Patient only)
 exports.logHealthMetric = [
     validate('logHealthMetric'),
     async (req, res, next) => {
@@ -873,13 +786,11 @@ exports.logHealthMetric = [
                 source = 'manual'
             } = req.body;
 
-            // Get patient
             const patient = await Patient.findOne({ userId: user._id });
             if (!patient) {
                 return next(new ErrorResponse('Patient profile not found', 404));
             }
 
-            // Validate blood pressure format
             if (metricType === constants.HEALTH_METRICS.BLOOD_PRESSURE) {
                 const validators = require('../utils/validators');
                 if (!validators.isValidBloodPressure(value)) {
@@ -887,7 +798,6 @@ exports.logHealthMetric = [
                 }
             }
 
-            // Create health metric
             const healthMetric = await HealthMetric.create({
                 patientId: patient._id,
                 metricType,
@@ -917,9 +827,6 @@ exports.logHealthMetric = [
     }
 ];
 
-// @desc    Get health metrics
-// @route   GET /api/patients/health-tracking
-// @access  Private (Patient only)
 exports.getHealthMetrics = async (req, res, next) => {
     try {
         const user = req.user;
@@ -931,13 +838,11 @@ exports.getHealthMetrics = async (req, res, next) => {
             groupBy = 'date'
         } = req.query;
 
-        // Get patient
         const patient = await Patient.findOne({ userId: user._id });
         if (!patient) {
             return next(new ErrorResponse('Patient profile not found', 404));
         }
 
-        // Build query
         const query = { patientId: patient._id };
 
         if (metricType) {
@@ -950,15 +855,12 @@ exports.getHealthMetrics = async (req, res, next) => {
             if (toDate) query.timestamp.$lte = new Date(toDate);
         }
 
-        // Get metrics
         const metrics = await HealthMetric.find(query)
             .sort({ timestamp: -1 })
             .limit(parseInt(limit));
 
-        // Get statistics
         const statistics = await HealthMetric.getStatistics(patient._id, metricType);
 
-        // Format response
         const formattedMetrics = metrics.map(metric => ({
             metricId: metric._id,
             metricType: metric.metricType,
@@ -992,21 +894,15 @@ exports.getHealthMetrics = async (req, res, next) => {
     }
 };
 
-// @desc    Get health statistics
-// @route   GET /api/patients/health-tracking/statistics
-// @access  Private (Patient only)
 exports.getHealthStatistics = async (req, res, next) => {
     try {
         const user = req.user;
         const { days = 30 } = req.query;
-
-        // Get patient
         const patient = await Patient.findOne({ userId: user._id });
         if (!patient) {
             return next(new ErrorResponse('Patient profile not found', 404));
         }
 
-        // Get statistics for each metric type
         const metricTypes = Object.values(constants.HEALTH_METRICS);
         const statistics = {};
 
@@ -1016,8 +912,6 @@ exports.getHealthStatistics = async (req, res, next) => {
                 statistics[metricType] = stats;
             }
         }
-
-        // Get daily averages for trends
         const dailyAverages = await HealthMetric.getDailyAverages(patient._id, 'BP', 7);
 
         res.status(200).json({
@@ -1038,14 +932,10 @@ exports.getHealthStatistics = async (req, res, next) => {
     }
 };
 
-// @desc    Get emergency contacts
-// @route   GET /api/patients/emergency-contacts
-// @access  Private (Patient only)
 exports.getEmergencyContacts = async (req, res, next) => {
     try {
         const user = req.user;
 
-        // Get patient
         const patient = await Patient.findOne({ userId: user._id });
         if (!patient) {
             return next(new ErrorResponse('Patient profile not found', 404));
@@ -1068,27 +958,20 @@ exports.getEmergencyContacts = async (req, res, next) => {
     }
 };
 
-// @desc    Update emergency contact
-// @route   PUT /api/patients/emergency-contacts
-// @access  Private (Patient only)
 exports.updateEmergencyContact = async (req, res, next) => {
     try {
         const user = req.user;
         const { name, phone, relation } = req.body;
-
-        // Get patient
         const patient = await Patient.findOne({ userId: user._id });
         if (!patient) {
             return next(new ErrorResponse('Patient profile not found', 404));
         }
 
-        // Validate phone
         const validators = require('../utils/validators');
         if (!validators.isValidPhone(phone)) {
             return next(new ErrorResponse('Invalid phone number', 400));
         }
 
-        // Update emergency contact
         patient.emergencyContact = { name, phone, relation };
         await patient.save();
 
@@ -1102,7 +985,6 @@ exports.updateEmergencyContact = async (req, res, next) => {
     }
 };
 
-// Helper to generate slots from start and end times
 const generateTimeSlots = (startTimeStr, endTimeStr, slotDuration) => {
     const slots = [];
     const [startHour, startMinute] = startTimeStr.split(':').map(Number);
@@ -1128,9 +1010,6 @@ const generateTimeSlots = (startTimeStr, endTimeStr, slotDuration) => {
     return slots;
 };
 
-// @desc    Get available slots for a doctor on a specific date
-// @route   GET /api/patients/doctors/:id/available-slots
-// @access  Private (Patient only)
 exports.getAvailableSlots = async (req, res, next) => {
     try {
         const { id } = req.params;
@@ -1150,7 +1029,6 @@ exports.getAvailableSlots = async (req, res, next) => {
             return next(new ErrorResponse('Doctor not found', 404));
         }
 
-        // Check if date is a holiday
         const isHoliday = doctor.holidays && doctor.holidays.some(holiday => {
             const hDate = new Date(holiday.date);
             return hDate.toDateString() === queryDate.toDateString();
@@ -1163,11 +1041,9 @@ exports.getAvailableSlots = async (req, res, next) => {
             });
         }
 
-        // Get day of week
         const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
         const dayName = days[queryDate.getDay()];
 
-        // Get doctor shift/schedule for this day
         const dayShift = doctor.shift && doctor.shift[dayName] ? doctor.shift[dayName] : [];
         const daySchedule = doctor.schedule && doctor.schedule[dayName] ? doctor.schedule[dayName] : [];
         const dayAvailability = doctor.availability && doctor.availability[dayName] ? doctor.availability[dayName] : [];
@@ -1205,7 +1081,6 @@ exports.getAvailableSlots = async (req, res, next) => {
             });
         }
 
-        // Find existing bookings on this date (pending or confirmed)
         const startOfDay = new Date(queryDate);
         startOfDay.setHours(0, 0, 0, 0);
         const endOfDay = new Date(queryDate);
@@ -1219,10 +1094,8 @@ exports.getAvailableSlots = async (req, res, next) => {
 
         const bookedTimes = bookings.map(b => b.appointmentTime);
 
-        // Filter slots
         const availableSlots = allSlots.filter(slot => !bookedTimes.includes(slot));
 
-        // Format slot items as { time: String, available: true }
         const formattedSlots = availableSlots.map(slot => ({
             time: slot,
             available: true
@@ -1237,9 +1110,6 @@ exports.getAvailableSlots = async (req, res, next) => {
     }
 };
 
-// @desc    Rate / review doctor after completed appointment
-// @route   POST /api/patients/appointments/:id/rate
-// @access  Private (Patient only)
 exports.rateAppointment = [
     validate('rateAppointment'),
     async (req, res, next) => {
@@ -1248,13 +1118,11 @@ exports.rateAppointment = [
             const { rating, feedback } = req.body;
             const user = req.user;
 
-            // Get patient
             const patient = await Patient.findOne({ userId: user._id });
             if (!patient) {
                 return next(new ErrorResponse('Patient profile not found', 404));
             }
 
-            // Get appointment
             const appointment = await Appointment.findOne({
                 _id: id,
                 patientId: patient._id
@@ -1264,12 +1132,10 @@ exports.rateAppointment = [
                 return next(new ErrorResponse('Appointment not found', 404));
             }
 
-            // Must be completed
             if (appointment.status !== constants.APPOINTMENT_STATUS.COMPLETED) {
                 return next(new ErrorResponse('You can only rate a completed appointment', 400));
             }
 
-            // Save rating on appointment
             appointment.rating = {
                 value: rating,
                 feedback: feedback || '',
@@ -1278,7 +1144,6 @@ exports.rateAppointment = [
 
             await appointment.save();
 
-            // Update doctor's overall rating
             const doctor = await Doctor.findById(appointment.doctorId);
             if (doctor) {
                 doctor.updateRating(rating);

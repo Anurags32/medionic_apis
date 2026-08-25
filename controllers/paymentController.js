@@ -8,7 +8,6 @@ const constants = require('../config/constants');
 const helpers = require('../utils/helpers');
 const { ensureConsultationRoom } = require('../services/consultationRoomService');
 
-// ─── Razorpay client (lazy-init so missing keys don't crash startup) ──────────
 let razorpayClient = null;
 const getRazorpay = () => {
     if (!razorpayClient) {
@@ -16,21 +15,17 @@ const getRazorpay = () => {
         const keySecret = process.env.RAZORPAY_KEY_SECRET;
 
         if (!keyId || !keySecret || keyId.startsWith('rzp_test_your')) {
-            return null; // Fall through to mock mode
+            return null;
         }
         razorpayClient = new Razorpay({ key_id: keyId, key_secret: keySecret });
     }
     return razorpayClient;
 };
 
-// @desc    Create Razorpay order (or mock order in dev when keys absent)
-// @route   POST /api/payments/create-order
-// @access  Private (Patient)
+
 exports.createOrder = async (req, res, next) => {
     try {
         const { purpose, referenceId } = req.body;
-        // purpose: 'appointment' | 'pharmacy'
-        // referenceId: appointmentId or pharmacyOrderId
 
         const validPurposes = ['appointment', 'pharmacy'];
         if (!purpose || !validPurposes.includes(purpose)) {
@@ -57,11 +52,9 @@ exports.createOrder = async (req, res, next) => {
             return next(new ErrorResponse('Reference has no payable amount', 400));
         }
 
-        const amountInPaise = Math.round(authoritativeAmount * 100); // Razorpay uses smallest currency unit
+        const amountInPaise = Math.round(authoritativeAmount * 100);
 
         const rzp = getRazorpay();
-
-        // ── Mock mode (no real Razorpay keys) ─────────────────────────────────
         if (!rzp && process.env.NODE_ENV === 'production') {
             return next(new ErrorResponse('Payment gateway is not configured', 503));
         }
@@ -84,7 +77,6 @@ exports.createOrder = async (req, res, next) => {
             });
         }
 
-        // ── Real Razorpay order ────────────────────────────────────────────────
         const options = {
             amount: amountInPaise,
             currency: 'INR',
@@ -117,9 +109,6 @@ exports.createOrder = async (req, res, next) => {
     }
 };
 
-// @desc    Razorpay / mock webhook — updates paymentStatus on Appointment or PharmacyOrder
-// @route   POST /api/payments/webhook
-// @access  Public
 exports.paymentWebhook = async (req, res, next) => {
     try {
         const rawBody = Buffer.isBuffer(req.body)
@@ -129,7 +118,6 @@ exports.paymentWebhook = async (req, res, next) => {
         const signature = req.headers['x-razorpay-signature'];
         const keySecret = process.env.RAZORPAY_KEY_SECRET;
 
-        // ── Verify Razorpay signature when keys are configured ─────────────────
         if (signature && keySecret && !keySecret.startsWith('your_razorpay')) {
             const expectedSig = crypto
                 .createHmac('sha256', keySecret)
@@ -148,21 +136,18 @@ exports.paymentWebhook = async (req, res, next) => {
             return res.status(400).json({ success: false, message: 'Webhook signature is required' });
         }
 
-        // ── Parse payload (supports Razorpay standard format and mock format) ──
         let referenceId = null;
         let purpose = null;
         let payStatus = 'failed';
         let txId = null;
 
         if (payload.payload && payload.payload.payment && payload.payload.payment.entity) {
-            // Razorpay webhook format
             const entity = payload.payload.payment.entity;
             referenceId = entity.notes ? entity.notes.referenceId || entity.notes.appointmentId : null;
             purpose = entity.notes ? entity.notes.purpose || 'appointment' : 'appointment';
             payStatus = ['captured', 'authorized'].includes(entity.status) ? 'completed' : 'failed';
             txId = entity.id;
         } else {
-            // Simple mock / manual format
             referenceId = payload.referenceId || payload.appointmentId;
             purpose = payload.purpose || 'appointment';
             payStatus = payload.status === 'success' ? 'completed' : 'failed';
@@ -173,7 +158,6 @@ exports.paymentWebhook = async (req, res, next) => {
             return res.status(400).json({ success: false, message: 'Reference ID not found in payload' });
         }
 
-        // ── Update the correct document ────────────────────────────────────────
         if (purpose === 'pharmacy') {
             const order = await PharmacyOrder.findById(referenceId);
             if (!order) {
@@ -198,7 +182,6 @@ exports.paymentWebhook = async (req, res, next) => {
             });
         }
 
-        // Default: appointment
         const appointment = await Appointment.findById(referenceId);
         if (!appointment) {
             return res.status(404).json({ success: false, message: 'Appointment not found' });
@@ -232,9 +215,6 @@ exports.paymentWebhook = async (req, res, next) => {
     }
 };
 
-// @desc    Legacy: pay for a specific appointment (returns gateway order via create-order flow)
-// @route   POST /api/patients/appointments/:id/pay
-// @access  Private (Patient)
 exports.payAppointment = async (req, res, next) => {
     try {
         const { id } = req.params;

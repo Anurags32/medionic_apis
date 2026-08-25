@@ -5,12 +5,7 @@ const ErrorResponse = require('../utils/errorResponse');
 const constants = require('../config/constants');
 const mongoose = require('mongoose');
 
-// @desc    Get revenue analytics
-// @route   GET /api/doctors/analytics/revenue
-// @access  Private/Doctor
-// @desc    Get revenue analytics
-// @route   GET /api/doctors/analytics/revenue
-// @access  Private/Doctor
+
 exports.getRevenueAnalytics = async (req, res, next) => {
     try {
         const { range, month, year } = req.query;
@@ -35,7 +30,7 @@ exports.getRevenueAnalytics = async (req, res, next) => {
             endDate = new Date(startDate);
             endDate.setMonth(endDate.getMonth() + 1);
         } else {
-            // Default: current month
+
             startDate = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
             endDate = new Date(startDate);
             endDate.setMonth(endDate.getMonth() + 1);
@@ -81,9 +76,7 @@ exports.getRevenueAnalytics = async (req, res, next) => {
     }
 };
 
-// @desc    Get doctor analytics general summary
-// @route   GET /api/doctors/analytics
-// @access  Private/Doctor
+
 exports.getDoctorAnalytics = async (req, res, next) => {
     try {
         const doctor = await Doctor.findOne({ userId: req.user._id });
@@ -91,7 +84,6 @@ exports.getDoctorAnalytics = async (req, res, next) => {
             return next(new ErrorResponse('Doctor profile not found', 404));
         }
 
-        // Appointments stats
         const completedCount = await Appointment.countDocuments({
             doctorId: doctor._id,
             status: constants.APPOINTMENT_STATUS.COMPLETED
@@ -102,7 +94,6 @@ exports.getDoctorAnalytics = async (req, res, next) => {
             status: constants.APPOINTMENT_STATUS.PENDING
         });
 
-        // Revenue stats
         const totalRevenue = completedCount * (doctor.consultationFee || 500);
 
         res.status(200).json({
@@ -120,9 +111,6 @@ exports.getDoctorAnalytics = async (req, res, next) => {
     }
 };
 
-// @desc    Get rating analytics
-// @route   GET /api/doctors/analytics/ratings
-// @access  Private/Doctor
 exports.getRatingAnalytics = async (req, res, next) => {
     try {
         const doctorId = req.user._id;
@@ -162,9 +150,6 @@ exports.getRatingAnalytics = async (req, res, next) => {
     }
 };
 
-// @desc    Get appointment trends
-// @route   GET /api/doctors/analytics/appointments
-// @access  Private/Doctor
 exports.getAppointmentTrends = async (req, res, next) => {
     try {
         const { days = 30 } = req.query;
@@ -183,7 +168,6 @@ exports.getAppointmentTrends = async (req, res, next) => {
             appointmentDate: { $gte: startDate }
         }).sort('appointmentDate');
 
-        // Group by date
         const trendsMap = {};
         appointments.forEach(apt => {
             const date = new Date(apt.appointmentDate).toLocaleDateString();
@@ -209,9 +193,6 @@ exports.getAppointmentTrends = async (req, res, next) => {
     }
 };
 
-// @desc    Get earnings data
-// @route   GET /api/doctors/earnings
-// @access  Private/Doctor
 exports.getEarnings = async (req, res, next) => {
     try {
         const { month, year } = req.query;
@@ -259,9 +240,6 @@ exports.getEarnings = async (req, res, next) => {
     }
 };
 
-// @desc    Request withdrawal
-// @route   POST /api/doctors/earnings/withdraw
-// @access  Private/Doctor
 exports.requestWithdrawal = async (req, res, next) => {
     try {
         const { amount, bankDetails } = req.body;
@@ -312,9 +290,6 @@ exports.requestWithdrawal = async (req, res, next) => {
     }
 };
 
-// @desc    Get earnings history
-// @route   GET /api/doctors/earnings/history
-// @access  Private/Doctor
 exports.getEarningsHistory = async (req, res, next) => {
     try {
         const doctorId = req.user._id;
@@ -346,9 +321,6 @@ exports.getEarningsHistory = async (req, res, next) => {
     }
 };
 
-// @desc    Verify profile documents
-// @route   POST /api/doctors/profile/verify
-// @access  Private/Doctor
 exports.submitVerificationDocuments = async (req, res, next) => {
     try {
         const doctorId = req.user._id;

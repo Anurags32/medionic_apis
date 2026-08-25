@@ -159,13 +159,10 @@ app.get('/api/ready', (req, res) => {
   });
 });
 
-// API Routes — specific auth routes MUST come before generic /api/auth
-// Otherwise /api/auth's router.use(protect) will intercept /api/auth/doctor/register etc.
 app.use('/api/auth/doctor', doctorAuthRoutes);
 app.use('/api/auth/patient', patientAuthRoutes);
 app.use('/api/auth/mr', mrAuthRoutes);
 
-// Generic auth routes (register, login, refresh-token etc.)
 app.use('/api/auth', authRoutes);
 app.use('/api/patients', patientRoutes);
 app.use('/api/doctors', doctorRoutes);
@@ -196,10 +193,9 @@ console.log('    POST /api/emergency/sos');
 console.log('    POST /api/app_data/send_call_notification');
 console.log('    GET  /api/health');
 
-// Error handling middleware (should be last)
+
 app.use(errorHandler);
 
-// 404 handler for undefined routes
 app.use('*', (req, res) => {
   console.warn(`⚠️   404 Not Found: ${req.method} ${req.originalUrl}`);
   res.status(404).json({
@@ -208,12 +204,9 @@ app.use('*', (req, res) => {
   });
 });
 
-// Server configuration
 if (process.env.NODE_ENV !== 'test') {
   const PORT = process.env.PORT || 5001;
   const server = http.createServer(app);
-
-  // Initialize Socket.io on the HTTP server
   initSocket(server);
   console.log('✅  Socket.io initialized on HTTP server');
 
@@ -227,7 +220,7 @@ if (process.env.NODE_ENV !== 'test') {
     console.log('==========================================================\n');
   });
 
-  // Graceful shutdown
+
   process.on('SIGTERM', () => {
     console.log('\n⚠️   SIGTERM received: closing HTTP server gracefully...');
     server.close(() => {

@@ -4,9 +4,7 @@ const Patient = require('../models/Patient');
 const ErrorResponse = require('../utils/errorResponse');
 const helpers = require('../utils/helpers');
 
-// @desc    Get all pharmacy products
-// @route   GET /api/pharmacy/products?search&category&page&limit
-// @access  Private
+
 exports.getProducts = async (req, res, next) => {
     try {
         const { search, category, page = 1, limit = 20 } = req.query;
@@ -20,7 +18,6 @@ exports.getProducts = async (req, res, next) => {
             query.$text = { $search: search.trim() };
         }
 
-        // Always only show in-stock by default; client can override with inStock=all
         if (req.query.inStock !== 'all') {
             query.inStock = true;
         }
@@ -39,7 +36,6 @@ exports.getProducts = async (req, res, next) => {
             PharmacyProduct.countDocuments(query)
         ]);
 
-        // Unique categories for filter UI
         const categories = await PharmacyProduct.distinct('category');
 
         res.status(200).json({
@@ -53,9 +49,7 @@ exports.getProducts = async (req, res, next) => {
     }
 };
 
-// @desc    Get single pharmacy product
-// @route   GET /api/pharmacy/products/:id
-// @access  Private
+
 exports.getProduct = async (req, res, next) => {
     try {
         const product = await PharmacyProduct.findById(req.params.id);
@@ -68,14 +62,9 @@ exports.getProduct = async (req, res, next) => {
     }
 };
 
-// @desc    Create pharmacy order
-// @route   POST /api/pharmacy/orders
-// @access  Private (Patient)
-// Body: { items: [{productId, quantity}], shippingAddress, paymentMethod }
-// File:  prescriptionFile (optional, multipart)
 exports.createOrder = async (req, res, next) => {
     try {
-        // items may come as a JSON string (multipart) or parsed object
+
         let items = req.body.items;
         if (typeof items === 'string') {
             try {
@@ -95,13 +84,11 @@ exports.createOrder = async (req, res, next) => {
             return next(new ErrorResponse('Shipping address is required', 400));
         }
 
-        // Parse shippingAddress — can be a string or JSON object
         let addressObj;
         if (typeof shippingAddress === 'string') {
             try {
                 addressObj = JSON.parse(shippingAddress);
             } catch {
-                // Treat as a plain address string — split on comma
                 const parts = shippingAddress.split(',').map(s => s.trim());
                 addressObj = {
                     street: parts[0] || shippingAddress,
@@ -116,11 +103,9 @@ exports.createOrder = async (req, res, next) => {
         }
 
         if (!addressObj.contactPhone) {
-            // Try to pull from body-level field
             addressObj.contactPhone = req.body.contactPhone || '0000000000';
         }
 
-        // Validate products exist and are in stock
         const productIds = items.map(i => i.productId);
         const products = await PharmacyProduct.find({ _id: { $in: productIds } });
 
@@ -136,7 +121,7 @@ exports.createOrder = async (req, res, next) => {
             ));
         }
 
-        // Check if any item requires a prescription
+
         const requiresRx = products.some(p => p.requiresPrescription);
         const prescriptionFileUrl = req.file ? `/uploads/${req.file.filename}` : null;
 
@@ -146,8 +131,6 @@ exports.createOrder = async (req, res, next) => {
                 400
             ));
         }
-
-        // Build medicines array and compute total
         const productMap = {};
         products.forEach(p => { productMap[p._id.toString()] = p; });
 
@@ -164,7 +147,6 @@ exports.createOrder = async (req, res, next) => {
 
         const totalAmount = medicines.reduce((sum, m) => sum + m.price * m.quantity, 0);
 
-        // Find patient profile
         const patient = await Patient.findOne({ userId: req.user._id });
         if (!patient) {
             return next(new ErrorResponse('Patient profile not found', 404));
@@ -196,9 +178,6 @@ exports.createOrder = async (req, res, next) => {
     }
 };
 
-// @desc    Get patient's pharmacy orders
-// @route   GET /api/pharmacy/orders?page&limit
-// @access  Private (Patient)
 exports.getMyOrders = async (req, res, next) => {
     try {
         const { page = 1, limit = 10, status } = req.query;
@@ -231,9 +210,6 @@ exports.getMyOrders = async (req, res, next) => {
     }
 };
 
-// @desc    Get single pharmacy order
-// @route   GET /api/pharmacy/orders/:id
-// @access  Private (Patient — own orders only)
 exports.getOrder = async (req, res, next) => {
     try {
         const patient = await Patient.findOne({ userId: req.user._id });
@@ -246,7 +222,6 @@ exports.getOrder = async (req, res, next) => {
             return next(new ErrorResponse('Order not found', 404));
         }
 
-        // Ensure patient owns the order
         if (order.patientId.toString() !== patient._id.toString()) {
             return next(new ErrorResponse('Not authorized to view this order', 403));
         }

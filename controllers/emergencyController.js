@@ -1,18 +1,15 @@
 const Patient = require('../models/Patient');
 const ErrorResponse = require('../utils/errorResponse');
 
-// Mock ambulance data — in production this would call a maps/dispatch API
+
 const MOCK_AMBULANCES = [
     { id: 'AMB001', name: 'City Emergency Services', phone: '+919876543210', type: 'ALS', distanceKm: 1.2, eta: '4 min' },
     { id: 'AMB002', name: 'LifeSave Ambulance', phone: '+919876543211', type: 'BLS', distanceKm: 2.1, eta: '6 min' },
     { id: 'AMB003', name: 'MediResponse Unit', phone: '+919876543212', type: 'ALS', distanceKm: 3.4, eta: '9 min' },
     { id: 'AMB004', name: 'QuickCare Ambulance', phone: '+919876543213', type: 'BLS', distanceKm: 4.0, eta: '11 min' },
-    { id: 'AMB005', name: 'Govt Hospital Ambulance', phone: '102',         type: 'ALS', distanceKm: 4.8, eta: '13 min' }
+    { id: 'AMB005', name: 'Govt Hospital Ambulance', phone: '102', type: 'ALS', distanceKm: 4.8, eta: '13 min' }
 ];
 
-// @desc    Send SOS alert to patient's emergency contacts
-// @route   POST /api/emergency/sos
-// @access  Private (Patient)
 exports.sendSOS = async (req, res, next) => {
     try {
         const { latitude, longitude, message } = req.body;
@@ -36,7 +33,6 @@ exports.sendSOS = async (req, res, next) => {
             return next(new ErrorResponse('Longitude must be between -180 and 180', 400));
         }
 
-        // Fetch patient's emergency contact
         const patient = await Patient.findOne({ userId: req.user._id })
             .populate('userId', 'firstName lastName email phone');
 
@@ -51,7 +47,6 @@ exports.sendSOS = async (req, res, next) => {
 
         const contactsAlerted = [];
 
-        // Alert primary emergency contact on the Patient profile
         if (patient.emergencyContact && patient.emergencyContact.phone) {
             contactsAlerted.push({
                 name: patient.emergencyContact.name || 'Emergency Contact',
@@ -62,7 +57,6 @@ exports.sendSOS = async (req, res, next) => {
             });
         }
 
-        // Alert any extra contacts stored in emergencyContacts array (if it exists)
         if (Array.isArray(patient.emergencyContacts) && patient.emergencyContacts.length > 0) {
             patient.emergencyContacts.forEach(contact => {
                 contactsAlerted.push({
@@ -75,8 +69,6 @@ exports.sendSOS = async (req, res, next) => {
             });
         }
 
-        // In production: iterate contactsAlerted and fire SMS via Twilio / SMS gateway
-        // For now, we log and return a success response so the app behaves correctly
         console.log(`🚨  SOS Alert from patient ${patient._id} (${patientName})`);
         console.log(`    Location: ${lat}, ${lng} — ${mapsLink}`);
         console.log(`    Alerting ${contactsAlerted.length} contact(s):`, contactsAlerted.map(c => c.phone));
@@ -115,9 +107,6 @@ exports.sendSOS = async (req, res, next) => {
     }
 };
 
-// @desc    Get nearest ambulances (mock geo-search)
-// @route   GET /api/emergency/ambulances/nearest?lat&lng
-// @access  Private
 exports.getNearestAmbulances = async (req, res, next) => {
     try {
         const { lat, lng, limit = 5 } = req.query;
@@ -133,10 +122,8 @@ exports.getNearestAmbulances = async (req, res, next) => {
             return next(new ErrorResponse('lat and lng must be valid numbers', 400));
         }
 
-        // In production: query a geospatial index or call an ambulance dispatch API.
-        // Here we return sorted mock data with a simulated distance jitter so results
-        // look location-sensitive to the client.
-        const jitter = (Math.abs(latitude) % 3) * 0.1; // deterministic per-location variation
+
+        const jitter = (Math.abs(latitude) % 3) * 0.1;
         const ambulances = MOCK_AMBULANCES
             .slice(0, parseInt(limit))
             .map((a, idx) => ({

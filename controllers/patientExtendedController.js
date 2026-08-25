@@ -7,9 +7,6 @@ const ErrorResponse = require('../utils/errorResponse');
 const constants = require('../config/constants');
 const mongoose = require('mongoose');
 
-// @desc    Reschedule appointment
-// @route   PUT /api/patients/appointments/:id/reschedule
-// @access  Private/Patient
 exports.rescheduleAppointment = async (req, res, next) => {
     try {
         const { id } = req.params;
@@ -19,7 +16,6 @@ exports.rescheduleAppointment = async (req, res, next) => {
             return next(new ErrorResponse('New date and time are required', 400));
         }
 
-        // Get patient
         const patient = await Patient.findOne({ userId: req.user._id });
         if (!patient) {
             return next(new ErrorResponse('Patient profile not found', 404));
@@ -34,7 +30,6 @@ exports.rescheduleAppointment = async (req, res, next) => {
             return next(new ErrorResponse('Not authorized to reschedule this appointment', 403));
         }
 
-        // Check if appointment can be rescheduled
         if (!appointment.canBeRescheduled()) {
             return next(new ErrorResponse('Appointment cannot be rescheduled (rescheduling allowed up to 4 hours before the appointment time)', 400));
         }
@@ -54,9 +49,6 @@ exports.rescheduleAppointment = async (req, res, next) => {
     }
 };
 
-// @desc    Download prescription as PDF
-// @route   GET /api/patients/prescriptions/:id/download
-// @access  Private/Patient
 exports.downloadPrescription = async (req, res, next) => {
     try {
         const { id } = req.params;
@@ -73,7 +65,6 @@ exports.downloadPrescription = async (req, res, next) => {
             return next(new ErrorResponse('Not authorized to download this prescription', 403));
         }
 
-        // Generate PDF content (mock - in production use library like pdfkit)
         const pdfContent = `
         PRESCRIPTION
         ============
@@ -108,9 +99,6 @@ exports.downloadPrescription = async (req, res, next) => {
     }
 };
 
-// @desc    Upload medical record
-// @route   POST /api/patients/medical-records
-// @access  Private/Patient
 exports.uploadMedicalRecord = async (req, res, next) => {
     try {
         const { category, description } = req.body;
@@ -124,7 +112,6 @@ exports.uploadMedicalRecord = async (req, res, next) => {
             return next(new ErrorResponse('Invalid category', 400));
         }
 
-        // In production, upload to cloud storage (S3, etc)
         const fileUrl = `/uploads/${req.file.filename}`;
 
         const patient = await Patient.findOne({ userId: patientId });
@@ -160,9 +147,6 @@ exports.uploadMedicalRecord = async (req, res, next) => {
     }
 };
 
-// @desc    Get medical records
-// @route   GET /api/patients/medical-records
-// @access  Private/Patient
 exports.getMedicalRecords = async (req, res, next) => {
     try {
         const patientId = req.user._id;
@@ -179,7 +163,6 @@ exports.getMedicalRecords = async (req, res, next) => {
             records = records.filter(r => r.category === category);
         }
 
-        // Sort by latest first
         records = records.sort((a, b) => b.uploadedAt - a.uploadedAt);
 
         const total = records.length;
@@ -199,9 +182,6 @@ exports.getMedicalRecords = async (req, res, next) => {
     }
 };
 
-// @desc    Delete medical record
-// @route   DELETE /api/patients/medical-records/:id
-// @access  Private/Patient
 exports.deleteMedicalRecord = async (req, res, next) => {
     try {
         const { id } = req.params;
@@ -229,9 +209,6 @@ exports.deleteMedicalRecord = async (req, res, next) => {
     }
 };
 
-// @desc    Add emergency contact
-// @route   POST /api/patients/emergency-contacts
-// @access  Private/Patient
 exports.addEmergencyContact = async (req, res, next) => {
     try {
         const { name, phone, relation, email } = req.body;
@@ -272,9 +249,6 @@ exports.addEmergencyContact = async (req, res, next) => {
     }
 };
 
-// @desc    Delete emergency contact
-// @route   DELETE /api/patients/emergency-contacts/:id
-// @access  Private/Patient
 exports.deleteEmergencyContact = async (req, res, next) => {
     try {
         const { id } = req.params;
@@ -302,9 +276,6 @@ exports.deleteEmergencyContact = async (req, res, next) => {
     }
 };
 
-// @desc    Get patient dashboard
-// @route   GET /api/patients/dashboard
-// @access  Private/Patient
 exports.getPatientDashboard = async (req, res, next) => {
     try {
         const patient = await Patient.findOne({ userId: req.user._id });
@@ -314,24 +285,20 @@ exports.getPatientDashboard = async (req, res, next) => {
 
         const now = new Date();
         now.setHours(0, 0, 0, 0);
-
-        // Upcoming appointments
         const upcomingAppointments = await Appointment.find({
             patientId: patient._id,
             appointmentDate: { $gte: now },
             status: { $in: ['pending', 'confirmed'] }
         })
-        .populate('doctorId', 'firstName lastName specialization profilePicture clinic')
-        .sort({ appointmentDate: 1, appointmentTime: 1 })
-        .limit(3);
+            .populate('doctorId', 'firstName lastName specialization profilePicture clinic')
+            .sort({ appointmentDate: 1, appointmentTime: 1 })
+            .limit(3);
 
-        // Recent prescriptions
         const recentPrescriptions = await Prescription.find({ patientId: patient._id })
             .populate('doctorId', 'firstName lastName specialization')
             .sort({ createdAt: -1 })
             .limit(3);
 
-        // Recent pharmacy orders
         const recentOrders = await PharmacyOrder.find({ patientId: patient._id })
             .sort({ createdAt: -1 })
             .limit(3);
@@ -350,9 +317,6 @@ exports.getPatientDashboard = async (req, res, next) => {
     }
 };
 
-// @desc    Get family members
-// @route   GET /api/patients/family-members
-// @access  Private/Patient
 exports.getFamilyMembers = async (req, res, next) => {
     try {
         const patient = await Patient.findOne({ userId: req.user._id });
@@ -370,9 +334,6 @@ exports.getFamilyMembers = async (req, res, next) => {
     }
 };
 
-// @desc    Add family member
-// @route   POST /api/patients/family-members
-// @access  Private/Patient
 exports.addFamilyMember = async (req, res, next) => {
     try {
         const { fullName, relation, dob, gender } = req.body;
@@ -385,7 +346,6 @@ exports.addFamilyMember = async (req, res, next) => {
             return next(new ErrorResponse('Patient profile not found', 404));
         }
 
-        // Parse dob (dd/MM/yyyy format or standard Date string)
         let parsedDob = new Date(dob);
         if (typeof dob === 'string' && dob.includes('/')) {
             const parts = dob.split('/');
