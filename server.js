@@ -8,7 +8,6 @@ const rateLimit = require('express-rate-limit');
 const dotenv = require('dotenv');
 const crypto = require('crypto');
 
-// Load environment variables
 dotenv.config();
 
 console.log('==========================================================');
@@ -19,7 +18,6 @@ console.log(`📌  PORT         : ${process.env.PORT || 5001}`);
 console.log(`📌  CLIENT_URL   : ${process.env.CLIENT_URL || 'http://localhost:3000'}`);
 console.log('==========================================================');
 
-// Import routes
 const authRoutes = require('./routes/authRoutes');
 const patientRoutes = require('./routes/patientRoutes');
 const doctorRoutes = require('./routes/doctorRoutes');
@@ -37,58 +35,49 @@ const doctorAuthRoutes = require('./routes/auth/doctor/doctorRoutes');
 const patientAuthRoutes = require('./routes/auth/patient/patientRoutes');
 const mrAuthRoutes = require('./routes/auth/mr/mrRoutes');
 
-// Initialize Firebase Admin SDK
+
 const { initializeFirebase } = require('./config/firebase');
 initializeFirebase();
 
-// Import Socket.io service
-const { initSocket } = require('./services/socketService');
+
+const initSocket = require('./socket');
 
 console.log('✅  All routes imported successfully');
 
-// Import middleware
 const errorHandler = require('./middleware/errorHandler');
 
-// Initialize express app
 const app = express();
 
-// Trust reverse proxy (Render, Heroku, Nginx, Cloudflare) for accurate client IP & rate limiting
 app.set('trust proxy', 1);
 
-// Security middleware
 app.use(helmet());
 console.log('✅  Helmet security middleware applied');
 
-// Rate limiting
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
+  windowMs: 15 * 60 * 1000,
   max: 100,
   message: 'Too many requests from this IP, please try again later.'
 });
 app.use('/api/', limiter);
 console.log('✅  Rate limiter applied on /api/');
 
-// Body parsing middleware
-// Webhook signatures require the exact incoming bytes.
+
 app.use('/api/payments/webhook', express.raw({ type: 'application/json', limit: '1mb' }));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 console.log('✅  Body parser middleware applied');
 
-// CORS configuration
 app.use(cors({
   origin: (process.env.CLIENT_URL || 'http://localhost:3000').split(',').map(origin => origin.trim()),
   credentials: true
 }));
 console.log(`✅  CORS enabled for origin: ${process.env.CLIENT_URL || 'http://localhost:3000'}`);
 
-// Logging middleware
 if (process.env.NODE_ENV === 'development') {
   app.use(morgan('dev'));
   console.log('✅  Morgan HTTP request logger enabled (dev mode)');
 }
 
-// Database connection
 if (process.env.NODE_ENV !== 'test') {
   const mongoURI = process.env.MONGODB_URI || 'mongodb://localhost:27017/healthcare_db';
   console.log(`\n🔌  Connecting to MongoDB at: ${mongoURI}`);
@@ -129,13 +118,12 @@ if (process.env.NODE_ENV !== 'test') {
     });
 }
 
-// Request logger middleware (log all incoming API requests)
 app.use((req, res, next) => {
   req.requestId = req.headers['x-request-id'] || crypto.randomUUID();
   res.setHeader('X-Request-Id', req.requestId);
   const start = Date.now();
   console.log(`\n📥  [${new Date().toISOString()}] ${req.method} ${req.originalUrl}`);
-  // Request bodies may contain credentials, payment data, or PHI.
+
   res.on('finish', () => {
     const duration = Date.now() - start;
     const statusIcon = res.statusCode < 400 ? '✅' : '❌';
@@ -144,7 +132,6 @@ app.use((req, res, next) => {
   next();
 });
 
-// Health check endpoint
 app.get('/api/health', (req, res) => {
   const dbState = mongoose.connection.readyState;
   const dbStateMap = { 0: 'disconnected', 1: 'connected', 2: 'connecting', 3: 'disconnecting' };
