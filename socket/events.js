@@ -89,6 +89,36 @@ function registerSocketEvents(io, socket) {
     forwardCallEvent('call_end', payload);
   });
 
+  // --- BOOKING EVENTS ---
+
+  /**
+   * Driver assigns/accepts booking and relays notification to consumer
+   * Payload: { bookingId, consumerId, driverId, driverName, driverPhone, vehicleNumber }
+   */
+  socket.on('booking_accepted', (payload) => {
+    const { bookingId, consumerId, driverId } = payload || {};
+
+    if (!consumerId) {
+      console.warn('[Socket] booking_accepted failed: consumerId missing', payload);
+      return;
+    }
+
+    const targetSocketId = userSocketMap.get(String(consumerId));
+
+    if (targetSocketId) {
+      io.to(targetSocketId).emit('booking_accepted', payload);
+      console.log(`[Socket] booking_accepted: Driver ${driverId} -> Consumer ${consumerId} (Booking: ${bookingId}, Socket: ${targetSocketId})`);
+    } else {
+      console.log(`[Socket] booking_accepted: Consumer ${consumerId} is offline`);
+      socket.emit('booking_offline', {
+        bookingId,
+        consumerId,
+        eventName: 'booking_accepted',
+        message: 'Consumer is offline or not registered on socket'
+      });
+    }
+  });
+
 
   socket.on('disconnect', (reason) => {
     const userId = socketUserMap.get(socket.id);
