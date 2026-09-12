@@ -7,6 +7,7 @@ const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
 const dotenv = require('dotenv');
 const crypto = require('crypto');
+const path = require('path');
 
 dotenv.config();
 
@@ -31,6 +32,11 @@ const pharmacyRoutes = require('./routes/pharmacyRoutes');
 const emergencyRoutes = require('./routes/emergencyRoutes');
 const consultationRoutes = require('./routes/consultationRoutes');
 const appDataRoutes = require('./routes/appDataRoutes');
+
+// Pharmacy Subsystem (Unified)
+const pharmacyRouter = require('./routes/pharmacy');
+const { initSocket: initPharmacySocket } = require('./socket/pharmacyEvents');
+
 
 const doctorAuthRoutes = require('./routes/auth/doctor/doctorRoutes');
 const patientAuthRoutes = require('./routes/auth/patient/patientRoutes');
@@ -66,7 +72,10 @@ console.log('✅  Rate limiter applied on /api/');
 app.use('/api/payments/webhook', express.raw({ type: 'application/json', limit: '1mb' }));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
-console.log('✅  Body parser middleware applied');
+app.use('/uploads', express.static(path.join(__dirname, 'mediclbackend/uploads')));
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+console.log('✅  Body parser & uploads middleware applied');
+
 
 app.use(cors({
   origin: (process.env.CLIENT_URL || 'http://localhost:3000').split(',').map(origin => origin.trim()),
@@ -118,6 +127,7 @@ if (process.env.NODE_ENV !== 'test') {
       console.error('    ⚠️  Server will still run but all DB operations will fail until MongoDB is connected');
     });
 }
+
 
 app.use((req, res, next) => {
   req.requestId = req.headers['x-request-id'] || crypto.randomUUID();
@@ -178,6 +188,9 @@ app.use('/api/emergency', emergencyRoutes);
 app.use('/api/consultations', consultationRoutes);
 app.use('/api/app_data', appDataRoutes);
 
+// Mount Pharmacy Subsystem routes (/api/v1)
+app.use(process.env.API_PREFIX || '/api/v1', pharmacyRouter);
+
 console.log('\n✅  All API routes registered:');
 console.log('    POST /api/auth/patient/register');
 console.log('    POST /api/auth/patient/login');
@@ -196,6 +209,16 @@ console.log('    POST /api/verify-payment');
 console.log('    POST /api/emergency/sos');
 console.log('    POST /api/app_data/send_call_notification');
 console.log('    GET  /api/health');
+console.log('    [*]  /api/v1/auth (Pharmacy Auth)');
+console.log('    [*]  /api/v1/inventory (Pharmacy Inventory)');
+console.log('    [*]  /api/v1/orders (Pharmacy Orders)');
+console.log('    [*]  /api/v1/pos (Pharmacy POS & Billing)');
+console.log('    [*]  /api/v1/prescriptions (Pharmacy Prescriptions)');
+console.log('    [*]  /api/v1/staff (Pharmacy Staff)');
+console.log('    [*]  /api/v1/branch (Pharmacy Branches)');
+console.log('    [*]  /api/v1/customers (Pharmacy Customers)');
+console.log('    [*]  /api/v1/reports (Pharmacy Reports)');
+console.log('    [*]  /api/v1/notifications (Pharmacy Alerts)');
 
 
 
@@ -212,8 +235,10 @@ app.use('*', (req, res) => {
 if (process.env.NODE_ENV !== 'test') {
   const PORT = process.env.PORT || 5001;
   const server = http.createServer(app);
-  initSocket(server);
-  console.log('✅  Socket.io initialized on HTTP server');
+  const io = initSocket(server);
+  initPharmacySocket(io);
+  console.log('✅  Socket.io initialized on HTTP server (Calling & Pharmacy Subsystems)');
+
 
   server.listen(PORT, () => {
     console.log('\n==========================================================');

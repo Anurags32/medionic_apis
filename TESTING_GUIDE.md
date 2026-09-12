@@ -16,8 +16,8 @@
 {
   "email": "user@example.com",
   "password": "Password123!",
-  "firstName": "John",       ❌ Remove this
-  "lastName": "Doe",         ❌ Remove this
+  "firstName": "John",       
+  "lastName": "Doe",         
   "role": "patient"
 }
 ```

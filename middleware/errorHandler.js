@@ -9,6 +9,23 @@ const errorHandler = (err, req, res, next) => {
         console.error(err.stack);
     }
 
+    // Pharmacy / Operational ApiError
+    if (err.errorCode || err.isOperational) {
+        const statusCode = err.statusCode || 400;
+        return res.status(statusCode).json({
+            success: false,
+            statusCode,
+            message: err.message,
+            error: {
+                code: err.errorCode || 'REQUEST_ERROR',
+                details: err.details || [],
+            },
+            code: err.errorCode,
+            requestId: req.requestId,
+            timestamp: new Date().toISOString(),
+        });
+    }
+
     // Mongoose bad ObjectId
     if (err.name === 'CastError') {
         const message = `Resource not found with id of ${err.value}`;
