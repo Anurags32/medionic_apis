@@ -12,7 +12,6 @@
     "test": "jest",
     "test:pharmacy": "node tests/pharmacy/testSuite.js"
   },
-
   "keywords": [
     "healthcare",
     "express",
@@ -41,7 +40,9 @@
     "nodemailer": "^6.9.7",
     "razorpay": "^2.9.6",
     "socket.io": "^4.8.3",
-    "stripe": "^22.3.0"
+    "stripe": "^22.3.0",
+    "swagger-jsdoc": "^6.3.0",
+    "swagger-ui-express": "^5.0.1"
   },
   "devDependencies": {
     "jest": "^29.7.0",
