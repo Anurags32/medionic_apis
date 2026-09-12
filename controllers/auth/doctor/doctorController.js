@@ -229,6 +229,29 @@ exports.doctorLogin = async (req, res, next) => {
         const doctor = await Doctor.findOne({ userId: user._id });
         console.log(`    👨‍⚕️  Doctor profile found: ${doctor ? doctor._id : 'NOT FOUND'}`);
 
+        // ── Admin Approval Gate ──────────────────────────────────────────────
+        if (!doctor) {
+            console.warn(`    ⚠️  No doctor profile linked to user: ${user._id}`);
+            return next(new ErrorResponse('Doctor profile not found. Please contact admin.', 404));
+        }
+
+        if (doctor.verificationStatus === constants.VERIFICATION_STATUS.PENDING) {
+            console.warn(`    ⚠️  Doctor login blocked — profile pending approval: ${email}`);
+            return next(new ErrorResponse(
+                'Your profile is under review. Please wait for admin approval before logging in.',
+                403
+            ));
+        }
+
+        if (doctor.verificationStatus === constants.VERIFICATION_STATUS.REJECTED) {
+            console.warn(`    ⚠️  Doctor login blocked — profile rejected: ${email}`);
+            return next(new ErrorResponse(
+                'Your profile has been rejected by admin. Please contact support.',
+                403
+            ));
+        }
+        // ────────────────────────────────────────────────────────────────────
+
         const token = generateToken(user._id);
         const refreshToken = generateRefreshToken(user._id);
 

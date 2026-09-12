@@ -58,33 +58,25 @@ const registerOwner = async (payload) => {
         pharmacist_reg_no: pharmacist_reg_no || null,
         features_granted: DEFAULT_ROLE_PERMISSIONS[ROLES.PHARMACY_OWNER],
         token_version: 0,
-        is_active: true,
+        is_active: false,          // Blocked until admin approves
+        approval_status: 'pending', // Must be approved by admin
         is_blocked: false,
     });
 
     newBranch.owner_id = newOwner._id;
     await newBranch.save();
 
-    const tokenPayload = {
-        userId: newOwner._id.toString(),
-        branchId: newBranch._id.toString(),
-        role: newOwner.role,
-        features: newOwner.features_granted || [],
-        tokenVersion: newOwner.token_version,
-    };
-
-    const accessToken = generateAccessToken(tokenPayload);
-    const refreshToken = generateRefreshToken({ userId: newOwner._id.toString(), tokenVersion: newOwner.token_version });
-
+    // Do NOT issue tokens — owner must be approved by admin first
     return {
+        message: 'Registration successful. Your account is pending admin approval. You will be able to login once approved.',
+        approval_status: 'pending',
         user: {
             id: newOwner._id.toString(),
             full_name: newOwner.full_name,
             email: newOwner.email,
             phone: newOwner.phone,
             role: newOwner.role,
-            features_granted: newOwner.features_granted,
-            duty_status: newOwner.duty_status || 'OFF_DUTY',
+            approval_status: newOwner.approval_status,
             branch: {
                 id: newBranch._id.toString(),
                 name: newBranch.name,
@@ -94,8 +86,6 @@ const registerOwner = async (payload) => {
                 is_available: newBranch.is_available,
             },
         },
-        accessToken,
-        refreshToken,
     };
 };
 

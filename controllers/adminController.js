@@ -8,8 +8,75 @@ const ErrorResponse = require('../utils/errorResponse');
 const { generateToken, generateRefreshToken } = require('../middleware/auth');
 const constants = require('../config/constants');
 const helpers = require('../utils/helpers');
+// Pharmacy subsystem models
+const PharmacyUser = require('../models/pharmacy/user.model');
+const PharmacyBranch = require('../models/pharmacy/branch.model');
+const { ROLES: PHARMACY_ROLES } = require('../config/pharmacyConstants');
 
 
+// ─── ADMIN REGISTRATION ──────────────────────────────────────────────────────
+exports.adminRegister = async (req, res, next) => {
+    try {
+        const { fullName, email, password, secretKey } = req.body;
+
+        if (!fullName || !email || !password || !secretKey) {
+            return next(new ErrorResponse('Please provide fullName, email, password, and secretKey', 400));
+        }
+
+        // Validate secret key from environment
+        const validSecret = process.env.ADMIN_REGISTRATION_SECRET;
+        if (!validSecret || secretKey !== validSecret) {
+            return next(new ErrorResponse('Invalid secret key. Admin registration not authorized.', 403));
+        }
+
+        // Only allow if no admin exists yet
+        const existingAdmin = await User.findOne({ role: constants.ROLES.ADMIN });
+        if (existingAdmin) {
+            return next(new ErrorResponse('An admin account already exists. Contact your super admin.', 409));
+        }
+
+        const existingEmail = await User.findOne({ email: email.toLowerCase() });
+        if (existingEmail) {
+            return next(new ErrorResponse('Email already registered', 400));
+        }
+
+        const nameParts = fullName.trim().split(' ');
+        const firstName = nameParts[0];
+        const lastName = nameParts.slice(1).join(' ') || '';
+
+        const adminUser = await User.create({
+            email: email.toLowerCase(),
+            password,
+            firstName,
+            lastName,
+            role: constants.ROLES.ADMIN,
+            status: constants.USER_STATUS.ACTIVE,
+            isVerified: true,
+            profileComplete: true,
+        });
+
+        const token = generateToken(adminUser._id);
+        const refreshToken = generateRefreshToken(adminUser._id);
+
+        res.status(201).json({
+            success: true,
+            message: 'Admin account created successfully',
+            data: {
+                userId: adminUser._id,
+                email: adminUser.email,
+                role: adminUser.role,
+                firstName: adminUser.firstName,
+                lastName: adminUser.lastName,
+            },
+            token,
+            refreshToken,
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+// ─── ADMIN LOGIN ──────────────────────────────────────────────────────────────
 exports.adminLogin = async (req, res, next) => {
     try {
         const { email, password } = req.body;
@@ -483,6 +550,157 @@ exports.rejectMR = async (req, res, next) => {
             success: true,
             message: 'MR profile rejected successfully',
             data: mr
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+// ─── PATIENTS ────────────────────────────────────────────────────────────────
+exports.getPatients = async (req, res, next) => {
+    try {
+        const { search, page = 1, limit = 10 } = req.query;
+        const query = { role: constants.ROLES.PATIENT };
+
+        if (search) {
+            query.$or = [
+                { email: { $regex: search, $options: 'i' } },
+                { firstName: { $regex: search, $options: 'i' } },
+                { lastName: { $regex: search, $options: 'i' } },
+            ];
+        }
+
+        const skip = (parseInt(page) - 1) * parseInt(limit);
+
+        const patients = await User.find(query)
+            .select('-password')
+            .skip(skip)
+            .limit(parseInt(limit))
+            .sort({ createdAt: -1 });
+
+        const total = await User.countDocuments(query);
+
+        res.status(200).json({
+            success: true,
+            data: patients,
+            pagination: helpers.generatePagination(page, limit, total)
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+exports.getPatientProfile = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const patient = await Patient.findOne({ userId: id }).populate('userId', '-password');
+        if (!patient) {
+            return next(new ErrorResponse('Patient profile not found', 404));
+        }
+
+        res.status(200).json({
+            success: true,
+            data: patient
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+// ─── PHARMACY OWNERS ─────────────────────────────────────────────────────────
+exports.getPharmacyOwners = async (req, res, next) => {
+    try {
+        const { status, page = 1, limit = 10 } = req.query;
+        const query = { role: PHARMACY_ROLES.PHARMACY_OWNER };
+
+        if (status) {
+            query.approval_status = status; // 'pending' | 'approved' | 'rejected'
+        }
+
+        const skip = (parseInt(page) - 1) * parseInt(limit);
+
+        const owners = await PharmacyUser.find(query)
+            .populate('branch')
+            .skip(skip)
+            .limit(parseInt(limit))
+            .sort({ created_at: -1 });
+
+        const total = await PharmacyUser.countDocuments(query);
+
+        res.status(200).json({
+            success: true,
+            data: owners,
+            pagination: helpers.generatePagination(page, limit, total)
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+exports.approvePharmacyOwner = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const { remarks } = req.body;
+
+        const owner = await PharmacyUser.findOne({ _id: id, role: PHARMACY_ROLES.PHARMACY_OWNER });
+        if (!owner) {
+            return next(new ErrorResponse('Pharmacy owner not found', 404));
+        }
+
+        owner.approval_status = 'approved';
+        owner.is_active = true;
+        if (remarks) owner.approval_remarks = remarks;
+        await owner.save();
+
+        // Also update the branch to mark as active
+        await PharmacyBranch.findByIdAndUpdate(owner.branch_id, { is_active: true });
+
+        res.status(200).json({
+            success: true,
+            message: 'Pharmacy owner approved successfully. They can now login.',
+            data: owner
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+exports.rejectPharmacyOwner = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const { remarks } = req.body;
+
+        const owner = await PharmacyUser.findOne({ _id: id, role: PHARMACY_ROLES.PHARMACY_OWNER });
+        if (!owner) {
+            return next(new ErrorResponse('Pharmacy owner not found', 404));
+        }
+
+        owner.approval_status = 'rejected';
+        owner.is_active = false;
+        if (remarks) owner.approval_remarks = remarks;
+        await owner.save();
+
+        res.status(200).json({
+            success: true,
+            message: 'Pharmacy owner registration rejected.',
+            data: owner
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+exports.getPharmacyOwnerProfile = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const owner = await PharmacyUser.findOne({ _id: id, role: PHARMACY_ROLES.PHARMACY_OWNER }).populate('branch');
+        if (!owner) {
+            return next(new ErrorResponse('Pharmacy owner not found', 404));
+        }
+
+        res.status(200).json({
+            success: true,
+            data: owner
         });
     } catch (error) {
         next(error);

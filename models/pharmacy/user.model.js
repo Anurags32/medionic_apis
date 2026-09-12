@@ -59,6 +59,17 @@ const userSchema = new mongoose.Schema(
             type: String,
             default: null,
         },
+        // Admin approval status — only for PHARMACY_OWNER role
+        approval_status: {
+            type: String,
+            enum: ['pending', 'approved', 'rejected'],
+            default: 'pending',
+            index: true,
+        },
+        approval_remarks: {
+            type: String,
+            default: null,
+        },
         fcm_token: {
             type: String,
             default: null,
