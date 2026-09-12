@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 
 const { createOrder, paymentWebhook } = require('../controllers/paymentController');
+const { verifyPayment } = require('../controllers/razorpayController');
 const { protect, authorize } = require('../middleware/auth');
 const constants = require('../config/constants');
 const idempotent = require('../middleware/idempotency');
@@ -15,7 +16,11 @@ router.post(
     createOrder
 );
 
+// POST /api/payments/verify-payment — verify payment signature and update order status
+router.post('/verify-payment', verifyPayment);
+
 // POST /api/payments/webhook — public, called by Razorpay or mock test
 router.post('/webhook', paymentWebhook);
 
 module.exports = router;
+

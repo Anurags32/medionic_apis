@@ -24,6 +24,7 @@ const doctorRoutes = require('./routes/doctorRoutes');
 const mrRoutes = require('./routes/mrRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
+const razorpayRoutes = require('./routes/razorpayRoutes');
 const aiRoutes = require('./routes/aiRoutes');
 const labRoutes = require('./routes/labRoutes');
 const pharmacyRoutes = require('./routes/pharmacyRoutes');
@@ -169,6 +170,7 @@ app.use('/api/doctors', doctorRoutes);
 app.use('/api/mr', mrRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/payments', paymentRoutes);
+app.use('/api', razorpayRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/lab', labRoutes);
 app.use('/api/pharmacy', pharmacyRoutes);
@@ -189,9 +191,12 @@ console.log('    GET  /api/lab/tests');
 console.log('    POST /api/lab/bookings');
 console.log('    GET  /api/pharmacy/products');
 console.log('    POST /api/payments/create-order');
+console.log('    POST /api/create-order');
+console.log('    POST /api/verify-payment');
 console.log('    POST /api/emergency/sos');
 console.log('    POST /api/app_data/send_call_notification');
 console.log('    GET  /api/health');
+
 
 
 app.use(errorHandler);
