@@ -1,0 +1,507 @@
+{
+  "info": {
+    "name": "MedCab & HealthCare+ Admin API Collection",
+    "description": "Comprehensive Admin API Collection covering Authentication, Unified Payments (Doctor, Patient, Pharmacy POS, Online Orders, MR Reimbursements), User Verifications, and Approvals.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:5001",
+      "type": "string"
+    },
+    {
+      "key": "adminToken",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Authentication",
+      "item": [
+        {
+          "name": "Admin Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@gmail.com\",\n  \"password\": \"Admin@123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "login"]
+            }
+          }
+        },
+        {
+          "name": "Admin Register",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"Super Admin\",\n  \"email\": \"superadmin@medcab.in\",\n  \"password\": \"Admin@1234\",\n  \"secretKey\": \"{{ADMIN_SECRET_KEY}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "register"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Payment & Revenue Analytics",
+      "item": [
+        {
+          "name": "Payment Dashboard Overview (All Streams)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/payments/dashboard?startDate=2026-01-01&endDate=2026-12-31",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "payments", "dashboard"],
+              "query": [
+                { "key": "startDate", "value": "2026-01-01" },
+                { "key": "endDate", "value": "2026-12-31" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "All Transactions Feed (Unified)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/payments/transactions?source=all&status=completed&page=1&limit=20&search=",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "payments", "transactions"],
+              "query": [
+                { "key": "source", "value": "all", "description": "all | doctor_appointment | pharmacy_pos | pharmacy_order | mr_expense" },
+                { "key": "status", "value": "completed" },
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "20" },
+                { "key": "search", "value": "" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Doctor Appointment Consultation Payments",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/payments/appointments?paymentStatus=completed&page=1&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "payments", "appointments"],
+              "query": [
+                { "key": "paymentStatus", "value": "completed" },
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "20" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Pharmacy POS & Branch Invoices",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/payments/pharmacy-invoices?page=1&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "payments", "pharmacy-invoices"],
+              "query": [
+                { "key": "branchId", "value": "", "disabled": true },
+                { "key": "paymentMode", "value": "UPI", "disabled": true },
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "20" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Pharmacy Online Patient Orders",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/payments/pharmacy-orders?page=1&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "payments", "pharmacy-orders"],
+              "query": [
+                { "key": "paymentStatus", "value": "completed", "disabled": true },
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "20" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "MR Expense Claims & Payouts",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/payments/mr-expenses?approvalStatus=approved&page=1&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "payments", "mr-expenses"],
+              "query": [
+                { "key": "approvalStatus", "value": "approved" },
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "20" }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Overview Dashboard",
+      "item": [
+        {
+          "name": "Admin Main Dashboard Stats",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/dashboard",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "dashboard"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Doctors Management",
+      "item": [
+        {
+          "name": "Get All Doctors",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/doctors?page=1&limit=10&isVerified=&approvalStatus=",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "doctors"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "10" },
+                { "key": "isVerified", "value": "" },
+                { "key": "approvalStatus", "value": "" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Doctor Profile",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/doctors/:doctorId",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "doctors", ":doctorId"],
+              "variable": [{ "key": "doctorId", "value": "670..." }]
+            }
+          }
+        },
+        {
+          "name": "Approve Doctor Registration",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{adminToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"remarks\": \"Verified MCI registration and degrees\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/doctors/:doctorId/approve",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "doctors", ":doctorId", "approve"],
+              "variable": [{ "key": "doctorId", "value": "670..." }]
+            }
+          }
+        },
+        {
+          "name": "Reject Doctor Registration",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{adminToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"remarks\": \"Registration certificate unreadable\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/doctors/:doctorId/reject",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "doctors", ":doctorId", "reject"],
+              "variable": [{ "key": "doctorId", "value": "670..." }]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. Pharmacy Owners Management",
+      "item": [
+        {
+          "name": "Get All Pharmacy Owners",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/pharmacy-owners?approval_status=pending&page=1&limit=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "pharmacy-owners"],
+              "query": [
+                { "key": "approval_status", "value": "pending" },
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "10" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Pharmacy Owner Details",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/pharmacy-owners/:ownerId",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "pharmacy-owners", ":ownerId"],
+              "variable": [{ "key": "ownerId", "value": "6ab..." }]
+            }
+          }
+        },
+        {
+          "name": "Approve Pharmacy Owner",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{adminToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"remarks\": \"Drug License and GST verified\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/pharmacy-owners/:ownerId/approve",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "pharmacy-owners", ":ownerId", "approve"],
+              "variable": [{ "key": "ownerId", "value": "6ab..." }]
+            }
+          }
+        },
+        {
+          "name": "Reject Pharmacy Owner",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{adminToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"remarks\": \"Invalid GST documentation\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/pharmacy-owners/:ownerId/reject",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "pharmacy-owners", ":ownerId", "reject"],
+              "variable": [{ "key": "ownerId", "value": "6ab..." }]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "6. Medical Representatives (MR) Management",
+      "item": [
+        {
+          "name": "Get All MRs",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/mr?page=1&limit=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "mr"]
+            }
+          }
+        },
+        {
+          "name": "Approve MR Registration",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/mr/:mrId/approve",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "mr", ":mrId", "approve"],
+              "variable": [{ "key": "mrId", "value": "670..." }]
+            }
+          }
+        },
+        {
+          "name": "Reject MR Registration",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/mr/:mrId/reject",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "mr", ":mrId", "reject"],
+              "variable": [{ "key": "mrId", "value": "670..." }]
+            }
+          }
+        },
+        {
+          "name": "Pending MR Expenses",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/expenses/pending-approvals",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "expenses", "pending-approvals"]
+            }
+          }
+        },
+        {
+          "name": "Approve MR Expense",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{adminToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"remarks\": \"Approved travel fuel bill\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/expenses/:expenseId/approve",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "expenses", ":expenseId", "approve"],
+              "variable": [{ "key": "expenseId", "value": "670..." }]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "7. Patients & Users Management",
+      "item": [
+        {
+          "name": "Get All Patients",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/patients?page=1&limit=20&search=",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "patients"]
+            }
+          }
+        },
+        {
+          "name": "Get Patient Profile",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/patients/:patientId",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "patients", ":patientId"],
+              "variable": [{ "key": "patientId", "value": "670..." }]
+            }
+          }
+        },
+        {
+          "name": "Get All System Users",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/users?role=&status=&search=&page=1&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "users"]
+            }
+          }
+        },
+        {
+          "name": "Suspend / Toggle User Active Status",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/users/:userId/suspend",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "users", ":userId", "suspend"],
+              "variable": [{ "key": "userId", "value": "670..." }]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

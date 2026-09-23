@@ -26,6 +26,12 @@ const {
     approvePharmacyOwner,
     rejectPharmacyOwner,
     getPharmacyOwnerProfile,
+    getPaymentDashboard,
+    getAllPaymentTransactions,
+    getAppointmentPayments,
+    getPharmacyInvoices,
+    getPharmacyOrders,
+    getMRExpenses,
 } = require('../controllers/adminController');
 
 const { protect, authorize } = require('../middleware/auth');
@@ -73,5 +79,13 @@ router.put('/users/:id/suspend', suspendUser);
 router.get('/expenses/pending-approvals', getPendingExpenses);
 router.put('/expenses/:id/approve', approveExpense);
 router.put('/expenses/:id/reject', rejectExpense);
+
+// Payments & Revenue (Doctor, Patient, Pharmacy, MR)
+router.get('/payments/dashboard', getPaymentDashboard);
+router.get('/payments/transactions', getAllPaymentTransactions);
+router.get('/payments/appointments', getAppointmentPayments);
+router.get('/payments/pharmacy-invoices', getPharmacyInvoices);
+router.get('/payments/pharmacy-orders', getPharmacyOrders);
+router.get('/payments/mr-expenses', getMRExpenses);
 
 module.exports = router;
