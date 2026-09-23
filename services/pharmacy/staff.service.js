@@ -607,10 +607,114 @@ const toggleBlockStaff = async (branchId, staffId, isBlocked, blockReason = null
     };
 };
 
-const deleteStaff = async (branchId, staffId) => {
-    const staff = await User.findOne({ _id: staffId, branch_id: branchId });
+const transferStaffBranch = async (caller, staffId, targetBranchId) => {
+    if (!targetBranchId) {
+        throw new ApiError(400, 'Target branch_id is required', 'TARGET_BRANCH_REQUIRED');
+    }
+
+    const targetBranch = await Branch.findOne({
+        _id: targetBranchId,
+        $or: [{ owner_id: caller.id }, { _id: caller.branchId }],
+        is_active: true,
+    });
+
+    if (!targetBranch) {
+        throw new ApiError(404, 'Target branch not found or access denied', 'TARGET_BRANCH_NOT_FOUND');
+    }
+
+    const ownerBranches = await Branch.find({
+        $or: [{ owner_id: caller.id }, { _id: caller.branchId }],
+        is_active: true,
+    }).select('_id');
+    const branchIds = ownerBranches.map((b) => b._id);
+
+    const staff = await User.findOne({
+        _id: staffId,
+        branch_id: { $in: branchIds },
+        is_active: true,
+    }).populate('branch', 'name code');
+
     if (!staff) {
-        throw new ApiError(404, 'Staff member not found', 'STAFF_NOT_FOUND');
+        throw new ApiError(404, 'Staff member not found in any of your branches', 'STAFF_NOT_FOUND');
+    }
+
+    if (staff.role === ROLES.PHARMACY_OWNER) {
+        throw new ApiError(400, 'Cannot transfer a Pharmacy Owner account', 'CANNOT_TRANSFER_OWNER');
+    }
+
+    const previousBranchId = staff.branch_id ? (staff.branch_id._id || staff.branch_id).toString() : null;
+    const previousBranchName = staff.branch ? staff.branch.name : 'Previous Branch';
+
+    if (previousBranchId === targetBranch._id.toString()) {
+        throw new ApiError(400, `Staff member is already assigned to branch '${targetBranch.name}'`, 'ALREADY_ASSIGNED_TO_BRANCH');
+    }
+
+    staff.branch_id = targetBranch._id;
+    staff.token_version = (staff.token_version || 0) + 1;
+    staff.duty_status = 'OFF_DUTY';
+    staff.is_online = false;
+    await staff.save();
+
+    const transferPayload = {
+        userId: staff._id.toString(),
+        fullName: staff.full_name,
+        role: staff.role,
+        oldBranchId: previousBranchId,
+        oldBranchName: previousBranchName,
+        newBranchId: targetBranch._id.toString(),
+        newBranchName: targetBranch.name,
+        newBranchCode: targetBranch.code,
+        message: `Staff member ${staff.full_name} has been transferred to branch '${targetBranch.name}'.`,
+        timestamp: new Date().toISOString(),
+    };
+
+    if (previousBranchId) {
+        emitToBranch(previousBranchId, 'staff:transferred', transferPayload);
+    }
+    emitToBranch(targetBranch._id.toString(), 'staff:transferred', transferPayload);
+    emitToUser(staff._id.toString(), 'staff:transferred', transferPayload);
+
+    return {
+        id: staff._id.toString(),
+        full_name: staff.full_name,
+        email: staff.email,
+        phone: staff.phone,
+        role: staff.role,
+        old_branch: {
+            id: previousBranchId,
+            name: previousBranchName,
+        },
+        new_branch: {
+            id: targetBranch._id.toString(),
+            name: targetBranch.name,
+            code: targetBranch.code,
+            address: targetBranch.address,
+        },
+        message: `Staff member transferred to branch '${targetBranch.name}' successfully`,
+    };
+};
+
+const deleteStaff = async (callerOrBranchId, staffId, requestedBranchId = null) => {
+    let staff;
+    if (callerOrBranchId && typeof callerOrBranchId === 'object') {
+        const caller = callerOrBranchId;
+        const ownerBranches = await Branch.find({
+            $or: [{ owner_id: caller.id }, { _id: caller.branchId }],
+            is_active: true,
+        }).select('_id');
+        const branchIds = ownerBranches.map((b) => b._id);
+        const filterBranch = requestedBranchId ? [requestedBranchId] : branchIds;
+
+        staff = await User.findOne({
+            _id: staffId,
+            branch_id: { $in: filterBranch },
+        });
+    } else {
+        staff = await User.findOne({ _id: staffId, branch_id: callerOrBranchId });
+    }
+
+    if (!staff) {
+        throw new ApiError(404, 'Staff member not found in your branch', 'STAFF_NOT_FOUND');
     }
 
     if (staff.role === ROLES.PHARMACY_OWNER) {
@@ -621,22 +725,38 @@ const deleteStaff = async (branchId, staffId) => {
     staff.is_blocked = true;
     staff.token_version = (staff.token_version || 0) + 1;
     staff.is_online = false;
-    staff.block_reason = 'Account deactivated / removed';
+    staff.block_reason = 'Account deactivated / removed from branch';
     await staff.save();
+
+    const branchIdStr = staff.branch_id ? staff.branch_id.toString() : null;
 
     emitToUser(staff._id.toString(), 'staff:blocked', {
         userId: staff._id.toString(),
         isBlocked: true,
-        reason: 'Account removed',
+        reason: 'Account removed from branch',
     });
 
     emitToUser(staff._id.toString(), 'staff:status_changed', {
         userId: staff._id.toString(),
         isBlocked: true,
-        reason: 'Account removed',
+        reason: 'Account removed from branch',
     });
 
-    return { message: 'Staff deactivated and removed successfully' };
+    if (branchIdStr) {
+        emitToBranch(branchIdStr, 'staff:removed', {
+            userId: staff._id.toString(),
+            branchId: branchIdStr,
+            fullName: staff.full_name,
+            message: `Staff ${staff.full_name} was removed from branch.`,
+        });
+    }
+
+    return {
+        id: staff._id.toString(),
+        full_name: staff.full_name,
+        branch_id: branchIdStr,
+        message: 'Staff member removed from branch successfully',
+    };
 };
 
 module.exports = {
@@ -651,6 +771,7 @@ module.exports = {
     resetToDefaultPermissions,
     forceLogoutStaff,
     toggleBlockStaff,
+    transferStaffBranch,
     deleteStaff,
     updateDutyStatus,
     updateStaffLocation,

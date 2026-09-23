@@ -45,11 +45,26 @@ const switchBranch = asyncHandler(async (req, res) => {
     res.status(200).json(new ApiResponse(200, result, result.message));
 });
 
+const addBranchStaff = asyncHandler(async (req, res) => {
+    const branchId = req.params.id || req.params.branchId;
+    const result = await staffService.createStaff(req.user, { ...req.body, branch_id: branchId });
+    res.status(201).json(new ApiResponse(201, result, 'Staff member added to branch successfully'));
+});
+
+const removeBranchStaff = asyncHandler(async (req, res) => {
+    const branchId = req.params.id || req.params.branchId;
+    const staffId = req.params.staffId;
+    const result = await staffService.deleteStaff(req.user, staffId, branchId);
+    res.status(200).json(new ApiResponse(200, result, result.message || 'Staff member removed from branch successfully'));
+});
+
 module.exports = {
     createBranch,
     getMyBranches,
     getMyBranch,
     getBranchStaff,
+    addBranchStaff,
+    removeBranchStaff,
     updateMyBranch,
     toggleAvailability,
     switchBranch,

@@ -81,9 +81,14 @@ const toggleBlockStaff = asyncHandler(async (req, res) => {
     res.status(200).json(new ApiResponse(200, result, result.message));
 });
 
+const transferBranch = asyncHandler(async (req, res) => {
+    const result = await staffService.transferStaffBranch(req.user, req.params.id, req.body.branch_id);
+    res.status(200).json(new ApiResponse(200, result, result.message));
+});
+
 const deleteStaff = asyncHandler(async (req, res) => {
-    const result = await staffService.deleteStaff(req.user.branchId, req.params.id);
-    res.status(200).json(new ApiResponse(200, result, 'Staff member removed successfully'));
+    const result = await staffService.deleteStaff(req.user, req.params.id, req.params.branchId || req.query.branch_id);
+    res.status(200).json(new ApiResponse(200, result, result.message || 'Staff member removed successfully'));
 });
 
 module.exports = {
@@ -102,5 +107,6 @@ module.exports = {
     resetToDefault,
     forceLogoutStaff,
     toggleBlockStaff,
+    transferBranch,
     deleteStaff,
 };

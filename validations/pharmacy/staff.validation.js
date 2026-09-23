@@ -77,6 +77,11 @@ const updateLocationRules = [
     body('address').optional().isString(),
 ];
 
+const transferBranchRules = [
+    param('id').isMongoId().withMessage('Valid staff ID is required'),
+    body('branch_id').isMongoId().withMessage('Valid target branch_id is required'),
+];
+
 module.exports = {
     createStaffRules,
     updateStaffRules,
@@ -84,4 +89,5 @@ module.exports = {
     blockStaffRules,
     updateDutyRules,
     updateLocationRules,
+    transferBranchRules,
 };

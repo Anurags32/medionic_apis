@@ -11,6 +11,7 @@ const {
     blockStaffRules,
     updateDutyRules,
     updateLocationRules,
+    transferBranchRules,
 } = require('../../validations/pharmacy/staff.validation');
 
 router.use(authenticateToken);
@@ -28,6 +29,8 @@ router.get('/branch/:id', authorizeOwnerOnly, staffController.getStaffByBranch);
 router.get('/store/:id', authorizeOwnerOnly, staffController.getStaffByBranch);
 router.get('/:id', authorizeOwnerOnly, staffController.getStaffById);
 router.put('/:id', authorizeOwnerOnly, validate(updateStaffRules), staffController.updateStaff);
+router.patch('/:id/branch', authorizeOwnerOnly, validate(transferBranchRules), staffController.transferBranch);
+router.post('/:id/assign-branch', authorizeOwnerOnly, validate(transferBranchRules), staffController.transferBranch);
 router.delete('/:id', authorizeOwnerOnly, staffController.deleteStaff);
 
 router.post('/:id/force-logout', authorizeOwnerOnly, staffController.forceLogoutStaff);
