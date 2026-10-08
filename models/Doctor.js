@@ -93,11 +93,41 @@ const doctorSchema = new mongoose.Schema({
         default: 300,
         min: [0, 'Chat fee cannot be negative']
     },
+    homeFee: {
+        type: Number,
+        default: 750,
+        min: [0, 'Home fee cannot be negative']
+    },
+    homeVisitFee: {
+        type: Number,
+        default: 750,
+        min: [0, 'Home visit fee cannot be negative']
+    },
     fees: {
         video: { type: Number, default: 500, min: [0, 'Video fee cannot be negative'] },
         clinic: { type: Number, default: 600, min: [0, 'Clinic fee cannot be negative'] },
         chat: { type: Number, default: 300, min: [0, 'Chat fee cannot be negative'] },
+        home: { type: Number, default: 750, min: [0, 'Home fee cannot be negative'] },
+        homeVisit: { type: Number, default: 750, min: [0, 'Home visit fee cannot be negative'] },
         consultationFee: { type: Number, default: 500, min: [0, 'Consultation fee cannot be negative'] }
+    },
+    isOnline: {
+        type: Boolean,
+        default: false
+    },
+    status: {
+        type: String,
+        enum: ['online', 'offline', 'busy'],
+        default: 'offline'
+    },
+    availabilityStatus: {
+        type: String,
+        enum: ['available', 'offline', 'busy'],
+        default: 'available'
+    },
+    lastOnlineAt: {
+        type: Date,
+        default: null
     },
     consultationTypes: [{
         type: String,
@@ -206,6 +236,8 @@ doctorSchema.index({ rating: -1 });
 doctorSchema.index({ consultationFee: 1 });
 doctorSchema.index({ verificationStatus: 1 });
 doctorSchema.index({ totalEarnings: -1 });
+doctorSchema.index({ isOnline: 1 });
+doctorSchema.index({ status: 1 });
 
 // Virtual for full name
 doctorSchema.virtual('fullName').get(function () {

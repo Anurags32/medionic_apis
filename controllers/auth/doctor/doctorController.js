@@ -147,6 +147,22 @@ exports.doctorRegister = async (req, res, next) => {
                 phone: formattedPhone
             },
             consultationFee: parseInt(consultationFee) || 500,
+            videoFee: parseInt(req.body.videoFee) || 500,
+            clinicFee: parseInt(req.body.clinicFee) || 600,
+            chatFee: parseInt(req.body.chatFee) || 300,
+            homeFee: parseInt(req.body.homeFee || req.body.homeVisitFee) || 750,
+            homeVisitFee: parseInt(req.body.homeVisitFee || req.body.homeFee) || 750,
+            fees: {
+                video: parseInt(req.body.videoFee) || 500,
+                clinic: parseInt(req.body.clinicFee) || 600,
+                chat: parseInt(req.body.chatFee) || 300,
+                home: parseInt(req.body.homeFee || req.body.homeVisitFee) || 750,
+                homeVisit: parseInt(req.body.homeVisitFee || req.body.homeFee) || 750,
+                consultationFee: parseInt(consultationFee) || 500
+            },
+            isOnline: false,
+            status: 'offline',
+            availabilityStatus: 'available',
             verificationStatus: constants.VERIFICATION_STATUS.PENDING,
             verificationDocuments,
             profilePicture,
@@ -321,7 +337,12 @@ exports.updateDoctorProfile = async (req, res, next) => {
             videoFee,
             clinicFee,
             chatFee,
-            fees
+            homeFee,
+            homeVisitFee,
+            fees,
+            isOnline,
+            status,
+            availability
         } = req.body;
 
         if (fullName) {
@@ -359,9 +380,52 @@ exports.updateDoctorProfile = async (req, res, next) => {
             doctor.chatFee = Number(chatFee);
             console.log(`    📝  Chat fee updated: ${chatFee}`);
         }
+        if (homeFee !== undefined) {
+            doctor.homeFee = Number(homeFee);
+            console.log(`    📝  Home fee updated: ${homeFee}`);
+        }
+        if (homeVisitFee !== undefined) {
+            doctor.homeVisitFee = Number(homeVisitFee);
+            if (homeFee === undefined) {
+                doctor.homeFee = Number(homeVisitFee);
+            }
+            console.log(`    📝  Home visit fee updated: ${homeVisitFee}`);
+        } else if (homeFee !== undefined && doctor.homeVisitFee === undefined) {
+            doctor.homeVisitFee = Number(homeFee);
+        }
         if (fees) {
-            doctor.fees = fees;
+            const currentFees = (doctor.fees && typeof doctor.fees.toObject === 'function')
+                ? doctor.fees.toObject()
+                : (doctor.fees || {});
+            const mergedFees = { ...currentFees, ...fees };
+            if (mergedFees.homeVisit !== undefined && mergedFees.home === undefined) {
+                mergedFees.home = Number(mergedFees.homeVisit);
+            }
+            if (mergedFees.home !== undefined && mergedFees.homeVisit === undefined) {
+                mergedFees.homeVisit = Number(mergedFees.home);
+            }
+            doctor.fees = mergedFees;
             console.log(`    📝  Fees object updated`);
+        }
+        if (isOnline !== undefined) {
+            doctor.isOnline = Boolean(isOnline);
+            doctor.status = doctor.isOnline ? 'online' : 'offline';
+            if (doctor.isOnline) {
+                doctor.lastOnlineAt = new Date();
+            }
+            console.log(`    📝  Doctor isOnline updated: ${doctor.isOnline}`);
+        }
+        if (status !== undefined) {
+            doctor.status = status;
+            doctor.isOnline = status === 'online';
+            if (doctor.isOnline) {
+                doctor.lastOnlineAt = new Date();
+            }
+            console.log(`    📝  Doctor status updated: ${doctor.status}`);
+        }
+        if (availability !== undefined && typeof availability === 'string') {
+            doctor.availabilityStatus = availability;
+            console.log(`    📝  Doctor availability updated: ${doctor.availabilityStatus}`);
         }
         if (req.files && req.files['profilePhoto']) {
             doctor.profilePicture = `/uploads/${req.files['profilePhoto'][0].filename}`;
@@ -370,6 +434,25 @@ exports.updateDoctorProfile = async (req, res, next) => {
 
         await doctor.save();
         console.log(`    ✅  Doctor profile saved — ID: ${doctor._id}`);
+
+        // Broadcast real-time status update via Socket.IO
+        try {
+            const socketModule = require('../../../socket');
+            const ioInstance = socketModule.getIO ? socketModule.getIO() : null;
+            if (ioInstance) {
+                ioInstance.emit('doctor_status_updated', {
+                    doctorId: doctor._id.toString(),
+                    userId: req.user._id.toString(),
+                    fullName: `${doctor.firstName} ${doctor.lastName}`,
+                    isOnline: doctor.isOnline,
+                    status: doctor.status,
+                    availability: doctor.availabilityStatus || (doctor.isOnline ? 'available' : 'offline'),
+                    fees: doctor.fees,
+                    homeVisitFee: doctor.homeVisitFee || doctor.homeFee,
+                    timestamp: new Date()
+                });
+            }
+        } catch (err) {}
 
         res.status(200).json({
             success: true,

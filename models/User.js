@@ -56,6 +56,22 @@ const userSchema = new mongoose.Schema({
     lastLogin: {
         type: Date,
         default: Date.now
+    },
+    // FCM Push Notification token (set by client on login / app open)
+    fcmToken: {
+        type: String,
+        trim: true,
+        default: null
+    },
+    // 'android' | 'ios' | 'web'
+    fcmPlatform: {
+        type: String,
+        enum: ['android', 'ios', 'web', null],
+        default: null
+    },
+    fcmUpdatedAt: {
+        type: Date,
+        default: null
     }
 }, {
     timestamps: true

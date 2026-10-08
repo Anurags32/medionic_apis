@@ -32,6 +32,8 @@ const pharmacyRoutes = require('./routes/pharmacyRoutes');
 const emergencyRoutes = require('./routes/emergencyRoutes');
 const consultationRoutes = require('./routes/consultationRoutes');
 const appDataRoutes = require('./routes/appDataRoutes');
+const userRoutes = require('./routes/users');
+const zegoRoutes = require('./routes/zego');
 
 // Pharmacy Subsystem (Unified)
 const pharmacyRouter = require('./routes/pharmacy');
@@ -187,6 +189,8 @@ app.use('/api/pharmacy', pharmacyRoutes);
 app.use('/api/emergency', emergencyRoutes);
 app.use('/api/consultations', consultationRoutes);
 app.use('/api/app_data', appDataRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/zego', zegoRoutes);
 
 // Mount Pharmacy Subsystem routes (/api/v1)
 app.use(process.env.API_PREFIX || '/api/v1', pharmacyRouter);
@@ -217,6 +221,9 @@ console.log('    POST /api/create-order');
 console.log('    POST /api/verify-payment');
 console.log('    POST /api/emergency/sos');
 console.log('    POST /api/app_data/send_call_notification');
+console.log('    POST /api/users/fcm-token        <- Save device FCM token');
+console.log('    DELETE /api/users/fcm-token      <- Clear FCM token on logout');
+console.log('    GET  /api/zego/token             <- Generate ZegoCloud Token04');
 console.log('    GET  /api/health');
 console.log('    [*]  /api/v1/auth (Pharmacy Auth)');
 console.log('    [*]  /api/v1/inventory (Pharmacy Inventory)');

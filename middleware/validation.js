@@ -616,17 +616,31 @@ const schemas = {
         videoFee: Joi.number().min(0).optional(),
         clinicFee: Joi.number().min(0).optional(),
         chatFee: Joi.number().min(0).optional(),
+        homeFee: Joi.number().min(0).optional(),
+        homeVisitFee: Joi.number().min(0).optional(),
+        isOnline: Joi.boolean().optional(),
+        status: Joi.string().valid('online', 'offline', 'busy').optional(),
+        availability: Joi.alternatives().try(Joi.string(), Joi.object()).optional(),
+        consultationTypes: Joi.alternatives().try(Joi.array(), Joi.string()).optional(),
         fees: Joi.object({
             video: Joi.number().min(0).optional(),
             clinic: Joi.number().min(0).optional(),
             chat: Joi.number().min(0).optional(),
+            home: Joi.number().min(0).optional(),
+            homeVisit: Joi.number().min(0).optional(),
             consultationFee: Joi.number().min(0).optional()
         }).optional(),
         bio: Joi.string().allow('', null).optional(),
         profilePhoto: Joi.string().allow('', null).optional(),
         shift: shiftSchema.optional(),
         slotDurationMinutes: Joi.number().integer().min(1).optional()
-    }).unknown(false),
+    }).unknown(true),
+
+    updateDoctorStatus: Joi.object({
+        isOnline: Joi.boolean().optional(),
+        status: Joi.string().valid('online', 'offline', 'busy').optional(),
+        availability: Joi.alternatives().try(Joi.string(), Joi.object()).optional()
+    }).unknown(true),
 
     updateMRProfile: Joi.object({
         designation: Joi.string().optional(),

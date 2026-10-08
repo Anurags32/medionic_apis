@@ -5,6 +5,7 @@ const router = express.Router();
 const {
     getProfile,
     updateProfile,
+    updateDoctorStatus,
     getSchedule,
     updateSchedule,
     getAppointments,
@@ -45,6 +46,12 @@ router.use(protect, authorize(constants.ROLES.DOCTOR), profileComplete);
 router.route('/profile')
     .get(getProfile)
     .put(validate('updateDoctorProfile'), updateProfile);
+
+router.route('/status')
+    .put(validate('updateDoctorStatus'), updateDoctorStatus);
+
+router.route('/online-status')
+    .put(validate('updateDoctorStatus'), updateDoctorStatus);
 
 router.route('/schedule')
     .get(getSchedule)

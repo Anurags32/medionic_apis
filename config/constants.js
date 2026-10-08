@@ -42,7 +42,15 @@ module.exports = {
     CONSULTATION_TYPES: {
         VIDEO: 'video',
         CHAT: 'chat',
-        CLINIC: 'clinic'
+        CLINIC: 'clinic',
+        HOME: 'home',
+        HOME_VISIT: 'home_visit'
+    },
+
+    DOCTOR_STATUS: {
+        ONLINE: 'online',
+        OFFLINE: 'offline',
+        BUSY: 'busy'
     },
 
     VERIFICATION_STATUS: {

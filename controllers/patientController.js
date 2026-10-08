@@ -194,6 +194,10 @@ exports.searchDoctors = async (req, res, next) => {
             const isVideoAvailable = effectiveModes.includes(constants.CONSULTATION_TYPES.VIDEO);
             const isClinicAvailable = effectiveModes.includes(constants.CONSULTATION_TYPES.CLINIC);
             const isChatAvailable = effectiveModes.includes(constants.CONSULTATION_TYPES.CHAT);
+            const isHomeAvailable = effectiveModes.includes(constants.CONSULTATION_TYPES.HOME) ||
+                                     effectiveModes.includes(constants.CONSULTATION_TYPES.HOME_VISIT) ||
+                                     effectiveModes.includes('home') ||
+                                     effectiveModes.includes('home_visit');
 
             return {
                 doctorId: doctor._id,
@@ -203,6 +207,17 @@ exports.searchDoctors = async (req, res, next) => {
                 yearsExperience: doctor.yearsExperience,
                 clinic: doctor.clinic,
                 verificationStatus: doctor.verificationStatus,
+                isOnline: doctor.isOnline !== undefined ? doctor.isOnline : false,
+                status: doctor.status || (doctor.isOnline ? 'online' : 'offline'),
+                availability: doctor.availabilityStatus || (doctor.isOnline ? 'available' : 'offline'),
+                lastOnlineAt: doctor.lastOnlineAt,
+                consultationFee: doctor.consultationFee,
+                videoFee: doctor.videoFee,
+                clinicFee: doctor.clinicFee,
+                chatFee: doctor.chatFee,
+                homeFee: doctor.homeFee,
+                homeVisitFee: doctor.homeVisitFee || doctor.homeFee,
+                fees: doctor.fees,
                 supportedModes: effectiveModes,
                 pricing: {
                     currency: 'INR',
@@ -223,6 +238,10 @@ exports.searchDoctors = async (req, res, next) => {
                             ? Math.round((doctor.chatFee || doctor.fees?.chat || doctor.consultationFee || 300) * 100)
                             : null,
                         available: isChatAvailable
+                    },
+                    homeVisit: {
+                        feeMinor: Math.round((doctor.homeVisitFee || doctor.homeFee || doctor.fees?.homeVisit || doctor.fees?.home || 750) * 100),
+                        available: isHomeAvailable
                     }
                 },
                 rating: doctor.totalRatings > 0 ? doctor.rating : null,
@@ -362,6 +381,8 @@ exports.bookAppointment = [
                 appointmentAmount = doctor.clinicFee || doctor.consultationFee;
             } else if (normalizedConsultationType === constants.CONSULTATION_TYPES.CHAT) {
                 appointmentAmount = doctor.chatFee || doctor.consultationFee;
+            } else if (['home', 'home_visit', 'homevisit'].includes(normalizedConsultationType)) {
+                appointmentAmount = doctor.homeVisitFee || doctor.homeFee || doctor.fees?.homeVisit || doctor.fees?.home || doctor.consultationFee;
             }
 
             const appointment = await Appointment.create({
@@ -429,7 +450,7 @@ exports.getAppointments = async (req, res, next) => {
         const skip = (parseInt(page) - 1) * parseInt(limit);
 
         const appointments = await Appointment.find(query)
-            .populate('doctorId', 'firstName lastName specialization clinic consultationFee videoFee clinicFee chatFee')
+            .populate('doctorId', 'firstName lastName specialization clinic consultationFee videoFee clinicFee chatFee homeFee homeVisitFee fees isOnline status availabilityStatus')
             .skip(skip)
             .limit(parseInt(limit))
             .sort({ appointmentDate: -1, appointmentTime: -1 });

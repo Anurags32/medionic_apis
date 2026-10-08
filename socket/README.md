@@ -42,10 +42,21 @@ server.listen(PORT, () => {
 ### 🔑 Authentication / User Mapping
 | Event Name | Direction | Payload Example | Description |
 |---|---|---|---|
-| `socket_login` | Client ➡️ Server | `{ "userId": "64f1a2b3c4d5e" }` | User ki `userId` ko uske active `socket.id` se map karta hai. |
-| `socket_login_success` | Server ➡️ Client | `{ "userId": "...", "socketId": "..." }` | Login confirmation. |
-| `socket_logout` | Client ➡️ Server | `{ "userId": "64f1a2b3c4d5e" }` | Mapping remove karta hai. |
+| `socket_login` | Client ➡️ Server | `{ "userId": "64f1a2b3c4d5e", "role": "doctor", "doctorId": "...", "setOnline": true }` | User/Doctor ki `userId` ko socket se map karta hai. Doctor ko online set kar sakta hai. |
+| `socket_login_success` | Server ➡️ Client | `{ "userId": "...", "socketId": "...", "isDoctor": true }` | Login confirmation. |
+| `socket_logout` | Client ➡️ Server | `{ "userId": "64f1a2b3c4d5e" }` | Mapping remove karta hai aur doctor ko offline mark karta hai. |
 | `socket_logout_success` | Server ➡️ Client | `{ "message": "..." }` | Logout confirmation. |
+
+---
+
+### 🟢 Doctor Online / Offline Status Events
+| Event Name | Direction | Payload Example | Description |
+|---|---|---|---|
+| `doctor_set_status` / `doctor_status_change` | Doctor ➡️ Server | `{ "doctorId": "...", "isOnline": true, "status": "online" }` | Doctor apna status online/offline toggle karta hai. |
+| `doctor_status_updated` | Server ➡️ All Clients (Broadcast) | `{ "doctorId": "...", "userId": "...", "fullName": "Dr. ...", "isOnline": true, "status": "online" }` | Sabhi users (patients) ko live notification milti hai jab doctor online/offline hota hai. |
+| `doctor_status_change_success` | Server ➡️ Doctor | `{ "doctorId": "...", "isOnline": true, "status": "online" }` | Status change acknowledgment for doctor. |
+| `get_doctor_status` | Patient ➡️ Server | `{ "doctorId": "..." }` | Kisi specific doctor ka live status check karna. |
+| `doctor_status_response` | Server ➡️ Patient | `{ "doctorId": "...", "isOnline": true, "status": "online" }` | Doctor status response. |
 
 ---
 

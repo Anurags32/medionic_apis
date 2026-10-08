@@ -40,7 +40,13 @@ exports.getProfile = async (req, res, next) => {
                 videoFee: doctor.videoFee,
                 clinicFee: doctor.clinicFee,
                 chatFee: doctor.chatFee,
+                homeFee: doctor.homeFee,
+                homeVisitFee: doctor.homeVisitFee || doctor.homeFee,
                 fees: doctor.fees,
+                isOnline: doctor.isOnline !== undefined ? doctor.isOnline : false,
+                status: doctor.status || (doctor.isOnline ? 'online' : 'offline'),
+                availability: doctor.availabilityStatus || (doctor.isOnline ? 'available' : 'offline'),
+                lastOnlineAt: doctor.lastOnlineAt,
                 verificationStatus: doctor.verificationStatus,
                 bio: doctor.bio,
                 profilePhoto: user.profilePhoto || doctor.profilePicture,
@@ -103,8 +109,52 @@ exports.updateProfile = async (req, res, next) => {
         if (req.body.chatFee !== undefined) {
             doctor.chatFee = Number(req.body.chatFee);
         }
+        if (req.body.homeFee !== undefined) {
+            doctor.homeFee = Number(req.body.homeFee);
+        }
+        if (req.body.homeVisitFee !== undefined) {
+            doctor.homeVisitFee = Number(req.body.homeVisitFee);
+            if (req.body.homeFee === undefined) {
+                doctor.homeFee = Number(req.body.homeVisitFee);
+            }
+        } else if (req.body.homeFee !== undefined && doctor.homeVisitFee === undefined) {
+            doctor.homeVisitFee = Number(req.body.homeFee);
+        }
         if (req.body.fees) {
-            doctor.fees = req.body.fees;
+            const currentFees = (doctor.fees && typeof doctor.fees.toObject === 'function')
+                ? doctor.fees.toObject()
+                : (doctor.fees || {});
+            const mergedFees = { ...currentFees, ...req.body.fees };
+            if (mergedFees.homeVisit !== undefined && mergedFees.home === undefined) {
+                mergedFees.home = Number(mergedFees.homeVisit);
+            }
+            if (mergedFees.home !== undefined && mergedFees.homeVisit === undefined) {
+                mergedFees.homeVisit = Number(mergedFees.home);
+            }
+            doctor.fees = mergedFees;
+        }
+
+        let statusChanged = false;
+        if (req.body.isOnline !== undefined) {
+            doctor.isOnline = Boolean(req.body.isOnline);
+            doctor.status = doctor.isOnline ? 'online' : 'offline';
+            if (doctor.isOnline) {
+                doctor.lastOnlineAt = new Date();
+            }
+            statusChanged = true;
+        }
+        if (req.body.status !== undefined) {
+            doctor.status = req.body.status;
+            doctor.isOnline = req.body.status === 'online';
+            if (doctor.isOnline) {
+                doctor.lastOnlineAt = new Date();
+            }
+            statusChanged = true;
+        }
+        if (req.body.availability !== undefined) {
+            if (typeof req.body.availability === 'string') {
+                doctor.availabilityStatus = req.body.availability;
+            }
         }
         if (req.body.bio !== undefined) {
             doctor.bio = req.body.bio;
@@ -132,6 +182,27 @@ exports.updateProfile = async (req, res, next) => {
 
         await doctor.save();
 
+        // Broadcast real-time status update via Socket.IO
+        try {
+            const socketModule = require('../socket');
+            const ioInstance = socketModule.getIO ? socketModule.getIO() : null;
+            if (ioInstance) {
+                ioInstance.emit('doctor_status_updated', {
+                    doctorId: doctor._id.toString(),
+                    userId: user._id.toString(),
+                    fullName: doctor.fullName || `${doctor.firstName} ${doctor.lastName}`,
+                    isOnline: doctor.isOnline !== undefined ? doctor.isOnline : false,
+                    status: doctor.status || (doctor.isOnline ? 'online' : 'offline'),
+                    availability: doctor.availabilityStatus || (doctor.isOnline ? 'available' : 'offline'),
+                    fees: doctor.fees,
+                    homeVisitFee: doctor.homeVisitFee || doctor.homeFee,
+                    timestamp: new Date()
+                });
+            }
+        } catch (socketErr) {
+            // Ignore if socket not initialized
+        }
+
         res.status(200).json({
             success: true,
             message: 'Profile updated successfully',
@@ -154,13 +225,81 @@ exports.updateProfile = async (req, res, next) => {
                 videoFee: doctor.videoFee,
                 clinicFee: doctor.clinicFee,
                 chatFee: doctor.chatFee,
+                homeFee: doctor.homeFee,
+                homeVisitFee: doctor.homeVisitFee || doctor.homeFee,
                 fees: doctor.fees,
+                isOnline: doctor.isOnline !== undefined ? doctor.isOnline : false,
+                status: doctor.status || (doctor.isOnline ? 'online' : 'offline'),
+                availability: doctor.availabilityStatus || (doctor.isOnline ? 'available' : 'offline'),
+                lastOnlineAt: doctor.lastOnlineAt,
                 verificationStatus: doctor.verificationStatus,
                 bio: doctor.bio,
                 profilePhoto: user.profilePhoto || doctor.profilePicture,
                 shift: doctor.shift,
                 slotDurationMinutes: doctor.slotDurationMinutes,
                 consultationTypes: doctor.consultationTypes
+            }
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+exports.updateDoctorStatus = async (req, res, next) => {
+    try {
+        const user = req.user;
+        const doctor = await Doctor.findOne({ userId: user._id });
+        if (!doctor) {
+            return next(new ErrorResponse('Doctor profile not found', 404));
+        }
+
+        const { isOnline, status, availability } = req.body;
+        if (isOnline !== undefined) {
+            doctor.isOnline = Boolean(isOnline);
+            doctor.status = doctor.isOnline ? 'online' : 'offline';
+        }
+        if (status !== undefined) {
+            doctor.status = status;
+            doctor.isOnline = status === 'online';
+        }
+        if (availability !== undefined && typeof availability === 'string') {
+            doctor.availabilityStatus = availability;
+        }
+        if (doctor.isOnline) {
+            doctor.lastOnlineAt = new Date();
+        }
+
+        await doctor.save();
+
+        // Broadcast real-time status update via Socket.IO
+        try {
+            const socketModule = require('../socket');
+            const ioInstance = socketModule.getIO ? socketModule.getIO() : null;
+            if (ioInstance) {
+                ioInstance.emit('doctor_status_updated', {
+                    doctorId: doctor._id.toString(),
+                    userId: user._id.toString(),
+                    fullName: doctor.fullName || `${doctor.firstName} ${doctor.lastName}`,
+                    isOnline: doctor.isOnline,
+                    status: doctor.status,
+                    availability: doctor.availabilityStatus || (doctor.isOnline ? 'available' : 'offline'),
+                    timestamp: new Date()
+                });
+            }
+        } catch (socketErr) {
+            // Ignore if socket not initialized
+        }
+
+        res.status(200).json({
+            success: true,
+            message: `Doctor status updated to ${doctor.status}`,
+            data: {
+                doctorId: doctor._id,
+                userId: user._id,
+                isOnline: doctor.isOnline,
+                status: doctor.status,
+                availability: doctor.availabilityStatus || (doctor.isOnline ? 'available' : 'offline'),
+                lastOnlineAt: doctor.lastOnlineAt
             }
         });
     } catch (error) {
