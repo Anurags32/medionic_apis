@@ -34,6 +34,11 @@ const updateLocation = asyncHandler(async (req, res) => {
     res.status(200).json(new ApiResponse(200, result, result.message));
 });
 
+const updateDeviceStatus = asyncHandler(async (req, res) => {
+    const result = await staffService.updateStaffDeviceStatus(req.user.id, req.body);
+    res.status(200).json(new ApiResponse(200, result, 'Device status updated successfully'));
+});
+
 const getDutyOverview = asyncHandler(async (req, res) => {
     const result = await staffService.getStaffDutyOverview(req.user, req.query);
     res.status(200).json(new ApiResponse(200, result, 'Staff duty and GPS location overview fetched successfully'));
@@ -98,6 +103,7 @@ module.exports = {
     getOnlineStatus,
     updateDutyStatus,
     updateLocation,
+    updateDeviceStatus,
     getDutyOverview,
     getStaffById,
     updateStaff,

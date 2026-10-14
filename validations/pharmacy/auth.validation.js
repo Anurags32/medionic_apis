@@ -1,4 +1,5 @@
 const { body } = require('express-validator');
+const { GSTIN_REGEX, DRUG_LICENSE_REGEX } = require('./branch.validation');
 
 const registerOwnerRules = [
     body('full_name').trim().notEmpty().withMessage('Full name is required'),
@@ -7,19 +8,31 @@ const registerOwnerRules = [
     body('password')
         .isLength({ min: 6 })
         .withMessage('Password must be at least 6 characters long'),
-    body('branch_details').optional().isObject().withMessage('Branch details must be an object'),
+    body('branch_details').isObject().withMessage('Branch details object is required'),
     body('branch_details.name')
-        .if(body('branch_details').exists())
+        .trim()
         .notEmpty()
         .withMessage('Branch name is required'),
     body('branch_details.drug_license_no')
-        .if(body('branch_details').exists())
+        .trim()
         .notEmpty()
-        .withMessage('Drug license number is required'),
+        .withMessage('Drug license number is required')
+        .bail()
+        .matches(DRUG_LICENSE_REGEX)
+        .withMessage('Invalid drug license format'),
     body('branch_details.gstin')
-        .if(body('branch_details').exists())
+        .trim()
         .notEmpty()
-        .withMessage('GSTIN is required'),
+        .withMessage('GSTIN is required')
+        .bail()
+        .toUpperCase()
+        .matches(GSTIN_REGEX)
+        .withMessage('Invalid GSTIN format. Example: 09AAACM1234F1Z5'),
+    body('branch_details.address')
+        .optional()
+        .trim()
+        .isLength({ min: 10, max: 255 })
+        .withMessage('Address must be at least 10 characters long'),
 ];
 
 const loginRules = [

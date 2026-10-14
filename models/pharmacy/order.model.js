@@ -147,6 +147,8 @@ orderSchema.virtual('created_by', {
     justOne: true,
 });
 
+orderSchema.index({ branch_id: 1, status: 1, created_at: -1 });
+orderSchema.index({ branch_id: 1, order_type: 1 });
 
 const Order = mongoose.model('Order', orderSchema);
 

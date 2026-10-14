@@ -57,10 +57,19 @@ const errorHandler = require('./middleware/errorHandler');
 
 const app = express();
 
+const compression = require('compression');
+const mongoSanitize = require('express-mongo-sanitize');
+
 app.set('trust proxy', 1);
 
 app.use(helmet());
 console.log('✅  Helmet security middleware applied');
+
+app.use(compression());
+console.log('✅  Compression middleware applied');
+
+app.use(mongoSanitize());
+console.log('✅  Mongo sanitize middleware applied');
 
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,

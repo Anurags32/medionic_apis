@@ -81,6 +81,11 @@ const medicineBatchSchema = new mongoose.Schema(
     }
 );
 
+medicineBatchSchema.index({ branch_id: 1, is_active: 1, expiry_date: 1 });
+medicineBatchSchema.index({ branch_id: 1, current_stock: 1 });
+medicineBatchSchema.index({ medicine_id: 1, is_active: 1 });
+medicineBatchSchema.index({ branch_id: 1, medicine_id: 1, expiry_date: 1 });
+
 medicineBatchSchema.virtual('medicine', {
     ref: 'Medicine',
     localField: 'medicine_id',

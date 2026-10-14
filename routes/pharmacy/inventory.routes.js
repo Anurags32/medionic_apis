@@ -11,9 +11,11 @@ const {
     createMedicineRules,
     updateMedicineRules,
     createBatchRules,
+    createMedicineWithBatchRules,
     adjustStockRules,
     processReturnRules,
 } = require('../../validations/pharmacy/inventory.validation');
+const { requireActiveSubscription } = require('../../middleware/pharmacy/subscription.middleware');
 
 router.use(authenticateToken);
 
@@ -28,8 +30,17 @@ router.post(
 router.get('/medicines', authorizeFeature(FEATURES.INVENTORY_VIEW), inventoryController.getMedicines);
 router.get('/medicines/:id', authorizeFeature(FEATURES.INVENTORY_VIEW), inventoryController.getMedicineById);
 router.post(
+    '/medicines/with-batch',
+    authorizeFeature(FEATURES.INVENTORY_MANAGE),
+    requireActiveSubscription,
+    uploadMedicineImage.single('image'),
+    validate(createMedicineWithBatchRules),
+    inventoryController.createMedicineWithBatch
+);
+router.post(
     '/medicines',
     authorizeFeature(FEATURES.INVENTORY_MANAGE),
+    requireActiveSubscription,
     uploadMedicineImage.single('image'),
     validate(createMedicineRules),
     inventoryController.createMedicine
@@ -45,6 +56,7 @@ router.put(
 router.post(
     '/batches',
     authorizeFeature(FEATURES.INVENTORY_MANAGE),
+    requireActiveSubscription,
     validate(createBatchRules),
     inventoryController.createBatch
 );
@@ -61,6 +73,12 @@ router.post(
     authorizeFeature(FEATURES.INVENTORY_MANAGE),
     validate(processReturnRules),
     inventoryController.processReturn
+);
+
+router.get(
+    '/returns',
+    authorizeFeature(FEATURES.INVENTORY_VIEW),
+    require('../../controllers/pharmacy/return.controller').getReturns
 );
 
 router.get(

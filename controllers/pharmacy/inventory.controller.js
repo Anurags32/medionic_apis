@@ -18,6 +18,11 @@ const createMedicine = asyncHandler(async (req, res) => {
     res.status(201).json(new ApiResponse(201, medicine, 'Medicine created successfully'));
 });
 
+const createMedicineWithBatch = asyncHandler(async (req, res) => {
+    const result = await inventoryService.createMedicineWithBatch(req.user.branchId, req.user.userId, req.body, req.file);
+    res.status(201).json(new ApiResponse(201, result, 'Medicine and batch created successfully'));
+});
+
 const updateMedicine = asyncHandler(async (req, res) => {
     const medicine = await inventoryService.updateMedicine(req.user.branchId, req.params.id, req.body, req.file);
     res.status(200).json(new ApiResponse(200, medicine, 'Medicine updated successfully'));
@@ -67,6 +72,7 @@ module.exports = {
     createCategory,
     getCategories,
     createMedicine,
+    createMedicineWithBatch,
     updateMedicine,
     getMedicines,
     getMedicineById,

@@ -10,10 +10,7 @@ const ApiError = require('../../utils/ApiError');
 const validate = (validations) => {
     return async (req, res, next) => {
         if (Array.isArray(validations)) {
-            for (const validation of validations) {
-                const result = await validation.run(req);
-                if (result.errors.length) break;
-            }
+            await Promise.all(validations.map((validation) => validation.run(req)));
         }
 
         const errors = validationResult(req);

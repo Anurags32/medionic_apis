@@ -11,11 +11,13 @@ const posRoutes = require('./pos.routes');
 const orderRoutes = require('./order.routes');
 const reportRoutes = require('./report.routes');
 const notificationRoutes = require('./notification.routes');
+const returnRoutes = require('./return.routes');
 
 router.use('/auth', authRoutes);
 router.use('/staff', staffRoutes);
 router.use('/branch', branchRoutes);
 router.use('/inventory', inventoryRoutes);
+router.use('/returns', returnRoutes);
 router.use('/customers', customerRoutes);
 router.use('/prescriptions', prescriptionRoutes);
 router.use('/pos', posRoutes);

@@ -119,6 +119,27 @@ const userSchema = new mongoose.Schema(
             type: Date,
             default: null,
         },
+        failed_login_attempts: {
+            type: Number,
+            default: 0,
+        },
+        lock_until: {
+            type: Date,
+            default: null,
+        },
+        must_change_password: {
+            type: Boolean,
+            default: false,
+        },
+        battery_level: {
+            type: Number,
+            default: null,
+        },
+        active_counter: {
+            type: String,
+            trim: true,
+            default: null,
+        },
     },
     {
         timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' },
@@ -151,6 +172,9 @@ userSchema.virtual('branch', {
     foreignField: '_id',
     justOne: true,
 });
+
+userSchema.index({ branch_id: 1, is_active: 1, duty_status: 1 });
+userSchema.index({ branch_id: 1, role: 1 });
 
 const User = mongoose.models.PharmacyStaff || mongoose.model('PharmacyStaff', userSchema, 'pharmacy_users');
 

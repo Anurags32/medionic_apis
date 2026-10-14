@@ -3,7 +3,7 @@ const { ROLES } = require('../../config/pharmacyConstants');
 
 
 const NAME_REGEX = /^[a-zA-Z\s.'-]+$/;
-const PHONE_REGEX = /^[0-9]{10}$/;
+const PHONE_REGEX = /^(\+91[\-\s]?)?[0-9]{10}$/;
 
 const createStaffRules = [
     body('branch_id').optional().isMongoId().withMessage('Valid branch_id is required'),

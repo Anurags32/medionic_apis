@@ -50,7 +50,7 @@ const authenticateToken = asyncHandler(async (req, res, next) => {
     req.user = {
         id: user._id.toString(),
         userId: user._id.toString(),
-        branchId: user.branch_id.toString(),
+        branchId: decoded.branchId || (user.branch_id ? user.branch_id.toString() : null),
         role: user.role,
         features: Array.isArray(user.features_granted) ? user.features_granted : [],
         email: user.email,

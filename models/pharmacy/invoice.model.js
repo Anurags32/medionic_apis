@@ -134,6 +134,8 @@ invoiceSchema.virtual('branch', {
     justOne: true,
 });
 
+invoiceSchema.index({ branch_id: 1, invoice_date: -1 });
+
 const Invoice = mongoose.model('Invoice', invoiceSchema);
 
 module.exports = Invoice;

@@ -58,10 +58,24 @@ const removeBranchStaff = asyncHandler(async (req, res) => {
     res.status(200).json(new ApiResponse(200, result, result.message || 'Staff member removed from branch successfully'));
 });
 
+const getSubscription = asyncHandler(async (req, res) => {
+    const branchId = req.params.id || req.user.branchId;
+    const subscription = await branchService.getBranchSubscription(branchId, req.user);
+    res.status(200).json(new ApiResponse(200, subscription, 'Branch subscription details fetched successfully'));
+});
+
+const renewSubscription = asyncHandler(async (req, res) => {
+    const branchId = req.params.id || req.user.branchId;
+    const subscription = await branchService.renewBranchSubscription(branchId, req.body, req.user);
+    res.status(200).json(new ApiResponse(200, subscription, 'Subscription renewed successfully'));
+});
+
 module.exports = {
     createBranch,
     getMyBranches,
     getMyBranch,
+    getSubscription,
+    renewSubscription,
     getBranchStaff,
     addBranchStaff,
     removeBranchStaff,

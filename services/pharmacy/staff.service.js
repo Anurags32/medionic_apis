@@ -40,6 +40,15 @@ const createStaff = async (caller, payload) => {
         throw new ApiError(400, 'Cannot create another Pharmacy Owner via staff endpoint', 'INVALID_STAFF_ROLE');
     }
 
+    if (!password || typeof password !== 'string' || password.trim().length < 6) {
+        throw new ApiError(400, 'Password is required and must be at least 6 characters long', 'PASSWORD_REQUIRED');
+    }
+
+    const defaultPasswords = ['password', 'password123', '123456', 'medcab123', 'admin123', 'staff123'];
+    if (defaultPasswords.includes(password.trim().toLowerCase())) {
+        throw new ApiError(400, 'Insecure or default passwords are not permitted. Please specify a strong, unique password.', 'INSECURE_PASSWORD');
+    }
+
     const targetBranchId = await resolveTargetBranch(caller, branch_id);
 
     const existingEmail = await User.findOne({ email: email.toLowerCase() });
@@ -73,6 +82,9 @@ const createStaff = async (caller, payload) => {
         token_version: 0,
         duty_status: 'OFF_DUTY',
         is_online: false,
+        must_change_password: true,
+        battery_level: null,
+        active_counter: null,
         is_active: true,
         is_blocked: false,
     });
@@ -87,6 +99,13 @@ const createStaff = async (caller, payload) => {
         pharmacist_reg_no: newStaff.pharmacist_reg_no,
         features_granted: newStaff.features_granted,
         duty_status: newStaff.duty_status,
+        must_change_password: true,
+        mustChangePassword: true,
+        battery: null,
+        battery_level: null,
+        gps: null,
+        active_on_counter: null,
+        counter: null,
         is_active: newStaff.is_active,
         is_blocked: newStaff.is_blocked,
         created_at: newStaff.created_at,
@@ -125,8 +144,22 @@ const getBranchStaff = async (caller, query = {}) => {
         filter.$or = [{ full_name: searchRegex }, { phone: searchRegex }, { email: searchRegex }];
     }
 
-    const staffList = await User.find(filter).populate('branch', 'name code address phone is_available').sort({ created_at: -1 });
-    return staffList;
+    const staffList = await User.find(filter)
+        .populate('branch', 'name code address phone is_available')
+        .sort({ created_at: -1 });
+
+    return staffList.map((s) => {
+        const sJson = s.toJSON();
+        const hasGps = Boolean(s.current_location && s.current_location.latitude && s.current_location.longitude);
+        sJson.battery = s.battery_level !== undefined && s.battery_level !== null ? s.battery_level : null;
+        sJson.battery_level = sJson.battery;
+        sJson.gps = hasGps ? s.current_location : null;
+        sJson.active_on_counter = s.active_counter || null;
+        sJson.counter = s.active_counter || null;
+        sJson.mustChangePassword = Boolean(s.must_change_password);
+        sJson.must_change_password = Boolean(s.must_change_password);
+        return sJson;
+    });
 };
 
 const getStaffOnlineStatus = async (caller, query = {}) => {
@@ -147,7 +180,7 @@ const getStaffOnlineStatus = async (caller, query = {}) => {
     }
 
     const staffList = await User.find(filter)
-        .select('full_name email phone role is_online last_seen_at duty_status current_location last_duty_toggle_at is_blocked is_active branch_id')
+        .select('full_name email phone role is_online last_seen_at duty_status current_location battery_level active_counter must_change_password last_duty_toggle_at is_blocked is_active branch_id')
         .populate('branch', 'name code is_available')
         .sort({ full_name: 1 });
 
@@ -157,6 +190,7 @@ const getStaffOnlineStatus = async (caller, query = {}) => {
         const socketPresence = liveSocketMap[s._id.toString()];
         const isOnline = socketPresence ? socketPresence.isOnline : Boolean(s.is_online);
         const lastSeen = socketPresence?.lastSeen || s.last_seen_at;
+        const hasGps = Boolean(s.current_location && s.current_location.latitude && s.current_location.longitude);
 
         return {
             id: s._id.toString(),
@@ -167,7 +201,13 @@ const getStaffOnlineStatus = async (caller, query = {}) => {
             phone: s.phone,
             role: s.role,
             duty_status: s.duty_status || 'OFF_DUTY',
-            current_location: s.current_location,
+            current_location: hasGps ? s.current_location : null,
+            battery: s.battery_level !== undefined && s.battery_level !== null ? s.battery_level : null,
+            battery_level: s.battery_level !== undefined && s.battery_level !== null ? s.battery_level : null,
+            active_on_counter: s.active_counter || null,
+            counter: s.active_counter || null,
+            gps: hasGps ? s.current_location : null,
+            mustChangePassword: Boolean(s.must_change_password),
             last_duty_toggle_at: s.last_duty_toggle_at,
             is_online: isOnline,
             last_seen_at: lastSeen,
@@ -205,6 +245,15 @@ const updateDutyStatus = async (userId, payload) => {
         if (!user.current_location) user.current_location = {};
         user.current_location.address = address;
         user.current_location.updated_at = new Date();
+    }
+
+    if (payload.battery_level !== undefined && payload.battery_level !== null) {
+        user.battery_level = Math.max(0, Math.min(100, parseInt(payload.battery_level, 10)));
+    }
+    if (payload.active_counter !== undefined) {
+        user.active_counter = payload.active_counter ? String(payload.active_counter).trim() : null;
+    } else if (payload.counter !== undefined) {
+        user.active_counter = payload.counter ? String(payload.counter).trim() : null;
     }
 
     await user.save();
@@ -280,6 +329,39 @@ const updateStaffLocation = async (userId, payload) => {
     };
 };
 
+const updateStaffDeviceStatus = async (userId, payload) => {
+    const user = await User.findById(userId);
+    if (!user) {
+        throw new ApiError(404, 'User not found', 'USER_NOT_FOUND');
+    }
+
+    if (payload.battery_level !== undefined && payload.battery_level !== null) {
+        user.battery_level = Math.max(0, Math.min(100, parseInt(payload.battery_level, 10)));
+    }
+    if (payload.active_counter !== undefined) {
+        user.active_counter = payload.active_counter ? String(payload.active_counter).trim() : null;
+    } else if (payload.counter !== undefined) {
+        user.active_counter = payload.counter ? String(payload.counter).trim() : null;
+    }
+    if (payload.latitude !== undefined && payload.longitude !== undefined) {
+        user.current_location = {
+            latitude: parseFloat(payload.latitude),
+            longitude: parseFloat(payload.longitude),
+            address: payload.address || (user.current_location ? user.current_location.address : ''),
+            updated_at: new Date(),
+        };
+    }
+    user.last_seen_at = new Date();
+    await user.save();
+
+    return {
+        success: true,
+        battery_level: user.battery_level,
+        active_counter: user.active_counter,
+        current_location: user.current_location,
+    };
+};
+
 const getStaffDutyOverview = async (callerUser, query = {}) => {
     const callerId = callerUser.id;
     const currentBranchId = callerUser.branchId;
@@ -317,6 +399,8 @@ const getStaffDutyOverview = async (callerUser, query = {}) => {
         else offDutyCount++;
         if (isOnline) onlineCount++;
 
+        const hasGps = Boolean(s.current_location && s.current_location.latitude && s.current_location.longitude);
+
         return {
             id: s._id.toString(),
             full_name: s.full_name,
@@ -325,7 +409,13 @@ const getStaffDutyOverview = async (callerUser, query = {}) => {
             role: s.role,
             pharmacist_reg_no: s.pharmacist_reg_no,
             duty_status: s.duty_status || 'OFF_DUTY',
-            current_location: s.current_location || { latitude: null, longitude: null, address: null, updated_at: null },
+            current_location: hasGps ? s.current_location : null,
+            battery: s.battery_level !== undefined && s.battery_level !== null ? s.battery_level : null,
+            battery_level: s.battery_level !== undefined && s.battery_level !== null ? s.battery_level : null,
+            gps: hasGps ? s.current_location : null,
+            active_on_counter: s.active_counter || null,
+            counter: s.active_counter || null,
+            mustChangePassword: Boolean(s.must_change_password),
             last_duty_toggle_at: s.last_duty_toggle_at,
             is_online: isOnline,
             last_seen_at: lastSeen,
@@ -775,5 +865,6 @@ module.exports = {
     deleteStaff,
     updateDutyStatus,
     updateStaffLocation,
+    updateStaffDeviceStatus,
     getStaffDutyOverview,
 };

@@ -4,8 +4,17 @@ const reportService = require('../../services/pharmacy/report.service');
 
 
 const getDashboardStats = asyncHandler(async (req, res) => {
+    if (req.query.full === 'true' || req.query.aggregated === 'true') {
+        const aggregated = await reportService.getAggregatedDashboard(req.user.branchId);
+        return res.status(200).json(new ApiResponse(200, aggregated, 'Aggregated dashboard statistics fetched successfully'));
+    }
     const stats = await reportService.getDashboardStats(req.user.branchId);
     res.status(200).json(new ApiResponse(200, stats, 'Dashboard statistics fetched successfully'));
+});
+
+const getAggregatedDashboard = asyncHandler(async (req, res) => {
+    const aggregated = await reportService.getAggregatedDashboard(req.user.branchId);
+    res.status(200).json(new ApiResponse(200, aggregated, 'Aggregated dashboard fetched successfully'));
 });
 
 const getSalesReport = asyncHandler(async (req, res) => {
@@ -28,6 +37,7 @@ const getGstReport = asyncHandler(async (req, res) => {
 
 module.exports = {
     getDashboardStats,
+    getAggregatedDashboard,
     getSalesReport,
     getTopSellingMedicines,
     getGstReport,

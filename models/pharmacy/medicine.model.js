@@ -125,6 +125,10 @@ medicineSchema.virtual('batches', {
     foreignField: 'medicine_id',
 });
 
+medicineSchema.index({ branch_id: 1, is_active: 1, name: 1 });
+medicineSchema.index({ branch_id: 1, category_id: 1 });
+medicineSchema.index({ branch_id: 1, sku_barcode: 1 });
+
 const Medicine = mongoose.model('Medicine', medicineSchema);
 
 module.exports = Medicine;

@@ -15,6 +15,7 @@ const { InvoiceItem } = require('./invoice-item.model');
 const StockLog = require('./stock-log.model');
 const Notification = require('./notification.model');
 const OTP = require('./otp.model');
+const PharmacyReturn = require('./return.model');
 
 module.exports = {
     mongoose,
@@ -33,4 +34,5 @@ module.exports = {
     StockLog,
     Notification,
     OTP,
+    PharmacyReturn,
 };

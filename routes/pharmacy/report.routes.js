@@ -9,6 +9,7 @@ router.use(authenticateToken);
 router.use(authorizeFeature(FEATURES.REPORTS_VIEW));
 
 router.get('/dashboard', reportController.getDashboardStats);
+router.get('/dashboard/aggregated', reportController.getAggregatedDashboard);
 router.get('/sales', reportController.getSalesReport);
 router.get('/top-medicines', reportController.getTopSellingMedicines);
 router.get('/gst', reportController.getGstReport);

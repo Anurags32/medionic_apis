@@ -16,6 +16,7 @@ const errorHandler = (err, req, res, next) => {
             success: false,
             statusCode,
             message: err.message,
+            errors: err.details || [],
             error: {
                 code: err.errorCode || 'REQUEST_ERROR',
                 details: err.details || [],

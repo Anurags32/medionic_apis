@@ -96,6 +96,15 @@ const loginUser = async (email, password) => {
         throw new ApiError(401, 'Invalid email or password', 'INVALID_CREDENTIALS');
     }
 
+    if (user.lock_until && user.lock_until > new Date()) {
+        const minutesLeft = Math.ceil((user.lock_until.getTime() - Date.now()) / (60 * 1000));
+        throw new ApiError(
+            423,
+            `Account is temporarily locked due to repeated failed login attempts. Please try again after ${minutesLeft} minute(s).`,
+            'ACCOUNT_LOCKED'
+        );
+    }
+
     if (user.is_blocked) {
         throw new ApiError(
             403,
@@ -116,8 +125,17 @@ const loginUser = async (email, password) => {
 
     const isPasswordCorrect = await bcrypt.compare(password, user.password_hash);
     if (!isPasswordCorrect) {
+        user.failed_login_attempts = (user.failed_login_attempts || 0) + 1;
+        if (user.failed_login_attempts >= 5) {
+            user.lock_until = new Date(Date.now() + 15 * 60 * 1000);
+        }
+        await user.save();
         throw new ApiError(401, 'Invalid email or password', 'INVALID_CREDENTIALS');
     }
+
+    // Reset failed login attempts on successful login
+    user.failed_login_attempts = 0;
+    user.lock_until = null;
 
     const livePermissions = user.role === ROLES.PHARMACY_OWNER
         ? DEFAULT_ROLE_PERMISSIONS[ROLES.PHARMACY_OWNER]
@@ -146,6 +164,8 @@ const loginUser = async (email, password) => {
         phone: user.phone,
         role: user.role,
         features_granted: livePermissions,
+        mustChangePassword: Boolean(user.must_change_password),
+        must_change_password: Boolean(user.must_change_password),
         duty_status: user.duty_status || 'OFF_DUTY',
         current_location: user.current_location,
         branch_id: user.branch_id.toString(),
@@ -157,6 +177,7 @@ const loginUser = async (email, password) => {
                   gstin: branch.gstin,
                   drug_license_no: branch.drug_license_no,
                   is_available: branch.is_available,
+                  subscription: branch.getSubscriptionDetails ? branch.getSubscriptionDetails() : null,
               }
             : null,
     };
@@ -329,6 +350,7 @@ const changePassword = async (userId, currentPassword, newPassword) => {
 
     const salt = await bcrypt.genSalt(10);
     user.password_hash = await bcrypt.hash(newPassword, salt);
+    user.must_change_password = false;
     user.token_version = (user.token_version || 0) + 1;
     await user.save();
 
@@ -336,13 +358,59 @@ const changePassword = async (userId, currentPassword, newPassword) => {
 };
 
 const getProfile = async (userId) => {
-    const user = await User.findById(userId).populate('branch');
+    const user = await User.findById(userId);
 
     if (!user) {
         throw new ApiError(404, 'User not found', 'USER_NOT_FOUND');
     }
 
-    return user;
+    const branch = user.branch_id ? await Branch.findById(user.branch_id) : null;
+    const subscription = branch ? branch.getSubscriptionDetails() : null;
+
+    const livePermissions = user.role === ROLES.PHARMACY_OWNER
+        ? DEFAULT_ROLE_PERMISSIONS[ROLES.PHARMACY_OWNER]
+        : (user.features_granted || DEFAULT_ROLE_PERMISSIONS[user.role] || []);
+
+    const branchData = branch
+        ? {
+              id: branch._id.toString(),
+              name: branch.name,
+              code: branch.code,
+              gstin: branch.gstin,
+              drug_license_no: branch.drug_license_no,
+              address: branch.address,
+              pincode: branch.pincode,
+              is_available: branch.is_available,
+              subscription,
+          }
+        : null;
+
+    const userSafe = {
+        id: user._id.toString(),
+        userId: user._id.toString(),
+        full_name: user.full_name,
+        email: user.email,
+        phone: user.phone,
+        role: user.role,
+        features_granted: livePermissions,
+        mustChangePassword: Boolean(user.must_change_password),
+        must_change_password: Boolean(user.must_change_password),
+        duty_status: user.duty_status || 'OFF_DUTY',
+        battery_level: user.battery_level !== undefined && user.battery_level !== null ? user.battery_level : null,
+        active_counter: user.active_counter || null,
+        current_location: user.current_location,
+        branch_id: user.branch_id ? user.branch_id.toString() : null,
+        branch: branchData,
+        branchId: user.branch_id ? user.branch_id.toString() : null,
+    };
+
+    return {
+        user: userSafe,
+        ...userSafe,
+        role: user.role,
+        branch: branchData,
+        subscription,
+    };
 };
 
 module.exports = {

@@ -49,6 +49,33 @@ const branchSchema = new mongoose.Schema(
             type: Boolean,
             default: true,
         },
+        pincode: {
+            type: String,
+            trim: true,
+        },
+        subscription: {
+            plan_name: {
+                type: String,
+                default: 'Standard',
+            },
+            status: {
+                type: String,
+                enum: ['ACTIVE', 'EXPIRING_SOON', 'EXPIRED'],
+                default: 'ACTIVE',
+            },
+            start_date: {
+                type: Date,
+                default: Date.now,
+            },
+            expiry_date: {
+                type: Date,
+                default: () => new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+            },
+            auto_renew: {
+                type: Boolean,
+                default: false,
+            },
+        },
         latitude: {
             type: Number,
             default: null,
@@ -85,12 +112,40 @@ const branchSchema = new mongoose.Schema(
     }
 );
 
+branchSchema.methods.getSubscriptionDetails = function () {
+    const now = new Date();
+    const expiry = this.subscription?.expiry_date ? new Date(this.subscription.expiry_date) : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    const diffMs = expiry.getTime() - now.getTime();
+    const daysLeft = Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
+
+    let status = 'ACTIVE';
+    if (daysLeft === 0 || expiry < now) {
+        status = 'EXPIRED';
+    } else if (daysLeft <= 7) {
+        status = 'EXPIRING_SOON';
+    }
+
+    return {
+        plan: this.subscription?.plan_name || 'Standard',
+        plan_name: this.subscription?.plan_name || 'Standard',
+        status,
+        expiryDate: expiry.toISOString(),
+        expiry_date: expiry.toISOString(),
+        daysLeft,
+        days_left: daysLeft,
+        isExpired: status === 'EXPIRED',
+        is_expired: status === 'EXPIRED',
+    };
+};
+
+branchSchema.index({ owner_id: 1, is_active: 1 });
+branchSchema.index({ gstin: 1 });
+
 branchSchema.virtual('staff', {
     ref: 'PharmacyStaff',
     localField: '_id',
     foreignField: 'branch_id',
 });
-
 
 const Branch = mongoose.model('Branch', branchSchema);
 

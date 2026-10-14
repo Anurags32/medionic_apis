@@ -75,6 +75,9 @@ const getMyBranches = async (ownerUser) => {
         bJson.on_duty_staff = branchStaff.filter((s) => s.duty_status === 'ON_DUTY').length;
         bJson.online_staff = branchStaff.filter((s) => s.is_online).length;
         bJson.is_current_active = branch._id.toString() === currentBranchId.toString();
+        const sub = branch.getSubscriptionDetails();
+        bJson.subscription = sub;
+        bJson.plan = sub;
         return bJson;
     });
 
@@ -95,7 +98,57 @@ const getBranchDetails = async (branchId, user = null) => {
         throw new ApiError(403, 'You do not have permission to view other branches', 'CROSS_BRANCH_FORBIDDEN');
     }
 
-    return branch;
+    const bJson = branch.toJSON();
+    const subscriptionInfo = branch.getSubscriptionDetails();
+    bJson.subscription = subscriptionInfo;
+    bJson.plan = subscriptionInfo;
+    bJson.subscription_status = subscriptionInfo.status;
+    bJson.days_left = subscriptionInfo.daysLeft;
+
+    return bJson;
+};
+
+const getBranchSubscription = async (branchId, user = null) => {
+    const branch = await Branch.findById(branchId);
+    if (!branch) {
+        throw new ApiError(404, 'Branch not found', 'BRANCH_NOT_FOUND');
+    }
+
+    if (user && user.role !== ROLES.PHARMACY_OWNER && branch._id.toString() !== user.branchId.toString()) {
+        throw new ApiError(403, 'You do not have permission to view this branch subscription', 'BRANCH_ACCESS_DENIED');
+    }
+
+    return branch.getSubscriptionDetails();
+};
+
+const renewBranchSubscription = async (branchId, payload = {}, user = null) => {
+    const branch = await Branch.findById(branchId);
+    if (!branch) {
+        throw new ApiError(404, 'Branch not found', 'BRANCH_NOT_FOUND');
+    }
+
+    if (user && user.role === ROLES.PHARMACY_OWNER && branch.owner_id && branch.owner_id.toString() !== user.id.toString() && branch._id.toString() !== user.branchId.toString()) {
+        throw new ApiError(403, 'You do not have permission to renew subscription for this branch', 'BRANCH_ACCESS_DENIED');
+    }
+
+    const durationDays = parseInt(payload.days || payload.durationDays || 30);
+    const planName = payload.plan || payload.plan_name || 'Standard';
+
+    const now = new Date();
+    let currentExpiry = branch.subscription?.expiry_date ? new Date(branch.subscription.expiry_date) : now;
+    const baseDate = currentExpiry > now ? currentExpiry : now;
+    const newExpiry = new Date(baseDate.getTime() + durationDays * 24 * 60 * 60 * 1000);
+
+    branch.subscription = {
+        plan_name: planName,
+        status: 'ACTIVE',
+        start_date: branch.subscription?.start_date || now,
+        expiry_date: newExpiry,
+        auto_renew: Boolean(payload.auto_renew),
+    };
+
+    await branch.save();
+    return branch.getSubscriptionDetails();
 };
 
 const updateBranchDetails = async (branchId, payload, user = null) => {
@@ -108,12 +161,15 @@ const updateBranchDetails = async (branchId, payload, user = null) => {
         throw new ApiError(403, 'You do not have permission to edit this branch', 'BRANCH_ACCESS_DENIED');
     }
 
-    const { name, drug_license_no, gstin, address, contact_number, email, latitude, longitude, is_available } = payload;
+    const { name, drug_license_no, gstin, address, pincode, contact_number, email, latitude, longitude, is_available } = payload;
 
     if (name) branch.name = name;
     if (drug_license_no) branch.drug_license_no = drug_license_no;
     if (gstin) branch.gstin = gstin;
     if (address !== undefined) branch.address = address;
+    if (pincode !== undefined) branch.pincode = pincode;
+    if (contact_number !== undefined) branch.contact_number = contact_number;
+    if (email !== undefined) branch.email = email;
     if (contact_number !== undefined) branch.contact_number = contact_number;
     if (email !== undefined) branch.email = email;
     if (latitude !== undefined) branch.latitude = parseFloat(latitude);
@@ -220,6 +276,8 @@ module.exports = {
     createBranch,
     getMyBranches,
     getBranchDetails,
+    getBranchSubscription,
+    renewBranchSubscription,
     updateBranchDetails,
     toggleBranchAvailability,
     switchActiveBranch,

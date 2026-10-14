@@ -1,15 +1,20 @@
 const mongoose = require('mongoose');
-const { Invoice, Order, Medicine, MedicineBatch, User } = require('../../models/pharmacy');
-
+const { Invoice, Order, User, Branch } = require('../../models/pharmacy');
+const inventoryService = require('./inventory.service');
+const reportCache = require('../../utils/pharmacyCache');
 
 const getDashboardStats = async (branchId) => {
+    const cacheKey = `branch:${branchId}:dashboard_stats`;
+    const cached = reportCache.get(cacheKey);
+    if (cached) return cached;
+
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
     const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
     const branchObjectId = new mongoose.Types.ObjectId(branchId);
 
-    const [todayAgg, monthAgg, pendingOrdersCount, staffCount, medicines, expiringBatchesCount] = await Promise.all([
+    const [todayAgg, monthAgg, pendingOrdersCount, staffCount, alertCounts, branch] = await Promise.all([
         Invoice.aggregate([
             { $match: { branch_id: branchObjectId, invoice_date: { $gte: today } } },
             {
@@ -39,27 +44,13 @@ const getDashboardStats = async (branchId) => {
             is_active: true,
             is_blocked: false,
         }),
-        Medicine.find({ branch_id: branchObjectId, is_active: true }).populate({
-            path: 'batches',
-            match: { is_active: true },
-        }),
-        MedicineBatch.countDocuments({
-            branch_id: branchObjectId,
-            is_active: true,
-            current_stock: { $gt: 0 },
-            expiry_date: { $lte: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000) },
-        }),
+        inventoryService.getInventoryAlertCounts(branchId, 60),
+        Branch.findById(branchObjectId),
     ]);
 
-    let lowStockCount = 0;
-    for (const med of medicines) {
-        const total = (med.batches || []).reduce((acc, b) => acc + (b.current_stock || 0), 0);
-        if (total <= (med.low_stock_threshold || 10)) {
-            lowStockCount++;
-        }
-    }
+    const subscription = branch ? branch.getSubscriptionDetails() : null;
 
-    return {
+    const stats = {
         today: {
             sales: parseFloat(todayAgg[0]?.total_sales_today || 0),
             invoices: parseInt(todayAgg[0]?.total_invoices_today || 0),
@@ -70,9 +61,22 @@ const getDashboardStats = async (branchId) => {
         },
         pending_orders: pendingOrdersCount,
         active_staff: staffCount,
-        low_stock_medicines: lowStockCount,
-        expiring_batches_60d: expiringBatchesCount,
+        low_stock_medicines: alertCounts.lowStockCount,
+        expiring_batches_60d: alertCounts.expiringBatchesCount,
+        low_stock_count: alertCounts.lowStockCount,
+        expiring_soon_count: alertCounts.expiringBatchesCount,
+        inventory_status: {
+            low_stock_count: alertCounts.lowStockCount,
+            expiring_soon_count: alertCounts.expiringBatchesCount,
+        },
+        subscription,
+        plan: subscription,
+        subscription_status: subscription?.status || 'ACTIVE',
+        days_left: subscription?.daysLeft !== undefined ? subscription.daysLeft : 30,
     };
+
+    reportCache.set(cacheKey, stats, 15);
+    return stats;
 };
 
 const getSalesReport = async (branchId, startDate, endDate) => {
@@ -183,8 +187,42 @@ const getGstSummaryReport = async (branchId, startDate, endDate) => {
     };
 };
 
+const getAggregatedDashboard = async (branchId) => {
+    const cacheKey = `branch:${branchId}:aggregated_dashboard`;
+    const cached = reportCache.get(cacheKey);
+    if (cached) return cached;
+
+    const [stats, topMedicines, gstSummary, alertData] = await Promise.all([
+        getDashboardStats(branchId),
+        getTopSellingMedicines(branchId, 5),
+        getGstSummaryReport(branchId),
+        inventoryService.getInventoryAlertCounts(branchId, 60),
+    ]);
+
+    const result = {
+        ...stats,
+        stats,
+        dashboard: stats,
+        top_medicines: topMedicines,
+        gst_summary: gstSummary,
+        alerts: {
+            low_stock: alertData.lowStockMedicines,
+            expiring: alertData.expiringBatches,
+            low_stock_count: alertData.lowStockCount,
+            expiring_soon_count: alertData.expiringBatchesCount,
+        },
+        recent_low_stock: alertData.lowStockMedicines.slice(0, 5),
+        recent_expiring: alertData.expiringBatches.slice(0, 5),
+        subscription: stats.subscription,
+    };
+
+    reportCache.set(cacheKey, result, 15);
+    return result;
+};
+
 module.exports = {
     getDashboardStats,
+    getAggregatedDashboard,
     getSalesReport,
     getTopSellingMedicines,
     getGstSummaryReport,

@@ -19,6 +19,8 @@ router.use(authenticateToken);
 // 1. Staff Duty & Real-time Location Updates (Accessible by authenticated staff)
 router.post('/duty-status', validate(updateDutyRules), staffController.updateDutyStatus);
 router.post('/location', validate(updateLocationRules), staffController.updateLocation);
+router.post('/device-status', staffController.updateDeviceStatus);
+router.patch('/device-status', staffController.updateDeviceStatus);
 
 // 2. Owner-only Management & Monitoring Routes
 router.get('/duty-overview', authorizeOwnerOnly, staffController.getDutyOverview);

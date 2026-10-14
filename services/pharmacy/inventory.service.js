@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const { Medicine, MedicineBatch, Category, StockLog, Branch } = require('../../models/pharmacy');
 const ApiError = require('../../utils/ApiError');
 const { STOCK_TRANSACTION_TYPES, STOCK_LOG_TYPES } = require('../../config/pharmacyConstants');
@@ -158,6 +159,9 @@ const getMedicines = async (branchId, query = {}) => {
     const limitNum = parseInt(limit) || 50;
     const skip = (pageNum - 1) * limitNum;
 
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
     const [medicines, total] = await Promise.all([
         Medicine.find(filter)
             .populate('category', 'name')
@@ -168,28 +172,53 @@ const getMedicines = async (branchId, query = {}) => {
             })
             .sort({ name: 1 })
             .skip(skip)
-            .limit(limitNum),
+            .limit(limitNum)
+            .lean({ virtuals: true }),
         Medicine.countDocuments(filter),
     ]);
 
     const result = medicines.map((med) => {
-        const medJson = med.toJSON();
-        const totalStock = (medJson.batches || []).reduce((acc, b) => acc + (b.current_stock || 0), 0);
+        const medJson = { ...med, id: med._id ? med._id.toString() : med.id };
+        let totalStock = 0;
+        let sellableStock = 0;
+        let hasExpired = false;
+
+        const processedBatches = (medJson.batches || []).map((b) => {
+            const bExpiry = new Date(b.expiry_date);
+            const isExpired = bExpiry < today;
+            if (isExpired) hasExpired = true;
+            const stock = b.current_stock || 0;
+            totalStock += stock;
+            if (!isExpired) {
+                sellableStock += stock;
+            }
+            return {
+                ...b,
+                expired: isExpired,
+                is_expired: isExpired,
+            };
+        });
+
+        medJson.batches = processedBatches;
         medJson.total_stock = totalStock;
-        medJson.is_low_stock = totalStock <= (medJson.low_stock_threshold || 10);
+        medJson.sellableQty = sellableStock;
+        medJson.sellable_stock = sellableStock;
+        medJson.expired = hasExpired;
+        medJson.is_expired = hasExpired;
+        medJson.is_low_stock = sellableStock <= (medJson.low_stock_threshold !== undefined ? medJson.low_stock_threshold : 10);
 
         // Fallback pricing if medicine level pricing is not set but batches exist
-        if ((!medJson.mrp || medJson.mrp === 0) && medJson.batches && medJson.batches.length > 0) {
-            medJson.mrp = medJson.batches[0].mrp || 0;
+        if ((!medJson.mrp || medJson.mrp === 0) && processedBatches.length > 0) {
+            medJson.mrp = processedBatches[0].mrp || 0;
         }
-        if ((!medJson.sale_price || medJson.sale_price === 0) && medJson.batches && medJson.batches.length > 0) {
-            medJson.sale_price = medJson.batches[0].sale_price || medJson.mrp || 0;
+        if ((!medJson.sale_price || medJson.sale_price === 0) && processedBatches.length > 0) {
+            medJson.sale_price = processedBatches[0].sale_price || medJson.mrp || 0;
         }
-        if ((!medJson.purchase_rate || medJson.purchase_rate === 0) && medJson.batches && medJson.batches.length > 0) {
-            medJson.purchase_rate = medJson.batches[0].purchase_rate || 0;
+        if ((!medJson.purchase_rate || medJson.purchase_rate === 0) && processedBatches.length > 0) {
+            medJson.purchase_rate = processedBatches[0].purchase_rate || 0;
         }
-        if ((!medJson.gst_rate || medJson.gst_rate === 0) && medJson.batches && medJson.batches.length > 0) {
-            medJson.gst_rate = medJson.batches[0].gst_rate || 0;
+        if ((!medJson.gst_rate || medJson.gst_rate === 0) && processedBatches.length > 0) {
+            medJson.gst_rate = processedBatches[0].gst_rate || 0;
         }
 
         return medJson;
@@ -207,6 +236,9 @@ const getMedicines = async (branchId, query = {}) => {
 };
 
 const getMedicineById = async (branchId, medicineId) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
     const medicine = await Medicine.findOne({
         _id: medicineId,
         branch_id: branchId,
@@ -223,21 +255,45 @@ const getMedicineById = async (branchId, medicineId) => {
     }
 
     const medJson = medicine.toJSON();
-    const totalStock = (medJson.batches || []).reduce((acc, b) => acc + (b.current_stock || 0), 0);
-    medJson.total_stock = totalStock;
-    medJson.is_low_stock = totalStock <= (medJson.low_stock_threshold || 10);
+    let totalStock = 0;
+    let sellableStock = 0;
+    let hasExpired = false;
 
-    if ((!medJson.mrp || medJson.mrp === 0) && medJson.batches && medJson.batches.length > 0) {
-        medJson.mrp = medJson.batches[0].mrp || 0;
+    const processedBatches = (medJson.batches || []).map((b) => {
+        const bExpiry = new Date(b.expiry_date);
+        const isExpired = bExpiry < today;
+        if (isExpired) hasExpired = true;
+        const stock = b.current_stock || 0;
+        totalStock += stock;
+        if (!isExpired) {
+            sellableStock += stock;
+        }
+        return {
+            ...b,
+            expired: isExpired,
+            is_expired: isExpired,
+        };
+    });
+
+    medJson.batches = processedBatches;
+    medJson.total_stock = totalStock;
+    medJson.sellableQty = sellableStock;
+    medJson.sellable_stock = sellableStock;
+    medJson.expired = hasExpired;
+    medJson.is_expired = hasExpired;
+    medJson.is_low_stock = sellableStock <= (medJson.low_stock_threshold !== undefined ? medJson.low_stock_threshold : 10);
+
+    if ((!medJson.mrp || medJson.mrp === 0) && processedBatches.length > 0) {
+        medJson.mrp = processedBatches[0].mrp || 0;
     }
-    if ((!medJson.sale_price || medJson.sale_price === 0) && medJson.batches && medJson.batches.length > 0) {
-        medJson.sale_price = medJson.batches[0].sale_price || medJson.mrp || 0;
+    if ((!medJson.sale_price || medJson.sale_price === 0) && processedBatches.length > 0) {
+        medJson.sale_price = processedBatches[0].sale_price || medJson.mrp || 0;
     }
-    if ((!medJson.purchase_rate || medJson.purchase_rate === 0) && medJson.batches && medJson.batches.length > 0) {
-        medJson.purchase_rate = medJson.batches[0].purchase_rate || 0;
+    if ((!medJson.purchase_rate || medJson.purchase_rate === 0) && processedBatches.length > 0) {
+        medJson.purchase_rate = processedBatches[0].purchase_rate || 0;
     }
-    if ((!medJson.gst_rate || medJson.gst_rate === 0) && medJson.batches && medJson.batches.length > 0) {
-        medJson.gst_rate = medJson.batches[0].gst_rate || 0;
+    if ((!medJson.gst_rate || medJson.gst_rate === 0) && processedBatches.length > 0) {
+        medJson.gst_rate = processedBatches[0].gst_rate || 0;
     }
 
     return medJson;
@@ -420,6 +476,9 @@ const processReturn = async (branchId, userId, payload) => {
 };
 
 const lookupByBarcode = async (branchId, barcode) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
     const medicine = await Medicine.findOne({
         branch_id: branchId,
         sku_barcode: barcode,
@@ -435,9 +494,30 @@ const lookupByBarcode = async (branchId, barcode) => {
     }
 
     const medJson = medicine.toJSON();
-    const totalStock = (medJson.batches || []).reduce((acc, b) => acc + (b.current_stock || 0), 0);
+    let totalStock = 0;
+    let sellableStock = 0;
+    let hasExpired = false;
+
+    medJson.batches = (medJson.batches || []).map((b) => {
+        const isExpired = new Date(b.expiry_date) < today;
+        if (isExpired) hasExpired = true;
+        totalStock += b.current_stock || 0;
+        if (!isExpired) {
+            sellableStock += b.current_stock || 0;
+        }
+        return {
+            ...b,
+            expired: isExpired,
+            is_expired: isExpired,
+        };
+    });
+
     medJson.total_stock = totalStock;
-    medJson.is_low_stock = totalStock <= (medJson.low_stock_threshold || 10);
+    medJson.sellableQty = sellableStock;
+    medJson.sellable_stock = sellableStock;
+    medJson.expired = hasExpired;
+    medJson.is_expired = hasExpired;
+    medJson.is_low_stock = sellableStock <= (medJson.low_stock_threshold || 10);
 
     if ((!medJson.mrp || medJson.mrp === 0) && medJson.batches && medJson.batches.length > 0) {
         medJson.mrp = medJson.batches[0].mrp || 0;
@@ -449,9 +529,17 @@ const lookupByBarcode = async (branchId, barcode) => {
     return medJson;
 };
 
-const getLowStockMedicines = async (branchId) => {
+const getInventoryAlertCounts = async (branchId, days = 60) => {
+    const branchObjectId = new mongoose.Types.ObjectId(branchId);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const targetDate = new Date(today);
+    targetDate.setDate(targetDate.getDate() + parseInt(days));
+    targetDate.setHours(23, 59, 59, 999);
+
     const medicines = await Medicine.find({
-        branch_id: branchId,
+        branch_id: branchObjectId,
         is_active: true,
     }).populate({
         path: 'batches',
@@ -460,37 +548,292 @@ const getLowStockMedicines = async (branchId) => {
 
     const lowStockList = [];
     for (const med of medicines) {
-        const totalStock = (med.batches || []).reduce((acc, b) => acc + (b.current_stock || 0), 0);
-        if (totalStock <= (med.low_stock_threshold || 10)) {
-            const item = med.toJSON();
-            item.total_stock = totalStock;
-            if ((!item.mrp || item.mrp === 0) && item.batches && item.batches.length > 0) {
-                item.mrp = item.batches[0].mrp || 0;
+        const medJson = med.toJSON();
+        const nonExpiredBatches = (medJson.batches || []).filter((b) => new Date(b.expiry_date) >= today);
+        const sellableStock = nonExpiredBatches.reduce((acc, b) => acc + (b.current_stock || 0), 0);
+        const totalStock = (medJson.batches || []).reduce((acc, b) => acc + (b.current_stock || 0), 0);
+        const threshold = medJson.low_stock_threshold !== undefined ? medJson.low_stock_threshold : 10;
+
+        if (sellableStock <= threshold) {
+            medJson.total_stock = totalStock;
+            medJson.sellableQty = sellableStock;
+            medJson.sellable_stock = sellableStock;
+            medJson.is_low_stock = true;
+            medJson.expired = (medJson.batches || []).some((b) => new Date(b.expiry_date) < today);
+            if ((!medJson.mrp || medJson.mrp === 0) && medJson.batches && medJson.batches.length > 0) {
+                medJson.mrp = medJson.batches[0].mrp || 0;
             }
-            if ((!item.sale_price || item.sale_price === 0) && item.batches && item.batches.length > 0) {
-                item.sale_price = item.batches[0].sale_price || item.mrp || 0;
+            if ((!medJson.sale_price || medJson.sale_price === 0) && medJson.batches && medJson.batches.length > 0) {
+                medJson.sale_price = medJson.batches[0].sale_price || medJson.mrp || 0;
             }
-            lowStockList.push(item);
+            lowStockList.push(medJson);
         }
     }
 
-    return lowStockList;
-};
-
-const getExpiringBatches = async (branchId, days = 60) => {
-    const targetDate = new Date();
-    targetDate.setDate(targetDate.getDate() + parseInt(days));
-
     const expiringBatches = await MedicineBatch.find({
-        branch_id: branchId,
+        branch_id: branchObjectId,
         is_active: true,
         current_stock: { $gt: 0 },
-        expiry_date: { $lte: targetDate },
+        expiry_date: { $lte: targetDate, $gte: today },
     })
         .populate('medicine', 'name generic_name manufacturer')
         .sort({ expiry_date: 1 });
 
-    return expiringBatches;
+    const formattedExpiringBatches = expiringBatches.map((b) => {
+        const bJson = b.toJSON();
+        bJson.expired = false;
+        bJson.is_expired = false;
+        return bJson;
+    });
+
+    return {
+        lowStockCount: lowStockList.length,
+        low_stock_count: lowStockList.length,
+        lowStockMedicines: lowStockList,
+        expiringBatchesCount: formattedExpiringBatches.length,
+        expiring_soon_count: formattedExpiringBatches.length,
+        expiring_batches_count: formattedExpiringBatches.length,
+        expiringBatches: formattedExpiringBatches,
+    };
+};
+
+const getLowStockMedicines = async (branchId) => {
+    const alertData = await getInventoryAlertCounts(branchId);
+    return alertData.lowStockMedicines;
+};
+
+const getExpiringBatches = async (branchId, days = 60) => {
+    const alertData = await getInventoryAlertCounts(branchId, days);
+    return alertData.expiringBatches;
+};
+
+const createMedicineWithBatch = async (branchId, userId, payload, file) => {
+    const {
+        category_id,
+        name,
+        generic_name,
+        sku_barcode,
+        sku,
+        manufacturer,
+        hsn_code,
+        form,
+        unit,
+        unit_quantity,
+        is_prescription_required,
+        low_stock_threshold,
+        side_effects,
+        storage_instructions,
+        batch_number,
+        batchNumber,
+        mfg_date,
+        mfgDate,
+        expiry_date,
+        expiryDate,
+        purchase_rate,
+        purchaseRate,
+        purchasePrice,
+        mrp,
+        sale_price,
+        salePrice,
+        sellingPrice,
+        gst_rate,
+        gstRate,
+        initial_stock,
+        initialStock,
+        quantity,
+        rack_location,
+        rackLocation,
+    } = payload;
+
+    const effectiveSku = (sku_barcode || sku || '').trim();
+    const effectiveBatchNumber = (batch_number || batchNumber || '').trim();
+    const effectiveExpiryDate = expiry_date || expiryDate;
+    const effectiveMfgDate = mfg_date || mfgDate || null;
+    const parsedPurchaseRate = parseFloat(purchase_rate || purchaseRate || purchasePrice || 0);
+    const parsedMrp = parseFloat(mrp || 0);
+    const parsedSalePrice = parseFloat(sale_price || salePrice || sellingPrice || parsedMrp || 0);
+    const parsedGstRate = parseFloat(gst_rate || gstRate || 0);
+    const parsedInitialStock = parseInt(initial_stock !== undefined ? initial_stock : (initialStock !== undefined ? initialStock : (quantity || 0)));
+    const effectiveRack = (rack_location || rackLocation || '').trim();
+
+    if (!name || name.trim() === '') {
+        throw new ApiError(400, 'Medicine name is required', 'NAME_REQUIRED');
+    }
+    if (!effectiveBatchNumber) {
+        throw new ApiError(400, 'Batch number is required', 'BATCH_NUMBER_REQUIRED');
+    }
+    if (!effectiveExpiryDate) {
+        throw new ApiError(400, 'Expiry date is required', 'EXPIRY_DATE_REQUIRED');
+    }
+
+    const expDate = new Date(effectiveExpiryDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (isNaN(expDate.getTime()) || expDate <= today) {
+        throw new ApiError(400, 'Batch expiry date must be in the future', 'INVALID_EXPIRY_DATE');
+    }
+    if (parsedPurchaseRate < 0 || parsedMrp < 0 || parsedSalePrice < 0) {
+        throw new ApiError(400, 'Price values cannot be negative', 'INVALID_PRICE');
+    }
+    if (parsedMrp < parsedPurchaseRate) {
+        throw new ApiError(400, 'MRP cannot be less than purchase price', 'INVALID_MRP');
+    }
+    if (parsedInitialStock < 0) {
+        throw new ApiError(400, 'Initial stock cannot be negative', 'INVALID_STOCK');
+    }
+
+    const imageUrl = file ? `/uploads/medicines/${file.filename}` : null;
+
+    let session = null;
+    let useSession = true;
+    try {
+        session = await mongoose.startSession();
+        session.startTransaction();
+    } catch (e) {
+        useSession = false;
+    }
+
+    let createdMedicine = null;
+    let createdBatch = null;
+    let createdStockLog = null;
+
+    try {
+        const medicineDoc = {
+            branch_id: branchId,
+            category_id: category_id || null,
+            name: name.trim(),
+            generic_name: generic_name ? generic_name.trim() : '',
+            sku_barcode: effectiveSku,
+            manufacturer: manufacturer ? manufacturer.trim() : '',
+            hsn_code: hsn_code || '',
+            form: form || 'Tablet',
+            unit: unit || 'Strip',
+            unit_quantity: unit_quantity ? parseInt(unit_quantity) : 10,
+            is_prescription_required: is_prescription_required === true || is_prescription_required === 'true',
+            low_stock_threshold: low_stock_threshold ? parseInt(low_stock_threshold) : 10,
+            side_effects,
+            storage_instructions,
+            image_url: imageUrl,
+            mrp: parsedMrp,
+            sale_price: parsedSalePrice,
+            purchase_rate: parsedPurchaseRate,
+            gst_rate: parsedGstRate,
+        };
+
+        if (useSession && session) {
+            try {
+                const [med] = await Medicine.create([medicineDoc], { session });
+                createdMedicine = med;
+
+                const batchDoc = {
+                    branch_id: branchId,
+                    medicine_id: createdMedicine._id,
+                    batch_number: effectiveBatchNumber,
+                    mfg_date: effectiveMfgDate ? new Date(effectiveMfgDate) : null,
+                    expiry_date: expDate,
+                    purchase_rate: parsedPurchaseRate,
+                    mrp: parsedMrp,
+                    sale_price: parsedSalePrice,
+                    gst_rate: parsedGstRate,
+                    current_stock: parsedInitialStock,
+                    rack_location: effectiveRack,
+                };
+
+                const [b] = await MedicineBatch.create([batchDoc], { session });
+                createdBatch = b;
+
+                if (parsedInitialStock > 0) {
+                    const [log] = await StockLog.create(
+                        [
+                            {
+                                branch_id: branchId,
+                                medicine_id: createdMedicine._id,
+                                batch_id: createdBatch._id,
+                                type: STOCK_TRANSACTION_TYPES?.PURCHASE_IN || STOCK_LOG_TYPES.PURCHASE_IN,
+                                quantity: parsedInitialStock,
+                                balance_after: parsedInitialStock,
+                                unit_cost: parsedPurchaseRate,
+                                remarks: 'Initial Batch Stocking (Atomic Creation)',
+                                created_by_user_id: userId,
+                            },
+                        ],
+                        { session }
+                    );
+                    createdStockLog = log;
+                }
+
+                await session.commitTransaction();
+                session.endSession();
+            } catch (txErr) {
+                await session.abortTransaction();
+                session.endSession();
+                if (txErr.code === 20 || String(txErr.message).includes('Transaction numbers are only allowed')) {
+                    useSession = false;
+                } else {
+                    throw txErr;
+                }
+            }
+        }
+
+        if (!useSession) {
+            createdMedicine = await Medicine.create(medicineDoc);
+            try {
+                createdBatch = await MedicineBatch.create({
+                    branch_id: branchId,
+                    medicine_id: createdMedicine._id,
+                    batch_number: effectiveBatchNumber,
+                    mfg_date: effectiveMfgDate ? new Date(effectiveMfgDate) : null,
+                    expiry_date: expDate,
+                    purchase_rate: parsedPurchaseRate,
+                    mrp: parsedMrp,
+                    sale_price: parsedSalePrice,
+                    gst_rate: parsedGstRate,
+                    current_stock: parsedInitialStock,
+                    rack_location: effectiveRack,
+                });
+
+                if (parsedInitialStock > 0) {
+                    createdStockLog = await StockLog.create({
+                        branch_id: branchId,
+                        medicine_id: createdMedicine._id,
+                        batch_id: createdBatch._id,
+                        type: STOCK_TRANSACTION_TYPES?.PURCHASE_IN || STOCK_LOG_TYPES.PURCHASE_IN,
+                        quantity: parsedInitialStock,
+                        balance_after: parsedInitialStock,
+                        unit_cost: parsedPurchaseRate,
+                        remarks: 'Initial Batch Stocking (Atomic Creation)',
+                        created_by_user_id: userId,
+                    });
+                }
+            } catch (err) {
+                if (createdMedicine) {
+                    await Medicine.findByIdAndDelete(createdMedicine._id);
+                }
+                throw err;
+            }
+        }
+
+        const medJson = createdMedicine.toJSON();
+        medJson.batches = [createdBatch.toJSON()];
+        medJson.total_stock = parsedInitialStock;
+        medJson.sellableQty = parsedInitialStock;
+        medJson.sellable_stock = parsedInitialStock;
+        medJson.expired = false;
+        medJson.is_expired = false;
+        medJson.is_low_stock = parsedInitialStock <= (createdMedicine.low_stock_threshold || 10);
+
+        return {
+            medicine: medJson,
+            batch: createdBatch.toJSON(),
+            stock_log: createdStockLog,
+        };
+    } catch (err) {
+        if (useSession && session) {
+            await session.abortTransaction();
+            session.endSession();
+        }
+        throw err;
+    }
 };
 
 module.exports = {
@@ -501,9 +844,11 @@ module.exports = {
     getMedicines,
     getMedicineById,
     createBatch,
+    createMedicineWithBatch,
     adjustStock,
     processReturn,
     lookupByBarcode,
+    getInventoryAlertCounts,
     getLowStockMedicines,
     getExpiringBatches,
 };

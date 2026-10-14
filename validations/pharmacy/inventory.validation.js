@@ -9,6 +9,7 @@ const createCategoryRules = [
     body('name')
         .trim()
         .notEmpty().withMessage('Category name is required')
+        .bail()
         .matches(CATEGORY_NAME_REGEX).withMessage('Special characters not allowed in category name. Only letters, numbers, and basic symbols (- & /) are allowed.'),
     body('description')
         .optional()
@@ -19,112 +20,182 @@ const createMedicineRules = [
     body('name')
         .trim()
         .notEmpty().withMessage('Medicine name is required')
+        .bail()
         .matches(MEDICINE_NAME_REGEX).withMessage('Special characters not allowed in medicine name. Only letters, numbers, spaces and standard symbols (- . ( ) / + %) are allowed.'),
+
     body('category_id')
         .optional({ checkFalsy: true })
         .isMongoId().withMessage('Valid category_id is required'),
+
     body('generic_name')
-        .optional()
+        .optional({ checkFalsy: true })
         .trim()
         .matches(GENERAL_TEXT_REGEX).withMessage('Special characters not allowed in generic name.'),
+
     body('sku_barcode')
-        .optional()
+        .if((value) => value !== undefined)
         .trim()
+        .notEmpty().withMessage('SKU is required')
+        .bail()
         .isAlphanumeric('en-US', { ignore: '-_' }).withMessage('SKU/Barcode must be alphanumeric.'),
-    body('manufacturer')
-        .optional()
+
+    body('sku')
+        .if((value, { req }) => value !== undefined && req.body.sku_barcode === undefined)
         .trim()
-        .matches(GENERAL_TEXT_REGEX).withMessage('Special characters not allowed in manufacturer name.'),
+        .notEmpty().withMessage('SKU is required')
+        .bail()
+        .isAlphanumeric('en-US', { ignore: '-_' }).withMessage('SKU/Barcode must be alphanumeric.'),
+
+    body('manufacturer')
+        .if((value) => value !== undefined)
+        .trim()
+        .notEmpty().withMessage('Manufacturer is required')
+        .bail()
+        .matches(GENERAL_TEXT_REGEX).withMessage('Special characters not allowed in manufacturer'),
+
     body('hsn_code')
-        .optional()
+        .optional({ checkFalsy: true })
         .trim()
         .matches(/^[0-9A-Za-z]+$/).withMessage('HSN code must contain only letters and numbers.'),
+
     body('form')
-        .optional()
+        .optional({ checkFalsy: true })
         .trim()
         .isAlpha('en-US', { ignore: ' ' }).withMessage('Form must contain only alphabets (e.g., Tablet, Syrup).'),
+
     body('unit')
-        .optional()
+        .optional({ checkFalsy: true })
         .trim()
         .isString().withMessage('Unit must be a valid string.'),
+
     body('unit_quantity')
-        .optional()
-        .isInt({ min: 1 }).withMessage('Unit quantity must be a positive integer >= 1'),
+        .optional({ checkFalsy: true })
+        .isInt({ min: 1, max: 10000 }).withMessage('Unit quantity must be a positive integer between 1 and 10,000'),
+
     body('is_prescription_required')
         .optional()
         .isBoolean().withMessage('is_prescription_required must be a boolean (true/false)'),
+
     body('low_stock_threshold')
-        .optional()
-        .isInt({ min: 0 }).withMessage('Low stock threshold must be a non-negative integer >= 0'),
-    body('mrp')
-        .optional()
-        .isFloat({ min: 0 }).withMessage('MRP must be a valid number >= 0'),
-    body('sale_price')
-        .optional()
-        .isFloat({ min: 0 }).withMessage('Sale price must be a valid number >= 0'),
+        .optional({ checkFalsy: true })
+        .isInt({ min: 0, max: 100000 }).withMessage('Low stock threshold must be a non-negative integer between 0 and 100,000'),
+
     body('purchase_rate')
-        .optional()
-        .isFloat({ min: 0 }).withMessage('Purchase rate must be a valid number >= 0'),
+        .optional({ checkFalsy: true })
+        .isFloat({ min: 0, max: 10000000 }).withMessage('Purchase rate must be a valid number between 0 and 10,000,000'),
+
+    body('mrp')
+        .optional({ checkFalsy: true })
+        .isFloat({ min: 0, max: 10000000 }).withMessage('MRP must be a valid number between 0 and 10,000,000')
+        .bail()
+        .custom((mrp, { req }) => {
+            const purchaseRate = parseFloat(req.body.purchase_rate || req.body.purchaseRate || req.body.purchasePrice);
+            if (!isNaN(purchaseRate) && parseFloat(mrp) < purchaseRate) {
+                throw new Error('MRP cannot be less than purchase price');
+            }
+            return true;
+        }),
+
+    body('sale_price')
+        .optional({ checkFalsy: true })
+        .isFloat({ min: 0, max: 10000000 }).withMessage('Sale price must be a valid number between 0 and 10,000,000'),
+
     body('gst_rate')
-        .optional()
+        .optional({ checkFalsy: true })
         .isFloat({ min: 0, max: 100 }).withMessage('GST rate must be a valid percentage between 0 and 100'),
 ];
 
 const updateMedicineRules = [
     param('id').isMongoId().withMessage('Valid medicine ID is required'),
+
     body('name')
         .optional()
         .trim()
         .notEmpty().withMessage('Medicine name cannot be empty')
+        .bail()
         .matches(MEDICINE_NAME_REGEX).withMessage('Special characters not allowed in medicine name. Only letters, numbers, spaces and standard symbols (- . ( ) / + %) are allowed.'),
+
     body('category_id')
         .optional({ checkFalsy: true })
         .isMongoId().withMessage('Valid category_id is required'),
+
     body('generic_name')
-        .optional()
+        .optional({ checkFalsy: true })
         .trim()
         .matches(GENERAL_TEXT_REGEX).withMessage('Special characters not allowed in generic name.'),
+
     body('sku_barcode')
-        .optional()
+        .if((value) => value !== undefined)
         .trim()
+        .notEmpty().withMessage('SKU is required')
+        .bail()
         .isAlphanumeric('en-US', { ignore: '-_' }).withMessage('SKU/Barcode must be alphanumeric.'),
-    body('manufacturer')
-        .optional()
+
+    body('sku')
+        .if((value, { req }) => value !== undefined && req.body.sku_barcode === undefined)
         .trim()
-        .matches(GENERAL_TEXT_REGEX).withMessage('Special characters not allowed in manufacturer name.'),
+        .notEmpty().withMessage('SKU is required')
+        .bail()
+        .isAlphanumeric('en-US', { ignore: '-_' }).withMessage('SKU/Barcode must be alphanumeric.'),
+
+    body('manufacturer')
+        .if((value) => value !== undefined)
+        .trim()
+        .notEmpty().withMessage('Manufacturer is required')
+        .bail()
+        .matches(GENERAL_TEXT_REGEX).withMessage('Special characters not allowed in manufacturer'),
+
     body('hsn_code')
-        .optional()
+        .optional({ checkFalsy: true })
         .trim()
         .matches(/^[0-9A-Za-z]+$/).withMessage('HSN code must contain only letters and numbers.'),
+
     body('form')
-        .optional()
+        .optional({ checkFalsy: true })
         .trim()
         .isAlpha('en-US', { ignore: ' ' }).withMessage('Form must contain only alphabets.'),
+
     body('unit')
-        .optional()
+        .optional({ checkFalsy: true })
         .trim()
         .isString().withMessage('Unit must be a valid string.'),
+
     body('unit_quantity')
-        .optional()
-        .isInt({ min: 1 }).withMessage('Unit quantity must be a positive integer >= 1'),
+        .optional({ checkFalsy: true })
+        .isInt({ min: 1, max: 10000 }).withMessage('Unit quantity must be a positive integer between 1 and 10,000'),
+
     body('is_prescription_required')
         .optional()
         .isBoolean().withMessage('is_prescription_required must be a boolean (true/false)'),
+
     body('low_stock_threshold')
-        .optional()
-        .isInt({ min: 0 }).withMessage('Low stock threshold must be a non-negative integer >= 0'),
-    body('mrp')
-        .optional()
-        .isFloat({ min: 0 }).withMessage('MRP must be a valid number >= 0'),
-    body('sale_price')
-        .optional()
-        .isFloat({ min: 0 }).withMessage('Sale price must be a valid number >= 0'),
+        .optional({ checkFalsy: true })
+        .isInt({ min: 0, max: 100000 }).withMessage('Low stock threshold must be a non-negative integer between 0 and 100,000'),
+
     body('purchase_rate')
-        .optional()
-        .isFloat({ min: 0 }).withMessage('Purchase rate must be a valid number >= 0'),
+        .optional({ checkFalsy: true })
+        .isFloat({ min: 0, max: 10000000 }).withMessage('Purchase rate must be a valid number between 0 and 10,000,000'),
+
+    body('mrp')
+        .optional({ checkFalsy: true })
+        .isFloat({ min: 0, max: 10000000 }).withMessage('MRP must be a valid number between 0 and 10,000,000')
+        .bail()
+        .custom((mrp, { req }) => {
+            const purchaseRate = parseFloat(req.body.purchase_rate || req.body.purchaseRate || req.body.purchasePrice);
+            if (!isNaN(purchaseRate) && parseFloat(mrp) < purchaseRate) {
+                throw new Error('MRP cannot be less than purchase price');
+            }
+            return true;
+        }),
+
+    body('sale_price')
+        .optional({ checkFalsy: true })
+        .isFloat({ min: 0, max: 10000000 }).withMessage('Sale price must be a valid number between 0 and 10,000,000'),
+
     body('gst_rate')
-        .optional()
+        .optional({ checkFalsy: true })
         .isFloat({ min: 0, max: 100 }).withMessage('GST rate must be a valid percentage between 0 and 100'),
+
     body('is_active')
         .optional()
         .isBoolean().withMessage('is_active must be a boolean (true/false)'),
@@ -133,38 +204,170 @@ const updateMedicineRules = [
 const createBatchRules = [
     body('medicine_id')
         .notEmpty().withMessage('Valid medicine_id is required')
+        .bail()
         .isMongoId().withMessage('medicine_id must be a valid ObjectId'),
+
     body('batch_number')
         .trim()
         .notEmpty().withMessage('Batch number is required')
+        .bail()
         .matches(/^[a-zA-Z0-9\-_/]+$/).withMessage('Batch number can only contain letters, numbers, hyphens, slashes, and underscores.'),
+
     body('expiry_date')
-        .isISO8601().withMessage('Valid expiry_date (YYYY-MM-DD) is required'),
+        .notEmpty().withMessage('Expiry date is required')
+        .bail()
+        .isISO8601().withMessage('Valid expiry_date (YYYY-MM-DD) is required')
+        .bail()
+        .custom((expiry) => {
+            const expDate = new Date(expiry);
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            if (expDate <= today) {
+                throw new Error('Expiry date must be in the future');
+            }
+            return true;
+        }),
+
     body('mfg_date')
-        .optional()
+        .optional({ checkFalsy: true })
         .isISO8601().withMessage('Valid mfg_date (YYYY-MM-DD) is required'),
+
     body('purchase_rate')
-        .isFloat({ min: 0 }).withMessage('Valid purchase_rate is required (>= 0)'),
+        .notEmpty().withMessage('Purchase rate is required')
+        .bail()
+        .isFloat({ min: 0, max: 10000000 }).withMessage('Valid purchase_rate between 0 and 10,000,000 is required'),
+
     body('mrp')
-        .isFloat({ min: 0 }).withMessage('Valid mrp is required (>= 0)'),
+        .notEmpty().withMessage('MRP is required')
+        .bail()
+        .isFloat({ min: 0, max: 10000000 }).withMessage('Valid mrp between 0 and 10,000,000 is required')
+        .bail()
+        .custom((mrp, { req }) => {
+            const purchaseRate = parseFloat(req.body.purchase_rate || req.body.purchaseRate || req.body.purchasePrice);
+            if (!isNaN(purchaseRate) && parseFloat(mrp) < purchaseRate) {
+                throw new Error('MRP cannot be less than purchase price');
+            }
+            return true;
+        }),
+
     body('sale_price')
-        .isFloat({ min: 0 }).withMessage('Valid sale_price is required (>= 0)'),
+        .notEmpty().withMessage('Sale price is required')
+        .bail()
+        .isFloat({ min: 0, max: 10000000 }).withMessage('Valid sale_price between 0 and 10,000,000 is required'),
+
     body('gst_rate')
-        .optional()
+        .optional({ checkFalsy: true })
         .isFloat({ min: 0, max: 100 }).withMessage('Valid gst_rate between 0 and 100 is required'),
+
     body('initial_stock')
-        .isInt({ min: 0 }).withMessage('Valid initial_stock is required (must be integer >= 0)'),
+        .notEmpty().withMessage('Initial stock is required')
+        .bail()
+        .isInt({ min: 0, max: 1000000 }).withMessage('Valid initial_stock between 0 and 1,000,000 is required'),
+
     body('rack_location')
-        .optional()
+        .optional({ checkFalsy: true })
         .trim()
         .matches(/^[a-zA-Z0-9\s\-_/]+$/).withMessage('Rack location can only contain alphanumeric characters.'),
+];
+
+const createMedicineWithBatchRules = [
+    // Medicine validation
+    body('name')
+        .trim()
+        .notEmpty().withMessage('Medicine name is required')
+        .bail()
+        .matches(MEDICINE_NAME_REGEX).withMessage('Special characters not allowed in medicine name.'),
+
+    body('category_id')
+        .optional({ checkFalsy: true })
+        .isMongoId().withMessage('Valid category_id is required'),
+
+    body('sku_barcode')
+        .if((value) => value !== undefined)
+        .trim()
+        .notEmpty().withMessage('SKU is required')
+        .bail()
+        .isAlphanumeric('en-US', { ignore: '-_' }).withMessage('SKU/Barcode must be alphanumeric.'),
+
+    body('sku')
+        .if((value, { req }) => value !== undefined && req.body.sku_barcode === undefined)
+        .trim()
+        .notEmpty().withMessage('SKU is required')
+        .bail()
+        .isAlphanumeric('en-US', { ignore: '-_' }).withMessage('SKU/Barcode must be alphanumeric.'),
+
+    body('manufacturer')
+        .if((value) => value !== undefined)
+        .trim()
+        .notEmpty().withMessage('Manufacturer is required')
+        .bail()
+        .matches(GENERAL_TEXT_REGEX).withMessage('Special characters not allowed in manufacturer'),
+
+    // Batch validation
+    body('batch_number')
+        .custom((val, { req }) => {
+            const batchNum = val || req.body.batchNumber;
+            if (!batchNum || String(batchNum).trim() === '') {
+                throw new Error('Batch number is required');
+            }
+            if (!/^[a-zA-Z0-9\-_/]+$/.test(String(batchNum).trim())) {
+                throw new Error('Batch number can only contain letters, numbers, hyphens, slashes, and underscores.');
+            }
+            return true;
+        }),
+
+    body('expiry_date')
+        .custom((val, { req }) => {
+            const exp = val || req.body.expiryDate;
+            if (!exp) {
+                throw new Error('Expiry date is required');
+            }
+            const expDate = new Date(exp);
+            if (isNaN(expDate.getTime())) {
+                throw new Error('Valid expiry_date (YYYY-MM-DD) is required');
+            }
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            if (expDate <= today) {
+                throw new Error('Expiry date must be in the future');
+            }
+            return true;
+        }),
+
+    body('mrp')
+        .notEmpty().withMessage('MRP is required')
+        .bail()
+        .isFloat({ min: 0, max: 10000000 }).withMessage('MRP must be a valid number between 0 and 10,000,000')
+        .bail()
+        .custom((mrp, { req }) => {
+            const purchaseRate = parseFloat(req.body.purchase_rate || req.body.purchaseRate || req.body.purchasePrice || 0);
+            if (purchaseRate && parseFloat(mrp) < purchaseRate) {
+                throw new Error('MRP cannot be less than purchase price');
+            }
+            return true;
+        }),
+
+    body('purchase_rate')
+        .optional({ checkFalsy: true })
+        .isFloat({ min: 0, max: 10000000 }).withMessage('Purchase rate must be a valid number between 0 and 10,000,000'),
+
+    body('sale_price')
+        .optional({ checkFalsy: true })
+        .isFloat({ min: 0, max: 10000000 }).withMessage('Sale price must be a valid number between 0 and 10,000,000'),
+
+    body('initial_stock')
+        .optional({ checkFalsy: true })
+        .isInt({ min: 0, max: 1000000 }).withMessage('Initial stock must be a non-negative integer between 0 and 1,000,000'),
 ];
 
 const adjustStockRules = [
     body('batch_id')
         .notEmpty().withMessage('Valid batch_id is required')
+        .bail()
         .isMongoId().withMessage('batch_id must be a valid ObjectId'),
     body('quantity_changed')
+        .notEmpty().withMessage('quantity_changed is required')
+        .bail()
         .isInt().withMessage('Quantity changed must be an integer'),
     body('transaction_type')
         .isIn(['PURCHASE_IN', 'SALE_OUT', 'RETURN_IN', 'DAMAGED_EXPIRED_OUT', 'ADJUSTMENT', 'ADJUSTMENT_IN', 'ADJUSTMENT_OUT'])
@@ -177,9 +380,12 @@ const adjustStockRules = [
 const processReturnRules = [
     body('batch_id')
         .notEmpty().withMessage('Valid batch_id is required')
+        .bail()
         .isMongoId().withMessage('batch_id must be a valid ObjectId'),
     body('quantity')
-        .isInt({ min: 1 }).withMessage('Quantity must be an integer greater than 0'),
+        .notEmpty().withMessage('quantity is required')
+        .bail()
+        .isInt({ min: 1, max: 100000 }).withMessage('Quantity must be an integer greater than 0'),
     body('action')
         .isIn(['RESTOCK', 'DISPOSE'])
         .withMessage("Action must be either 'RESTOCK' or 'DISPOSE'"),
@@ -196,7 +402,7 @@ module.exports = {
     createMedicineRules,
     updateMedicineRules,
     createBatchRules,
+    createMedicineWithBatchRules,
     adjustStockRules,
     processReturnRules,
 };
-

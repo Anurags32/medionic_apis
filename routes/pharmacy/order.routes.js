@@ -10,12 +10,14 @@ const {
     updateOrderStatusRules,
     assignPackerRules,
 } = require('../../validations/pharmacy/order.validation');
+const { requireActiveSubscription } = require('../../middleware/pharmacy/subscription.middleware');
 
 router.use(authenticateToken);
 
 router.post(
     '/',
     authorizeFeature(FEATURES.ORDERS_PROCESS),
+    requireActiveSubscription,
     validate(createOrderRules),
     orderController.createOrder
 );

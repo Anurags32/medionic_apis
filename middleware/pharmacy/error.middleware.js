@@ -43,10 +43,12 @@ const errorHandler = (err, req, res, next) => {
         success: false,
         statusCode,
         message,
+        errors: details || [],
         error: {
             code: errorCode,
-            details,
+            details: details || [],
         },
+        code: errorCode,
         timestamp: new Date().toISOString(),
     });
 };
