@@ -115,6 +115,24 @@ const loginUser = async (email, password) => {
         );
     }
 
+    if (user.approval_status === 'pending') {
+        throw new ApiError(
+            403,
+            'Your account is pending admin approval. You will be able to login once verified and approved.',
+            'ACCOUNT_PENDING_APPROVAL'
+        );
+    }
+
+    if (user.approval_status === 'rejected') {
+        throw new ApiError(
+            403,
+            user.approval_remarks
+                ? `Your registration was rejected: ${user.approval_remarks}`
+                : 'Your registration was rejected by administrator.',
+            'ACCOUNT_REJECTED'
+        );
+    }
+
     if (!user.is_active) {
         throw new ApiError(
             403,
@@ -303,6 +321,24 @@ const verifyOtp = async (phone, otpCode) => {
 
     if (user.is_blocked) {
         throw new ApiError(403, 'Account is blocked by administrator', 'ACCOUNT_BLOCKED');
+    }
+
+    if (user.approval_status === 'pending') {
+        throw new ApiError(
+            403,
+            'Your account is pending admin approval. You will be able to login once verified and approved.',
+            'ACCOUNT_PENDING_APPROVAL'
+        );
+    }
+
+    if (user.approval_status === 'rejected') {
+        throw new ApiError(
+            403,
+            user.approval_remarks
+                ? `Your registration was rejected: ${user.approval_remarks}`
+                : 'Your registration was rejected by administrator.',
+            'ACCOUNT_REJECTED'
+        );
     }
 
     if (!user.is_active) {
