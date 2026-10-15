@@ -115,21 +115,20 @@ const loginUser = async (email, password) => {
         );
     }
 
-    if (user.approval_status === 'pending') {
+    if (user.role === ROLES.PHARMACY_OWNER && user.approval_status !== 'approved') {
+        if (user.approval_status === 'rejected') {
+            throw new ApiError(
+                403,
+                user.approval_remarks
+                    ? `Your registration was rejected: ${user.approval_remarks}`
+                    : 'Your registration was rejected by administrator.',
+                'ACCOUNT_REJECTED'
+            );
+        }
         throw new ApiError(
             403,
-            'Your account is pending admin approval. You will be able to login once verified and approved.',
+            'Your account is pending admin approval. Please wait for admin to approve your account.',
             'ACCOUNT_PENDING_APPROVAL'
-        );
-    }
-
-    if (user.approval_status === 'rejected') {
-        throw new ApiError(
-            403,
-            user.approval_remarks
-                ? `Your registration was rejected: ${user.approval_remarks}`
-                : 'Your registration was rejected by administrator.',
-            'ACCOUNT_REJECTED'
         );
     }
 
@@ -323,21 +322,20 @@ const verifyOtp = async (phone, otpCode) => {
         throw new ApiError(403, 'Account is blocked by administrator', 'ACCOUNT_BLOCKED');
     }
 
-    if (user.approval_status === 'pending') {
+    if (user.role === ROLES.PHARMACY_OWNER && user.approval_status !== 'approved') {
+        if (user.approval_status === 'rejected') {
+            throw new ApiError(
+                403,
+                user.approval_remarks
+                    ? `Your registration was rejected: ${user.approval_remarks}`
+                    : 'Your registration was rejected by administrator.',
+                'ACCOUNT_REJECTED'
+            );
+        }
         throw new ApiError(
             403,
-            'Your account is pending admin approval. You will be able to login once verified and approved.',
+            'Your account is pending admin approval. Please wait for admin to approve your account.',
             'ACCOUNT_PENDING_APPROVAL'
-        );
-    }
-
-    if (user.approval_status === 'rejected') {
-        throw new ApiError(
-            403,
-            user.approval_remarks
-                ? `Your registration was rejected: ${user.approval_remarks}`
-                : 'Your registration was rejected by administrator.',
-            'ACCOUNT_REJECTED'
         );
     }
 
