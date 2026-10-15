@@ -37,7 +37,9 @@ const createBranch = async (ownerUser, payload) => {
         drug_license_no,
         gstin,
         address: address || '',
-        contact_number: contact_number || ownerUser.phone || '',
+        city: payload.city || '',
+        pincode: payload.pincode || '',
+        contact_number: contact_number || payload.phone || ownerUser.phone || '',
         email: email || ownerUser.email || '',
         latitude: latitude !== undefined && latitude !== null ? parseFloat(latitude) : null,
         longitude: longitude !== undefined && longitude !== null ? parseFloat(longitude) : null,
@@ -161,16 +163,16 @@ const updateBranchDetails = async (branchId, payload, user = null) => {
         throw new ApiError(403, 'You do not have permission to edit this branch', 'BRANCH_ACCESS_DENIED');
     }
 
-    const { name, drug_license_no, gstin, address, pincode, contact_number, email, latitude, longitude, is_available } = payload;
+    const { name, drug_license_no, gstin, address, city, pincode, contact_number, phone, email, latitude, longitude, is_available } = payload;
 
     if (name) branch.name = name;
     if (drug_license_no) branch.drug_license_no = drug_license_no;
     if (gstin) branch.gstin = gstin;
     if (address !== undefined) branch.address = address;
+    if (city !== undefined) branch.city = city;
     if (pincode !== undefined) branch.pincode = pincode;
     if (contact_number !== undefined) branch.contact_number = contact_number;
-    if (email !== undefined) branch.email = email;
-    if (contact_number !== undefined) branch.contact_number = contact_number;
+    if (phone !== undefined && contact_number === undefined) branch.contact_number = phone;
     if (email !== undefined) branch.email = email;
     if (latitude !== undefined) branch.latitude = parseFloat(latitude);
     if (longitude !== undefined) branch.longitude = parseFloat(longitude);

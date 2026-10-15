@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 const { User, Branch } = require('../../models/pharmacy');
 const ApiError = require('../../utils/ApiError');
@@ -132,6 +133,8 @@ const getBranchStaff = async (caller, query = {}) => {
 
     if (query.role) {
         filter.role = query.role;
+    } else {
+        filter.role = { $ne: ROLES.PHARMACY_OWNER };
     }
     if (query.duty_status) {
         filter.duty_status = query.duty_status;
@@ -849,9 +852,55 @@ const deleteStaff = async (callerOrBranchId, staffId, requestedBranchId = null) 
     };
 };
 
+const getStaffCounts = async (branchId) => {
+    const branchObjectId = new mongoose.Types.ObjectId(branchId);
+    const staffFilter = {
+        branch_id: branchObjectId,
+        role: { $ne: ROLES.PHARMACY_OWNER },
+    };
+
+    const staffMembers = await User.find(staffFilter).select('duty_status is_active is_blocked');
+
+    const totalStaff = staffMembers.length;
+    let onDutyNow = 0;
+    let blocked = 0;
+    let inactive = 0;
+    let offDuty = 0;
+
+    for (const s of staffMembers) {
+        if (s.is_blocked) {
+            blocked++;
+        }
+        if (!s.is_active) {
+            inactive++;
+        }
+        if (s.duty_status === 'ON_DUTY' && s.is_active && !s.is_blocked) {
+            onDutyNow++;
+        }
+        if (s.duty_status === 'OFF_DUTY' && s.is_active && !s.is_blocked) {
+            offDuty++;
+        }
+    }
+
+    return {
+        totalStaff,
+        onDutyNow,
+        blocked,
+        inactive,
+        offDuty,
+        // Backward compatible aliases
+        total_staff: totalStaff,
+        on_duty_now: onDutyNow,
+        blocked_staff: blocked,
+        inactive_staff: inactive,
+        active_staff: onDutyNow,
+    };
+};
+
 module.exports = {
     createStaff,
     getBranchStaff,
+    getStaffCounts,
     getStaffOnlineStatus,
     getStaffById,
     updateStaff,

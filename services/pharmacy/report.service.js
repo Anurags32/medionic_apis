@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const { Invoice, Order, User, Branch } = require('../../models/pharmacy');
 const inventoryService = require('./inventory.service');
+const staffService = require('./staff.service');
 const reportCache = require('../../utils/pharmacyCache');
 
 const getDashboardStats = async (branchId) => {
@@ -14,7 +15,7 @@ const getDashboardStats = async (branchId) => {
     const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
     const branchObjectId = new mongoose.Types.ObjectId(branchId);
 
-    const [todayAgg, monthAgg, pendingOrdersCount, staffCount, alertCounts, branch] = await Promise.all([
+    const [todayAgg, monthAgg, pendingOrdersCount, staffCounts, alertCounts, branch] = await Promise.all([
         Invoice.aggregate([
             { $match: { branch_id: branchObjectId, invoice_date: { $gte: today } } },
             {
@@ -39,16 +40,14 @@ const getDashboardStats = async (branchId) => {
             branch_id: branchObjectId,
             status: { $in: ['PLACED', 'CONFIRMED', 'PACKING'] },
         }),
-        User.countDocuments({
-            branch_id: branchObjectId,
-            is_active: true,
-            is_blocked: false,
-        }),
-        inventoryService.getInventoryAlertCounts(branchId, 60),
+        staffService.getStaffCounts(branchId),
+        inventoryService.getStockCounts(branchId, 60),
         Branch.findById(branchObjectId),
     ]);
 
     const subscription = branch ? branch.getSubscriptionDetails() : null;
+    const storeName = branch?.name || '';
+    const storeCity = branch?.city || (branch?.extractCityFromAddress ? branch.extractCityFromAddress() : '');
 
     const stats = {
         today: {
@@ -60,19 +59,69 @@ const getDashboardStats = async (branchId) => {
             invoices: parseInt(monthAgg[0]?.total_invoices_month || 0),
         },
         pending_orders: pendingOrdersCount,
-        active_staff: staffCount,
+
+        // Staff counts - unambiguous separate fields from one service
+        totalStaff: staffCounts.totalStaff,
+        onDutyNow: staffCounts.onDutyNow,
+        blocked: staffCounts.blocked,
+        inactive: staffCounts.inactive,
+        offDuty: staffCounts.offDuty,
+        total_staff: staffCounts.totalStaff,
+        on_duty_now: staffCounts.onDutyNow,
+        blocked_staff: staffCounts.blocked,
+        inactive_staff: staffCounts.inactive,
+        active_staff: staffCounts.onDutyNow,
+        staff_summary: staffCounts,
+
+        // Stock counts - from one getStockCounts function
         low_stock_medicines: alertCounts.lowStockCount,
-        expiring_batches_60d: alertCounts.expiringBatchesCount,
+        expiring_batches_60d: alertCounts.expiringSoonCount,
+        lowStockCount: alertCounts.lowStockCount,
+        outOfStockCount: alertCounts.outOfStockCount,
+        expiringSoonCount: alertCounts.expiringSoonCount,
+        expiredCount: alertCounts.expiredCount,
         low_stock_count: alertCounts.lowStockCount,
-        expiring_soon_count: alertCounts.expiringBatchesCount,
+        out_of_stock_count: alertCounts.outOfStockCount,
+        expiring_soon_count: alertCounts.expiringSoonCount,
+        expired_count: alertCounts.expiredCount,
         inventory_status: {
             low_stock_count: alertCounts.lowStockCount,
-            expiring_soon_count: alertCounts.expiringBatchesCount,
+            out_of_stock_count: alertCounts.outOfStockCount,
+            expiring_soon_count: alertCounts.expiringSoonCount,
+            expired_count: alertCounts.expiredCount,
         },
+        stock_counts: {
+            lowStockCount: alertCounts.lowStockCount,
+            outOfStockCount: alertCounts.outOfStockCount,
+            expiringSoonCount: alertCounts.expiringSoonCount,
+            expiredCount: alertCounts.expiredCount,
+        },
+
+        // Store identity
+        store_name: storeName,
+        storeName: storeName,
+        city: storeCity,
+        branch_name: storeName,
+        store: branch
+            ? {
+                  id: branch._id.toString(),
+                  name: storeName,
+                  store_name: storeName,
+                  city: storeCity,
+                  address: branch.address,
+                  pincode: branch.pincode,
+                  phone: branch.contact_number,
+              }
+            : null,
+
+        // Subscription details
         subscription,
         plan: subscription,
         subscription_status: subscription?.status || 'ACTIVE',
         days_left: subscription?.daysLeft !== undefined ? subscription.daysLeft : 30,
+        daysLeft: subscription?.daysLeft !== undefined ? subscription.daysLeft : 30,
+        graceDaysLeft: subscription?.graceDaysLeft !== undefined ? subscription.graceDaysLeft : 0,
+        isReadOnly: Boolean(subscription?.isReadOnly),
     };
 
     reportCache.set(cacheKey, stats, 15);
@@ -208,8 +257,15 @@ const getAggregatedDashboard = async (branchId) => {
         alerts: {
             low_stock: alertData.lowStockMedicines,
             expiring: alertData.expiringBatches,
+            expired: alertData.expiredBatches,
+            lowStockCount: alertData.lowStockCount,
+            outOfStockCount: alertData.outOfStockCount,
+            expiringSoonCount: alertData.expiringSoonCount,
+            expiredCount: alertData.expiredCount,
             low_stock_count: alertData.lowStockCount,
-            expiring_soon_count: alertData.expiringBatchesCount,
+            out_of_stock_count: alertData.outOfStockCount,
+            expiring_soon_count: alertData.expiringSoonCount,
+            expired_count: alertData.expiredCount,
         },
         recent_low_stock: alertData.lowStockMedicines.slice(0, 5),
         recent_expiring: alertData.expiringBatches.slice(0, 5),

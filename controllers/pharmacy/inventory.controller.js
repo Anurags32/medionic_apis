@@ -14,7 +14,8 @@ const getCategories = asyncHandler(async (req, res) => {
 });
 
 const createMedicine = asyncHandler(async (req, res) => {
-    const medicine = await inventoryService.createMedicine(req.user.branchId, req.body, req.file);
+    const payload = { ...req.body, userId: req.user?.userId || req.user?._id || req.user?.id };
+    const medicine = await inventoryService.createMedicine(req.user.branchId, payload, req.file);
     res.status(201).json(new ApiResponse(201, medicine, 'Medicine created successfully'));
 });
 
@@ -59,13 +60,76 @@ const lookupBarcode = asyncHandler(async (req, res) => {
 });
 
 const getLowStock = asyncHandler(async (req, res) => {
-    const list = await inventoryService.getLowStockMedicines(req.user.branchId);
-    res.status(200).json(new ApiResponse(200, list, 'Low stock alerts fetched successfully'));
+    const counts = await inventoryService.getStockCounts(req.user.branchId);
+    res.status(200).json({
+        success: true,
+        statusCode: 200,
+        message: 'Low stock alerts fetched successfully',
+        data: counts.lowStockMedicines,
+        lowStockCount: counts.lowStockCount,
+        outOfStockCount: counts.outOfStockCount,
+        expiringSoonCount: counts.expiringSoonCount,
+        expiredCount: counts.expiredCount,
+        counts: {
+            lowStockCount: counts.lowStockCount,
+            outOfStockCount: counts.outOfStockCount,
+            expiringSoonCount: counts.expiringSoonCount,
+            expiredCount: counts.expiredCount,
+            low_stock_count: counts.lowStockCount,
+            out_of_stock_count: counts.outOfStockCount,
+            expiring_soon_count: counts.expiringSoonCount,
+            expired_count: counts.expiredCount,
+        },
+    });
 });
 
 const getExpiringBatches = asyncHandler(async (req, res) => {
-    const list = await inventoryService.getExpiringBatches(req.user.branchId, req.query.days || 60);
-    res.status(200).json(new ApiResponse(200, list, 'Expiring batches fetched successfully'));
+    const counts = await inventoryService.getStockCounts(req.user.branchId, req.query.days || 60);
+    res.status(200).json({
+        success: true,
+        statusCode: 200,
+        message: 'Expiring batches fetched successfully',
+        data: counts.expiringBatches,
+        lowStockCount: counts.lowStockCount,
+        outOfStockCount: counts.outOfStockCount,
+        expiringSoonCount: counts.expiringSoonCount,
+        expiredCount: counts.expiredCount,
+        counts: {
+            lowStockCount: counts.lowStockCount,
+            outOfStockCount: counts.outOfStockCount,
+            expiringSoonCount: counts.expiringSoonCount,
+            expiredCount: counts.expiredCount,
+            low_stock_count: counts.lowStockCount,
+            out_of_stock_count: counts.outOfStockCount,
+            expiring_soon_count: counts.expiringSoonCount,
+            expired_count: counts.expiredCount,
+        },
+    });
+});
+
+const getExpiredBatches = asyncHandler(async (req, res) => {
+    const counts = await inventoryService.getStockCounts(req.user.branchId);
+    res.status(200).json({
+        success: true,
+        statusCode: 200,
+        message: 'Expired batches fetched successfully',
+        data: counts.expiredBatches,
+        lowStockCount: counts.lowStockCount,
+        outOfStockCount: counts.outOfStockCount,
+        expiringSoonCount: counts.expiringSoonCount,
+        expiredCount: counts.expiredCount,
+        counts: {
+            lowStockCount: counts.lowStockCount,
+            outOfStockCount: counts.outOfStockCount,
+            expiringSoonCount: counts.expiringSoonCount,
+            expiredCount: counts.expiredCount,
+        },
+    });
+});
+
+const getInventorySummary = asyncHandler(async (req, res) => {
+    const counts = await inventoryService.getStockCounts(req.user.branchId, req.query.days || 60);
+    res.status(200).json(new ApiResponse(200, counts, 'Inventory summary fetched successfully'));
 });
 
 module.exports = {
@@ -82,4 +146,6 @@ module.exports = {
     lookupBarcode,
     getLowStock,
     getExpiringBatches,
+    getExpiredBatches,
+    getInventorySummary,
 };

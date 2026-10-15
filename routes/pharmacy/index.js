@@ -13,7 +13,10 @@ const reportRoutes = require('./report.routes');
 const notificationRoutes = require('./notification.routes');
 const returnRoutes = require('./return.routes');
 
+const { planGuard } = require('../../middleware/pharmacy/subscription.middleware');
+
 router.use('/auth', authRoutes);
+router.use(planGuard);
 router.use('/staff', staffRoutes);
 router.use('/branch', branchRoutes);
 router.use('/inventory', inventoryRoutes);

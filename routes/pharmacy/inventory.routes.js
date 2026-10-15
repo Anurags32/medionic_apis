@@ -88,6 +88,12 @@ router.get(
 );
 
 router.get(
+    '/summary',
+    authorizeFeature(FEATURES.INVENTORY_VIEW),
+    inventoryController.getInventorySummary
+);
+
+router.get(
     '/alerts/low-stock',
     authorizeFeature(FEATURES.INVENTORY_VIEW),
     inventoryController.getLowStock
@@ -97,6 +103,12 @@ router.get(
     '/alerts/expiring',
     authorizeFeature(FEATURES.INVENTORY_VIEW),
     inventoryController.getExpiringBatches
+);
+
+router.get(
+    '/alerts/expired',
+    authorizeFeature(FEATURES.INVENTORY_VIEW),
+    inventoryController.getExpiredBatches
 );
 
 module.exports = router;

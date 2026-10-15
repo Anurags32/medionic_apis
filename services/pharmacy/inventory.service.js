@@ -20,6 +20,10 @@ const getCategories = async (branchId) => {
 };
 
 const createMedicine = async (branchId, payload, file) => {
+    if (payload.batch_number || payload.batchNumber) {
+        return await createMedicineWithBatch(branchId, payload.userId || null, payload, file);
+    }
+
     const {
         category_id,
         name,
@@ -54,9 +58,22 @@ const createMedicine = async (branchId, payload, file) => {
     const parsedGstRate =
         gst_rate !== undefined && gst_rate !== null && gst_rate !== '' ? parseFloat(gst_rate) : 0;
 
+    let effectiveCategoryId = category_id;
+    if (!effectiveCategoryId) {
+        let defaultCat = await Category.findOne({ branch_id: branchId, is_active: true });
+        if (!defaultCat) {
+            defaultCat = await Category.create({
+                branch_id: branchId,
+                name: 'General',
+                description: 'Default category',
+            });
+        }
+        effectiveCategoryId = defaultCat._id;
+    }
+
     const medicine = await Medicine.create({
         branch_id: branchId,
-        category_id: category_id || null,
+        category_id: effectiveCategoryId,
         name,
         generic_name,
         sku_barcode,
@@ -529,13 +546,13 @@ const lookupByBarcode = async (branchId, barcode) => {
     return medJson;
 };
 
-const getInventoryAlertCounts = async (branchId, days = 60) => {
+const getStockCounts = async (branchId, days = 60) => {
     const branchObjectId = new mongoose.Types.ObjectId(branchId);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
     const targetDate = new Date(today);
-    targetDate.setDate(targetDate.getDate() + parseInt(days));
+    targetDate.setDate(targetDate.getDate() + parseInt(days || 60));
     targetDate.setHours(23, 59, 59, 999);
 
     const medicines = await Medicine.find({
@@ -547,19 +564,30 @@ const getInventoryAlertCounts = async (branchId, days = 60) => {
     });
 
     const lowStockList = [];
+    const outOfStockList = [];
+
     for (const med of medicines) {
         const medJson = med.toJSON();
         const nonExpiredBatches = (medJson.batches || []).filter((b) => new Date(b.expiry_date) >= today);
         const sellableStock = nonExpiredBatches.reduce((acc, b) => acc + (b.current_stock || 0), 0);
         const totalStock = (medJson.batches || []).reduce((acc, b) => acc + (b.current_stock || 0), 0);
-        const threshold = medJson.low_stock_threshold !== undefined ? medJson.low_stock_threshold : 10;
+        const threshold = medJson.low_stock_threshold !== undefined
+            ? medJson.low_stock_threshold
+            : (medJson.min_stock_threshold !== undefined ? medJson.min_stock_threshold : 10);
 
+        medJson.total_stock = totalStock;
+        medJson.sellableQty = sellableStock;
+        medJson.sellable_stock = sellableStock;
+        medJson.expired = (medJson.batches || []).some((b) => new Date(b.expiry_date) < today);
+
+        if (sellableStock === 0) {
+            medJson.is_out_of_stock = true;
+            outOfStockList.push(medJson);
+        }
+
+        // Low stock rule: sellable quantity below threshold
         if (sellableStock <= threshold) {
-            medJson.total_stock = totalStock;
-            medJson.sellableQty = sellableStock;
-            medJson.sellable_stock = sellableStock;
             medJson.is_low_stock = true;
-            medJson.expired = (medJson.batches || []).some((b) => new Date(b.expiry_date) < today);
             if ((!medJson.mrp || medJson.mrp === 0) && medJson.batches && medJson.batches.length > 0) {
                 medJson.mrp = medJson.batches[0].mrp || 0;
             }
@@ -570,13 +598,14 @@ const getInventoryAlertCounts = async (branchId, days = 60) => {
         }
     }
 
+    // Expiring soon: batches expiring within configured window (not yet expired: expiry >= today)
     const expiringBatches = await MedicineBatch.find({
         branch_id: branchObjectId,
         is_active: true,
         current_stock: { $gt: 0 },
         expiry_date: { $lte: targetDate, $gte: today },
     })
-        .populate('medicine', 'name generic_name manufacturer')
+        .populate('medicine', 'name generic_name manufacturer sku_barcode')
         .sort({ expiry_date: 1 });
 
     const formattedExpiringBatches = expiringBatches.map((b) => {
@@ -586,25 +615,67 @@ const getInventoryAlertCounts = async (branchId, days = 60) => {
         return bJson;
     });
 
+    // Expired batches: counted only in expiredCount (expiry < today)
+    const expiredBatches = await MedicineBatch.find({
+        branch_id: branchObjectId,
+        is_active: true,
+        current_stock: { $gt: 0 },
+        expiry_date: { $lt: today },
+    })
+        .populate('medicine', 'name generic_name manufacturer sku_barcode')
+        .sort({ expiry_date: 1 });
+
+    const formattedExpiredBatches = expiredBatches.map((b) => {
+        const bJson = b.toJSON();
+        bJson.expired = true;
+        bJson.is_expired = true;
+        return bJson;
+    });
+
+    const lowStockCount = lowStockList.length;
+    const outOfStockCount = outOfStockList.length;
+    const expiringSoonCount = formattedExpiringBatches.length;
+    const expiredCount = formattedExpiredBatches.length;
+
     return {
-        lowStockCount: lowStockList.length,
-        low_stock_count: lowStockList.length,
+        lowStockCount,
+        outOfStockCount,
+        expiringSoonCount,
+        expiredCount,
+        // Backward compatible aliases
+        low_stock_count: lowStockCount,
+        out_of_stock_count: outOfStockCount,
+        expiring_soon_count: expiringSoonCount,
+        expired_count: expiredCount,
+        expiringBatchesCount: expiringSoonCount,
+        expiring_batches_count: expiringSoonCount,
+        expiredBatchesCount: expiredCount,
+        expired_batches_count: expiredCount,
+        // Lists
         lowStockMedicines: lowStockList,
-        expiringBatchesCount: formattedExpiringBatches.length,
-        expiring_soon_count: formattedExpiringBatches.length,
-        expiring_batches_count: formattedExpiringBatches.length,
+        outOfStockMedicines: outOfStockList,
         expiringBatches: formattedExpiringBatches,
+        expiredBatches: formattedExpiredBatches,
     };
 };
 
+const getInventoryAlertCounts = async (branchId, days = 60) => {
+    return getStockCounts(branchId, days);
+};
+
 const getLowStockMedicines = async (branchId) => {
-    const alertData = await getInventoryAlertCounts(branchId);
-    return alertData.lowStockMedicines;
+    const data = await getStockCounts(branchId);
+    return data.lowStockMedicines;
 };
 
 const getExpiringBatches = async (branchId, days = 60) => {
-    const alertData = await getInventoryAlertCounts(branchId, days);
-    return alertData.expiringBatches;
+    const data = await getStockCounts(branchId, days);
+    return data.expiringBatches;
+};
+
+const getExpiredBatches = async (branchId) => {
+    const data = await getStockCounts(branchId);
+    return data.expiredBatches;
 };
 
 const createMedicineWithBatch = async (branchId, userId, payload, file) => {
@@ -684,6 +755,19 @@ const createMedicineWithBatch = async (branchId, userId, payload, file) => {
 
     const imageUrl = file ? `/uploads/medicines/${file.filename}` : null;
 
+    let effectiveCategoryId = category_id;
+    if (!effectiveCategoryId) {
+        let defaultCat = await Category.findOne({ branch_id: branchId, is_active: true });
+        if (!defaultCat) {
+            defaultCat = await Category.create({
+                branch_id: branchId,
+                name: 'General',
+                description: 'Default category',
+            });
+        }
+        effectiveCategoryId = defaultCat._id;
+    }
+
     let session = null;
     let useSession = true;
     try {
@@ -700,7 +784,7 @@ const createMedicineWithBatch = async (branchId, userId, payload, file) => {
     try {
         const medicineDoc = {
             branch_id: branchId,
-            category_id: category_id || null,
+            category_id: effectiveCategoryId,
             name: name.trim(),
             generic_name: generic_name ? generic_name.trim() : '',
             sku_barcode: effectiveSku,
@@ -763,15 +847,15 @@ const createMedicineWithBatch = async (branchId, userId, payload, file) => {
                 }
 
                 await session.commitTransaction();
-                session.endSession();
+                try { session.endSession(); } catch (_) {}
             } catch (txErr) {
-                await session.abortTransaction();
-                session.endSession();
-                if (txErr.code === 20 || String(txErr.message).includes('Transaction numbers are only allowed')) {
-                    useSession = false;
-                } else {
-                    throw txErr;
-                }
+                try {
+                    if (session && session.inTransaction()) {
+                        await session.abortTransaction();
+                    }
+                } catch (_) {}
+                try { session.endSession(); } catch (_) {}
+                useSession = false;
             }
         }
 
@@ -828,9 +912,15 @@ const createMedicineWithBatch = async (branchId, userId, payload, file) => {
             stock_log: createdStockLog,
         };
     } catch (err) {
-        if (useSession && session) {
-            await session.abortTransaction();
-            session.endSession();
+        if (session) {
+            try {
+                if (session.inTransaction()) {
+                    await session.abortTransaction();
+                }
+            } catch (_) {}
+            try {
+                session.endSession();
+            } catch (_) {}
         }
         throw err;
     }
@@ -848,7 +938,9 @@ module.exports = {
     adjustStock,
     processReturn,
     lookupByBarcode,
+    getStockCounts,
     getInventoryAlertCounts,
     getLowStockMedicines,
     getExpiringBatches,
+    getExpiredBatches,
 };

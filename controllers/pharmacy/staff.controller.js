@@ -9,14 +9,51 @@ const createStaff = asyncHandler(async (req, res) => {
 });
 
 const getStaff = asyncHandler(async (req, res) => {
+    const callerBranchId = req.user.branchId;
+    const targetBranchId = req.query.branch_id || callerBranchId;
     const result = await staffService.getBranchStaff(req.user, req.query);
-    res.status(200).json(new ApiResponse(200, result, 'Staff list fetched successfully'));
+    const staffCounts = await staffService.getStaffCounts(targetBranchId);
+
+    res.status(200).json({
+        success: true,
+        statusCode: 200,
+        message: 'Staff list fetched successfully',
+        data: result,
+        totalStaff: staffCounts.totalStaff,
+        onDutyNow: staffCounts.onDutyNow,
+        blocked: staffCounts.blocked,
+        inactive: staffCounts.inactive,
+        offDuty: staffCounts.offDuty,
+        total_staff: staffCounts.totalStaff,
+        on_duty_now: staffCounts.onDutyNow,
+        blocked_staff: staffCounts.blocked,
+        inactive_staff: staffCounts.inactive,
+        summary: staffCounts,
+    });
+});
+
+const getStaffSummary = asyncHandler(async (req, res) => {
+    const callerBranchId = req.user.branchId;
+    const targetBranchId = req.query.branch_id || req.params.id || callerBranchId;
+    const counts = await staffService.getStaffCounts(targetBranchId);
+    res.status(200).json(new ApiResponse(200, counts, 'Staff counts fetched successfully'));
 });
 
 const getStaffByBranch = asyncHandler(async (req, res) => {
     const branchId = req.params.id || req.params.branchId;
     const result = await staffService.getBranchStaff(req.user, { ...req.query, branch_id: branchId });
-    res.status(200).json(new ApiResponse(200, result, 'Branch staff fetched successfully'));
+    const staffCounts = await staffService.getStaffCounts(branchId);
+    res.status(200).json({
+        success: true,
+        statusCode: 200,
+        message: 'Branch staff fetched successfully',
+        data: result,
+        totalStaff: staffCounts.totalStaff,
+        onDutyNow: staffCounts.onDutyNow,
+        blocked: staffCounts.blocked,
+        inactive: staffCounts.inactive,
+        summary: staffCounts,
+    });
 });
 
 const getOnlineStatus = asyncHandler(async (req, res) => {
@@ -99,6 +136,7 @@ const deleteStaff = asyncHandler(async (req, res) => {
 module.exports = {
     createStaff,
     getStaff,
+    getStaffSummary,
     getStaffByBranch,
     getOnlineStatus,
     updateDutyStatus,

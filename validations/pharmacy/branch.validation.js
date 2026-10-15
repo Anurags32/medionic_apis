@@ -36,9 +36,23 @@ const createBranchRules = [
         .trim()
         .notEmpty().withMessage('Address is required')
         .bail()
-        .isLength({ min: 10, max: 255 }).withMessage('Address must be at least 10 characters long'),
+        .custom((val) => {
+            const trimmed = String(val).trim();
+            if (/^\d+$/.test(trimmed)) {
+                throw new Error('Address cannot be numeric only');
+            }
+            if (trimmed.length < 10) {
+                throw new Error('Address must be at least 10 characters long');
+            }
+            return true;
+        }),
 
     body('contact_number')
+        .optional({ checkFalsy: true })
+        .trim()
+        .matches(PHONE_REGEX).withMessage('Invalid contact phone number format. Must be a valid 10-digit mobile number.'),
+
+    body('phone')
         .optional({ checkFalsy: true })
         .trim()
         .matches(PHONE_REGEX).withMessage('Invalid contact phone number format. Must be a valid 10-digit mobile number.'),
@@ -47,6 +61,11 @@ const createBranchRules = [
         .optional({ checkFalsy: true })
         .trim()
         .isEmail().withMessage('Invalid email address format'),
+
+    body('city')
+        .optional({ checkFalsy: true })
+        .trim()
+        .isLength({ min: 2, max: 100 }).withMessage('City must be between 2 and 100 characters long'),
 
     body('pincode')
         .optional({ checkFalsy: true })
@@ -94,9 +113,23 @@ const updateBranchRules = [
         .trim()
         .notEmpty().withMessage('Address cannot be empty')
         .bail()
-        .isLength({ min: 10, max: 255 }).withMessage('Address must be at least 10 characters long'),
+        .custom((val) => {
+            const trimmed = String(val).trim();
+            if (/^\d+$/.test(trimmed)) {
+                throw new Error('Address cannot be numeric only');
+            }
+            if (trimmed.length < 10) {
+                throw new Error('Address must be at least 10 characters long');
+            }
+            return true;
+        }),
 
     body('contact_number')
+        .optional({ checkFalsy: true })
+        .trim()
+        .matches(PHONE_REGEX).withMessage('Invalid contact phone number format. Must be a valid 10-digit mobile number.'),
+
+    body('phone')
         .optional({ checkFalsy: true })
         .trim()
         .matches(PHONE_REGEX).withMessage('Invalid contact phone number format. Must be a valid 10-digit mobile number.'),
@@ -105,6 +138,11 @@ const updateBranchRules = [
         .optional({ checkFalsy: true })
         .trim()
         .isEmail().withMessage('Invalid email address format'),
+
+    body('city')
+        .optional({ checkFalsy: true })
+        .trim()
+        .isLength({ min: 2, max: 100 }).withMessage('City must be between 2 and 100 characters long'),
 
     body('pincode')
         .optional({ checkFalsy: true })

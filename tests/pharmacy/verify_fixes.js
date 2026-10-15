@@ -262,8 +262,8 @@ async function runTests() {
         console.log('DEBUG expiredMutationRes:', expiredMutationRes.status, expiredMutationRes.body);
     }
     assert(
-        expiredMutationRes.status === 403 && expiredMutationRes.body.code === 'SUBSCRIPTION_EXPIRED',
-        `Mutation blocked with 403 SUBSCRIPTION_EXPIRED for expired plan (code: ${expiredMutationRes.body.code})`
+        expiredMutationRes.status === 403 && (expiredMutationRes.body.code === 'PLAN_EXPIRED' || expiredMutationRes.body.code === 'SUBSCRIPTION_EXPIRED'),
+        `Mutation blocked with 403 PLAN_EXPIRED for expired plan (code: ${expiredMutationRes.body.code})`
     );
 
     // -------------------------------------------------------------------------

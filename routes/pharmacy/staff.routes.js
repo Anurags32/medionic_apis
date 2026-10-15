@@ -25,6 +25,8 @@ router.patch('/device-status', staffController.updateDeviceStatus);
 // 2. Owner-only Management & Monitoring Routes
 router.get('/duty-overview', authorizeOwnerOnly, staffController.getDutyOverview);
 router.get('/online-status', authorizeOwnerOnly, staffController.getOnlineStatus);
+router.get('/summary', authorizeOwnerOnly, staffController.getStaffSummary);
+router.get('/counts', authorizeOwnerOnly, staffController.getStaffSummary);
 router.post('/', authorizeOwnerOnly, validate(createStaffRules), staffController.createStaff);
 router.get('/', authorizeOwnerOnly, staffController.getStaff);
 router.get('/branch/:id', authorizeOwnerOnly, staffController.getStaffByBranch);

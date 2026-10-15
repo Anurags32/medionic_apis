@@ -11,7 +11,9 @@
     "seed:pharmacy": "node scripts/seedPharmacy.js",
     "test": "jest",
     "test:pharmacy": "node tests/pharmacy/testSuite.js",
-    "test:verify": "node tests/pharmacy/verify_fixes.js"
+    "test:verify": "node tests/pharmacy/verify_fixes.js",
+    "test:round2": "node tests/pharmacy/round2_verification.js",
+    "audit:stores": "node scripts/auditStoreDataQuality.js"
   },
   "keywords": [
     "healthcare",
