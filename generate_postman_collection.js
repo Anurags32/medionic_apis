@@ -1,50 +1,33 @@
 const fs = require('fs');
 const path = require('path');
 
-const collection = {
-    info: {
-        _postman_id: "medionic-full-api-collection-v2",
-        name: "Medionic HealthCare+ Complete API Collection",
-        description: "Complete, production-ready Postman Collection for Medionic HealthCare+ API including Doctor, Patient, MR, Admin, Pharmacy Subsystem (v1), AI Diagnostics, Payments, and Emergency services.",
-        schema: "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
-    },
-    variable: [
-        { key: "baseUrl", value: "http://localhost:5001", type: "string" },
-        { key: "apiPrefixV1", value: "http://localhost:5001/api/v1", type: "string" },
-        { key: "adminToken", value: "", type: "string" },
-        { key: "doctorToken", value: "", type: "string" },
-        { key: "patientToken", value: "", type: "string" },
-        { key: "mrToken", value: "", type: "string" },
-        { key: "pharmacyToken", value: "", type: "string" },
-        { key: "adminSecretKey", value: "medionic-admin-secret-2024", type: "string" },
-        { key: "doctorId", value: "65f1a2b3c4d5e6f7a8b9c0d1", type: "string" },
-        { key: "patientId", value: "65f1a2b3c4d5e6f7a8b9c0d2", type: "string" },
-        { key: "mrId", value: "65f1a2b3c4d5e6f7a8b9c0d3", type: "string" },
-        { key: "pharmacyOwnerId", value: "65f1a2b3c4d5e6f7a8b9c0d4", type: "string" },
-        { key: "appointmentId", value: "65f1a2b3c4d5e6f7a8b9c0d5", type: "string" },
-        { key: "prescriptionId", value: "65f1a2b3c4d5e6f7a8b9c0d6", type: "string" },
-        { key: "branchId", value: "65f1a2b3c4d5e6f7a8b9c0d7", type: "string" },
-        { key: "medicineId", value: "65f1a2b3c4d5e6f7a8b9c0d8", type: "string" },
-        { key: "invoiceId", value: "65f1a2b3c4d5e6f7a8b9c0d9", type: "string" },
-        { key: "orderId", value: "65f1a2b3c4d5e6f7a8b9c0e0", type: "string" },
-        { key: "staffId", value: "65f1a2b3c4d5e6f7a8b9c0e1", type: "string" },
-        { key: "customerId", value: "65f1a2b3c4d5e6f7a8b9c0e2", type: "string" }
-    ],
-    item: []
-};
+// ─────────────────────────────────────────────────────────────────────────────
+// SCRIPT HELPERS
+// ─────────────────────────────────────────────────────────────────────────────
 
-// Helper to make test script that saves token
-function saveTokenScript(varName) {
+/**
+ * Creates Postman test script that captures JWT token and entity IDs into collection variables.
+ */
+function saveAuthScript(tokenVar) {
     return {
         listen: "test",
         script: {
             exec: [
                 "if (pm.response.code === 200 || pm.response.code === 201) {",
-                "    var jsonData = pm.response.json();",
-                "    var token = jsonData.token || (jsonData.data && jsonData.data.token) || (jsonData.data && jsonData.data.accessToken);",
+                "    var res = pm.response.json();",
+                "    var token = res.token || (res.data && (res.data.token || res.data.accessToken));",
                 "    if (token) {",
-                `        pm.collectionVariables.set("${varName}", token);`,
-                `        console.log("Saved ${varName}:", token);`,
+                `        pm.collectionVariables.set("${tokenVar}", token);`,
+                `        console.log("✅ Auto-saved ${tokenVar}:", token.substring(0, 15) + "...");`,
+                "    }",
+                "    if (res.data) {",
+                "        if (res.data.patientId) { pm.collectionVariables.set('patientId', res.data.patientId); }",
+                "        if (res.data.doctorId) { pm.collectionVariables.set('doctorId', res.data.doctorId); }",
+                "        if (res.data.mrId) { pm.collectionVariables.set('mrId', res.data.mrId); }",
+                "        if (res.data.userId) { pm.collectionVariables.set('userId', res.data.userId); }",
+                "        if (res.data.user && res.data.user.branch_id) { pm.collectionVariables.set('branchId', res.data.user.branch_id); }",
+                "        if (res.data.branch && (res.data.branch.id || res.data.branch._id)) { pm.collectionVariables.set('branchId', res.data.branch.id || res.data.branch._id); }",
+                "        if (res.data.user && res.data.user.id) { pm.collectionVariables.set('pharmacyOwnerId', res.data.user.id); }",
                 "    }",
                 "}"
             ],
@@ -53,6 +36,48 @@ function saveTokenScript(varName) {
     };
 }
 
+/**
+ * Creates Postman test script that searches response and automatically saves entity IDs.
+ */
+function saveIdScript(variableName, lookupKeys) {
+    return {
+        listen: "test",
+        script: {
+            exec: [
+                "if (pm.response.code === 200 || pm.response.code === 201) {",
+                "    var res = pm.response.json();",
+                "    var targetId = null;",
+                "    var keys = " + JSON.stringify(lookupKeys) + ";",
+                "    function searchObj(obj) {",
+                "        if (!obj || typeof obj !== 'object') return null;",
+                "        for (var i = 0; i < keys.length; i++) {",
+                "            if (obj[keys[i]]) return obj[keys[i]];",
+                "        }",
+                "        if (obj.data) return searchObj(obj.data);",
+                "        if (obj.appointment) return searchObj(obj.appointment);",
+                "        if (obj.prescription) return searchObj(obj.prescription);",
+                "        if (obj.order) return searchObj(obj.order);",
+                "        if (obj.medicine) return searchObj(obj.medicine);",
+                "        if (obj.invoice) return searchObj(obj.invoice);",
+                "        if (obj.customer) return searchObj(obj.customer);",
+                "        if (obj.staff) return searchObj(obj.staff);",
+                "        return null;",
+                "    }",
+                "    targetId = searchObj(res);",
+                "    if (targetId) {",
+                `        pm.collectionVariables.set("${variableName}", String(targetId));`,
+                `        console.log("✅ Auto-saved ${variableName}:", targetId);`,
+                "    }",
+                "}"
+            ],
+            type: "text/javascript"
+        }
+    };
+}
+
+/**
+ * Helper to construct Bearer Auth config.
+ */
 function authHeader(tokenVar = "patientToken") {
     return {
         type: "bearer",
@@ -66,14 +91,54 @@ function authHeader(tokenVar = "patientToken") {
     };
 }
 
-// -------------------------------------------------------------
+// ─────────────────────────────────────────────────────────────────────────────
+// BASE POSTMAN COLLECTION STRUCTURE
+// ─────────────────────────────────────────────────────────────────────────────
+
+const collection = {
+    info: {
+        _postman_id: "medionic-full-api-collection-v3",
+        name: "Medionic HealthCare+ Complete & Production-Ready API Collection",
+        description: "Official, comprehensive Postman Collection for Medionic HealthCare+ API ecosystem.\n\n✨ Features:\n- 100% Endpoints covered across Patient, Doctor, MR, Admin, Pharmacy (v1), AI Diagnostics, Payments & Telehealth.\n- Auto-token capturing for all roles upon login/registration.\n- Auto-ID capturing (appointmentId, prescriptionId, orderId, medicineId, invoiceId, branchId, etc.).\n- Pre-seeded ready-to-test 1-click accounts.\n- Environment/Collection variables pre-configured for instant zero-configuration testing.",
+        schema: "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    variable: [
+        { key: "baseUrl", value: "http://localhost:5001", type: "string" },
+        { key: "apiPrefixV1", value: "http://localhost:5001/api/v1", type: "string" },
+        { key: "adminToken", value: "", type: "string" },
+        { key: "doctorToken", value: "", type: "string" },
+        { key: "patientToken", value: "", type: "string" },
+        { key: "mrToken", value: "", type: "string" },
+        { key: "pharmacyToken", value: "", type: "string" },
+        { key: "adminSecretKey", value: "medionic-admin-secret-2026", type: "string" },
+        { key: "doctorId", value: "65f1a2b3c4d5e6f7a8b9c0d1", type: "string" },
+        { key: "patientId", value: "65f1a2b3c4d5e6f7a8b9c0d2", type: "string" },
+        { key: "mrId", value: "65f1a2b3c4d5e6f7a8b9c0d3", type: "string" },
+        { key: "pharmacyOwnerId", value: "65f1a2b3c4d5e6f7a8b9c0d4", type: "string" },
+        { key: "appointmentId", value: "65f1a2b3c4d5e6f7a8b9c0d5", type: "string" },
+        { key: "prescriptionId", value: "65f1a2b3c4d5e6f7a8b9c0d6", type: "string" },
+        { key: "branchId", value: "65f1a2b3c4d5e6f7a8b9c0d7", type: "string" },
+        { key: "medicineId", value: "65f1a2b3c4d5e6f7a8b9c0d8", type: "string" },
+        { key: "invoiceId", value: "65f1a2b3c4d5e6f7a8b9c0d9", type: "string" },
+        { key: "orderId", value: "65f1a2b3c4d5e6f7a8b9c0e0", type: "string" },
+        { key: "staffId", value: "65f1a2b3c4d5e6f7a8b9c0e1", type: "string" },
+        { key: "customerId", value: "65f1a2b3c4d5e6f7a8b9c0e2", type: "string" },
+        { key: "chemistId", value: "65f1a2b3c4d5e6f7a8b9c0e3", type: "string" },
+        { key: "tourPlanId", value: "65f1a2b3c4d5e6f7a8b9c0e4", type: "string" },
+        { key: "labTestId", value: "65f1a2b3c4d5e6f7a8b9c0e5", type: "string" },
+        { key: "callId", value: "call_sample_12345", type: "string" }
+    ],
+    item: []
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
 // 00. Health & System
-// -------------------------------------------------------------
+// ─────────────────────────────────────────────────────────────────────────────
 const healthFolder = {
-    name: "00. Health & System",
+    name: "00. Health & System Probes",
     item: [
         {
-            name: "Health Check",
+            name: "Health Check (Database & Server Status)",
             request: {
                 method: "GET",
                 header: [],
@@ -82,11 +147,11 @@ const healthFolder = {
                     host: ["{{baseUrl}}"],
                     path: ["api", "health"]
                 },
-                description: "Checks API status, Database connectivity and Node environment."
+                description: "Verifies API server status, environment, MongoDB connectivity and request IDs."
             }
         },
         {
-            name: "Readiness Check",
+            name: "Readiness Check (Kubernetes/Cloud Probe)",
             request: {
                 method: "GET",
                 header: [],
@@ -95,24 +160,97 @@ const healthFolder = {
                     host: ["{{baseUrl}}"],
                     path: ["api", "ready"]
                 },
-                description: "Kubernetes/Service readiness probe"
+                description: "Returns 200 if MongoDB is fully ready, 503 otherwise."
             }
         }
     ]
 };
 
-// -------------------------------------------------------------
-// 01. Authentication & Users
-// -------------------------------------------------------------
+// ─────────────────────────────────────────────────────────────────────────────
+// 01. Authentication & Roles
+// ─────────────────────────────────────────────────────────────────────────────
 const authFolder = {
-    name: "01. Authentication & Roles",
+    name: "01. Authentication & Identity",
     item: [
         {
-            name: "Patient Auth",
+            name: "⚡ Instant 1-Click Logins (Pre-Seeded Data)",
+            item: [
+                {
+                    name: "Login Pre-Seeded Patient (Aarav Gupta)",
+                    event: [saveAuthScript("patientToken")],
+                    request: {
+                        method: "POST",
+                        header: [{ key: "Content-Type", value: "application/json" }],
+                        body: {
+                            mode: "raw",
+                            raw: JSON.stringify({
+                                email: "aarav.gupta@gmail.com",
+                                password: "Patient@1234"
+                            }, null, 2)
+                        },
+                        url: { raw: "{{baseUrl}}/api/auth/patient/login", host: ["{{baseUrl}}"], path: ["api", "auth", "patient", "login"] },
+                        description: "Logs in with seed.js patient credentials and auto-saves {{patientToken}} and {{patientId}}."
+                    }
+                },
+                {
+                    name: "Login Pre-Seeded Doctor (Dr. Rajesh Sharma - Verified)",
+                    event: [saveAuthScript("doctorToken")],
+                    request: {
+                        method: "POST",
+                        header: [{ key: "Content-Type", value: "application/json" }],
+                        body: {
+                            mode: "raw",
+                            raw: JSON.stringify({
+                                email: "dr.sharma@hospital.com",
+                                password: "Doctor@1234"
+                            }, null, 2)
+                        },
+                        url: { raw: "{{baseUrl}}/api/auth/doctor/login", host: ["{{baseUrl}}"], path: ["api", "auth", "doctor", "login"] },
+                        description: "Logs in with seed.js pre-verified doctor and auto-saves {{doctorToken}} and {{doctorId}}."
+                    }
+                },
+                {
+                    name: "Login Pre-Seeded Admin (Platform Admin)",
+                    event: [saveAuthScript("adminToken")],
+                    request: {
+                        method: "POST",
+                        header: [{ key: "Content-Type", value: "application/json" }],
+                        body: {
+                            mode: "raw",
+                            raw: JSON.stringify({
+                                email: "admin@healthcare.com",
+                                password: "Admin@1234"
+                            }, null, 2)
+                        },
+                        url: { raw: "{{baseUrl}}/api/admin/login", host: ["{{baseUrl}}"], path: ["api", "admin", "login"] },
+                        description: "Logs in with seed.js admin credentials and auto-saves {{adminToken}}."
+                    }
+                },
+                {
+                    name: "Login Pre-Seeded MR (Vikram Singh - Verified)",
+                    event: [saveAuthScript("mrToken")],
+                    request: {
+                        method: "POST",
+                        header: [{ key: "Content-Type", value: "application/json" }],
+                        body: {
+                            mode: "raw",
+                            raw: JSON.stringify({
+                                email: "vikram.singh@pharmamax.com",
+                                password: "MRep@1234"
+                            }, null, 2)
+                        },
+                        url: { raw: "{{baseUrl}}/api/auth/mr/login", host: ["{{baseUrl}}"], path: ["api", "auth", "mr", "login"] },
+                        description: "Logs in with seed.js pre-verified MR and auto-saves {{mrToken}} and {{mrId}}."
+                    }
+                }
+            ]
+        },
+        {
+            name: "Patient Auth Subsystem",
             item: [
                 {
                     name: "Register Patient",
-                    event: [saveTokenScript("patientToken")],
+                    event: [saveAuthScript("patientToken")],
                     request: {
                         method: "POST",
                         header: [{ key: "Content-Type", value: "application/json" }],
@@ -125,8 +263,8 @@ const authFolder = {
                                 phone: "+919876543210",
                                 gender: "male",
                                 bloodGroup: "O+",
-                                dateOfBirth: "1995-05-15",
-                                address: "221B Baker Street, Sector 4, New Delhi"
+                                dob: "15/05/1995",
+                                address: "221B Baker Street, Sector 4, New Delhi, Delhi, 110001"
                             }, null, 2)
                         },
                         url: { raw: "{{baseUrl}}/api/auth/patient/register", host: ["{{baseUrl}}"], path: ["api", "auth", "patient", "register"] }
@@ -134,7 +272,7 @@ const authFolder = {
                 },
                 {
                     name: "Login Patient",
-                    event: [saveTokenScript("patientToken")],
+                    event: [saveAuthScript("patientToken")],
                     request: {
                         method: "POST",
                         header: [{ key: "Content-Type", value: "application/json" }],
@@ -151,11 +289,11 @@ const authFolder = {
             ]
         },
         {
-            name: "Doctor Auth",
+            name: "Doctor Auth Subsystem",
             item: [
                 {
                     name: "Register Doctor",
-                    event: [saveTokenScript("doctorToken")],
+                    event: [saveAuthScript("doctorToken")],
                     request: {
                         method: "POST",
                         header: [{ key: "Content-Type", value: "application/json" }],
@@ -168,11 +306,11 @@ const authFolder = {
                                 phone: "+919876500001",
                                 specialization: "Cardiology",
                                 qualification: "MBBS, MD (Cardiology)",
-                                experience: 8,
-                                registrationNumber: "MCI-45892",
+                                yearsExperience: 8,
+                                licenseNumber: "MCI-45892",
                                 consultationFee: 800,
-                                about: "Senior Cardiologist with 8+ years of clinical experience.",
-                                clinicAddress: "Medionic Heart Care Clinic, New Delhi",
+                                clinicName: "Medionic Heart Care Clinic",
+                                clinicAddress: "12 Connaught Place, New Delhi, Delhi, 110001",
                                 shift: {
                                     days: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
                                     startTime: "09:00",
@@ -181,12 +319,13 @@ const authFolder = {
                                 }
                             }, null, 2)
                         },
-                        url: { raw: "{{baseUrl}}/api/auth/doctor/register", host: ["{{baseUrl}}"], path: ["api", "auth", "doctor", "register"] }
+                        url: { raw: "{{baseUrl}}/api/auth/doctor/register", host: ["{{baseUrl}}"], path: ["api", "auth", "doctor", "register"] },
+                        description: "Registers Doctor in PENDING status. Admin must approve before login works."
                     }
                 },
                 {
                     name: "Login Doctor",
-                    event: [saveTokenScript("doctorToken")],
+                    event: [saveAuthScript("doctorToken")],
                     request: {
                         method: "POST",
                         header: [{ key: "Content-Type", value: "application/json" }],
@@ -221,11 +360,11 @@ const authFolder = {
             ]
         },
         {
-            name: "Medical Representative (MR) Auth",
+            name: "Medical Representative (MR) Auth Subsystem",
             item: [
                 {
                     name: "Register MR",
-                    event: [saveTokenScript("mrToken")],
+                    event: [saveAuthScript("mrToken")],
                     request: {
                         method: "POST",
                         header: [{ key: "Content-Type", value: "application/json" }],
@@ -247,7 +386,7 @@ const authFolder = {
                 },
                 {
                     name: "Login MR",
-                    event: [saveTokenScript("mrToken")],
+                    event: [saveAuthScript("mrToken")],
                     request: {
                         method: "POST",
                         header: [{ key: "Content-Type", value: "application/json" }],
@@ -260,12 +399,63 @@ const authFolder = {
                         },
                         url: { raw: "{{baseUrl}}/api/auth/mr/login", host: ["{{baseUrl}}"], path: ["api", "auth", "mr", "login"] }
                     }
+                },
+                {
+                    name: "Get MR Profile (Auth Subsystem)",
+                    request: {
+                        auth: authHeader("mrToken"),
+                        method: "GET",
+                        header: [],
+                        url: { raw: "{{baseUrl}}/api/auth/mr/profile", host: ["{{baseUrl}}"], path: ["api", "auth", "mr", "profile"] }
+                    }
+                },
+                {
+                    name: "Check MR Verification Status",
+                    request: {
+                        auth: authHeader("mrToken"),
+                        method: "GET",
+                        header: [],
+                        url: { raw: "{{baseUrl}}/api/auth/mr/status", host: ["{{baseUrl}}"], path: ["api", "auth", "mr", "status"] }
+                    }
                 }
             ]
         },
         {
-            name: "General Auth Endpoints",
+            name: "Core Unified Auth & Account Lifecycle",
             item: [
+                {
+                    name: "Unified Register (/api/auth/register)",
+                    event: [saveAuthScript("patientToken")],
+                    request: {
+                        method: "POST",
+                        header: [{ key: "Content-Type", value: "application/json" }],
+                        body: {
+                            mode: "raw",
+                            raw: JSON.stringify({
+                                email: "coreuser@medionic.com",
+                                password: "Password@123",
+                                role: "patient"
+                            }, null, 2)
+                        },
+                        url: { raw: "{{baseUrl}}/api/auth/register", host: ["{{baseUrl}}"], path: ["api", "auth", "register"] }
+                    }
+                },
+                {
+                    name: "Unified Login (/api/auth/login)",
+                    event: [saveAuthScript("patientToken")],
+                    request: {
+                        method: "POST",
+                        header: [{ key: "Content-Type", value: "application/json" }],
+                        body: {
+                            mode: "raw",
+                            raw: JSON.stringify({
+                                email: "coreuser@medionic.com",
+                                password: "Password@123"
+                            }, null, 2)
+                        },
+                        url: { raw: "{{baseUrl}}/api/auth/login", host: ["{{baseUrl}}"], path: ["api", "auth", "login"] }
+                    }
+                },
                 {
                     name: "Get Current User (Me)",
                     request: {
@@ -292,7 +482,8 @@ const authFolder = {
                     }
                 },
                 {
-                    name: "Refresh Token",
+                    name: "Refresh JWT Token",
+                    event: [saveAuthScript("patientToken")],
                     request: {
                         method: "POST",
                         header: [{ key: "Content-Type", value: "application/json" }],
@@ -335,6 +526,77 @@ const authFolder = {
                     }
                 },
                 {
+                    name: "Complete Patient Profile",
+                    request: {
+                        auth: authHeader("patientToken"),
+                        method: "POST",
+                        header: [{ key: "Content-Type", value: "application/json" }],
+                        body: {
+                            mode: "raw",
+                            raw: JSON.stringify({
+                                firstName: "Rahul",
+                                lastName: "Verma",
+                                dob: "1995-05-15",
+                                gender: "male",
+                                bloodGroup: "O+",
+                                address: {
+                                    street: "221B Baker Street",
+                                    city: "New Delhi",
+                                    state: "Delhi",
+                                    zip: "110001"
+                                },
+                                emergencyContact: {
+                                    name: "Suresh Verma",
+                                    phone: "+919876543299",
+                                    relation: "Father"
+                                }
+                            }, null, 2)
+                        },
+                        url: { raw: "{{baseUrl}}/api/auth/complete-profile/patient", host: ["{{baseUrl}}"], path: ["api", "auth", "complete-profile", "patient"] }
+                    }
+                },
+                {
+                    name: "Complete Doctor Profile",
+                    request: {
+                        auth: authHeader("doctorToken"),
+                        method: "POST",
+                        header: [{ key: "Content-Type", value: "application/json" }],
+                        body: {
+                            mode: "raw",
+                            raw: JSON.stringify({
+                                firstName: "Ananya",
+                                lastName: "Sharma",
+                                specialization: "Cardiology",
+                                qualification: "MBBS, MD",
+                                licenseNumber: "MCI-45892",
+                                yearsExperience: 8,
+                                consultationFee: 800
+                            }, null, 2)
+                        },
+                        url: { raw: "{{baseUrl}}/api/auth/complete-profile/doctor", host: ["{{baseUrl}}"], path: ["api", "auth", "complete-profile", "doctor"] }
+                    }
+                },
+                {
+                    name: "Complete MR Profile",
+                    request: {
+                        auth: authHeader("mrToken"),
+                        method: "POST",
+                        header: [{ key: "Content-Type", value: "application/json" }],
+                        body: {
+                            mode: "raw",
+                            raw: JSON.stringify({
+                                firstName: "Vikram",
+                                lastName: "Malhotra",
+                                companyName: "Sun Pharma Healthcare Ltd",
+                                territory: "North Delhi & NCR",
+                                designation: "Senior Territory Executive",
+                                employeeId: "SP-88921"
+                            }, null, 2)
+                        },
+                        url: { raw: "{{baseUrl}}/api/auth/complete-profile/mr", host: ["{{baseUrl}}"], path: ["api", "auth", "complete-profile", "mr"] }
+                    }
+                },
+                {
                     name: "Logout",
                     request: {
                         auth: authHeader("patientToken"),
@@ -348,15 +610,15 @@ const authFolder = {
     ]
 };
 
-// -------------------------------------------------------------
+// ─────────────────────────────────────────────────────────────────────────────
 // 02. Admin Panel
-// -------------------------------------------------------------
+// ─────────────────────────────────────────────────────────────────────────────
 const adminFolder = {
     name: "02. Admin Panel",
     item: [
         {
             name: "Admin Self-Registration (Secret Key Required)",
-            event: [saveTokenScript("adminToken")],
+            event: [saveAuthScript("adminToken")],
             request: {
                 method: "POST",
                 header: [{ key: "Content-Type", value: "application/json" }],
@@ -375,7 +637,7 @@ const adminFolder = {
         },
         {
             name: "Admin Login",
-            event: [saveTokenScript("adminToken")],
+            event: [saveAuthScript("adminToken")],
             request: {
                 method: "POST",
                 header: [{ key: "Content-Type", value: "application/json" }],
@@ -390,6 +652,22 @@ const adminFolder = {
             }
         },
         {
+            name: "Admin Login (Core Auth Endpoint)",
+            event: [saveAuthScript("adminToken")],
+            request: {
+                method: "POST",
+                header: [{ key: "Content-Type", value: "application/json" }],
+                body: {
+                    mode: "raw",
+                    raw: JSON.stringify({
+                        email: "admin@healthcare.com",
+                        password: "Admin@1234"
+                    }, null, 2)
+                },
+                url: { raw: "{{baseUrl}}/api/auth/admin/login", host: ["{{baseUrl}}"], path: ["api", "auth", "admin", "login"] }
+            }
+        },
+        {
             name: "Admin Dashboard Stats",
             request: {
                 auth: authHeader("adminToken"),
@@ -399,10 +677,10 @@ const adminFolder = {
             }
         },
         {
-            name: "Doctor Management",
+            name: "Doctor Approvals & Governance",
             item: [
                 {
-                    name: "Get All Doctors",
+                    name: "Get All Doctors (With Filtering & Pagination)",
                     request: {
                         auth: authHeader("adminToken"),
                         method: "GET",
@@ -451,7 +729,16 @@ const adminFolder = {
                     }
                 },
                 {
-                    name: "Verify Doctor (Legacy Status Update)",
+                    name: "Verify Doctor",
+                    request: {
+                        auth: authHeader("adminToken"),
+                        method: "PUT",
+                        header: [],
+                        url: { raw: "{{baseUrl}}/api/admin/doctors/{{doctorId}}/verify", host: ["{{baseUrl}}"], path: ["api", "admin", "doctors", "{{doctorId}}", "verify"] }
+                    }
+                },
+                {
+                    name: "Set Doctor Verification Status (Direct)",
                     request: {
                         auth: authHeader("adminToken"),
                         method: "PUT",
@@ -460,13 +747,13 @@ const adminFolder = {
                             mode: "raw",
                             raw: JSON.stringify({ status: "verified" }, null, 2)
                         },
-                        url: { raw: "{{baseUrl}}/api/admin/doctors/{{doctorId}}/verify", host: ["{{baseUrl}}"], path: ["api", "admin", "doctors", "{{doctorId}}", "verify"] }
+                        url: { raw: "{{baseUrl}}/api/auth/doctor/{{doctorId}}/verify-status", host: ["{{baseUrl}}"], path: ["api", "auth", "doctor", "{{doctorId}}", "verify-status"] }
                     }
                 }
             ]
         },
         {
-            name: "MR Management",
+            name: "Medical Representative (MR) Management",
             item: [
                 {
                     name: "Get All MRs",
@@ -474,7 +761,16 @@ const adminFolder = {
                         auth: authHeader("adminToken"),
                         method: "GET",
                         header: [],
-                        url: { raw: "{{baseUrl}}/api/admin/mr", host: ["{{baseUrl}}"], path: ["api", "admin", "mr"] }
+                        url: {
+                            raw: "{{baseUrl}}/api/admin/mr?status=pending&page=1&limit=20",
+                            host: ["{{baseUrl}}"],
+                            path: ["api", "admin", "mr"],
+                            query: [
+                                { key: "status", value: "pending" },
+                                { key: "page", value: "1" },
+                                { key: "limit", value: "20" }
+                            ]
+                        }
                     }
                 },
                 {
@@ -503,15 +799,28 @@ const adminFolder = {
                         header: [{ key: "Content-Type", value: "application/json" }],
                         body: {
                             mode: "raw",
-                            raw: JSON.stringify({ reason: "Company authorization letter expired" }, null, 2)
+                            raw: JSON.stringify({ reason: "Company authorization letter verification failed" }, null, 2)
                         },
                         url: { raw: "{{baseUrl}}/api/admin/mr/{{mrId}}/reject", host: ["{{baseUrl}}"], path: ["api", "admin", "mr", "{{mrId}}", "reject"] }
+                    }
+                },
+                {
+                    name: "Verify MR Status (Direct)",
+                    request: {
+                        auth: authHeader("adminToken"),
+                        method: "PUT",
+                        header: [{ key: "Content-Type", value: "application/json" }],
+                        body: {
+                            mode: "raw",
+                            raw: JSON.stringify({ status: "verified" }, null, 2)
+                        },
+                        url: { raw: "{{baseUrl}}/api/auth/mr/{{mrId}}/verify-status", host: ["{{baseUrl}}"], path: ["api", "auth", "mr", "{{mrId}}", "verify-status"] }
                     }
                 }
             ]
         },
         {
-            name: "Patient Management",
+            name: "Patient Oversight",
             item: [
                 {
                     name: "Get All Patients",
@@ -519,7 +828,12 @@ const adminFolder = {
                         auth: authHeader("adminToken"),
                         method: "GET",
                         header: [],
-                        url: { raw: "{{baseUrl}}/api/admin/patients?page=1&limit=20", host: ["{{baseUrl}}"], path: ["api", "admin", "patients"] }
+                        url: {
+                            raw: "{{baseUrl}}/api/admin/patients?page=1&limit=20",
+                            host: ["{{baseUrl}}"],
+                            path: ["api", "admin", "patients"],
+                            query: [{ key: "page", value: "1" }, { key: "limit", value: "20" }]
+                        }
                     }
                 },
                 {
@@ -534,7 +848,7 @@ const adminFolder = {
             ]
         },
         {
-            name: "Pharmacy Owners Management",
+            name: "Pharmacy Owner Approvals",
             item: [
                 {
                     name: "Get All Pharmacy Owners",
@@ -543,15 +857,19 @@ const adminFolder = {
                         method: "GET",
                         header: [],
                         url: {
-                            raw: "{{baseUrl}}/api/admin/pharmacy-owners?verificationStatus=pending",
+                            raw: "{{baseUrl}}/api/admin/pharmacy-owners?approval_status=pending&page=1&limit=20",
                             host: ["{{baseUrl}}"],
                             path: ["api", "admin", "pharmacy-owners"],
-                            query: [{ key: "verificationStatus", value: "pending" }]
+                            query: [
+                                { key: "approval_status", value: "pending" },
+                                { key: "page", value: "1" },
+                                { key: "limit", value: "20" }
+                            ]
                         }
                     }
                 },
                 {
-                    name: "Get Pharmacy Owner Profile",
+                    name: "Get Pharmacy Owner Profile by ID",
                     request: {
                         auth: authHeader("adminToken"),
                         method: "GET",
@@ -564,7 +882,11 @@ const adminFolder = {
                     request: {
                         auth: authHeader("adminToken"),
                         method: "PUT",
-                        header: [],
+                        header: [{ key: "Content-Type", value: "application/json" }],
+                        body: {
+                            mode: "raw",
+                            raw: JSON.stringify({ remarks: "Drug License and GSTIN verified successfully" }, null, 2)
+                        },
                         url: { raw: "{{baseUrl}}/api/admin/pharmacy-owners/{{pharmacyOwnerId}}/approve", host: ["{{baseUrl}}"], path: ["api", "admin", "pharmacy-owners", "{{pharmacyOwnerId}}", "approve"] }
                     }
                 },
@@ -576,7 +898,7 @@ const adminFolder = {
                         header: [{ key: "Content-Type", value: "application/json" }],
                         body: {
                             mode: "raw",
-                            raw: JSON.stringify({ reason: "Drug License certificate is invalid or unreadable" }, null, 2)
+                            raw: JSON.stringify({ reason: "Expired Drug License document" }, null, 2)
                         },
                         url: { raw: "{{baseUrl}}/api/admin/pharmacy-owners/{{pharmacyOwnerId}}/reject", host: ["{{baseUrl}}"], path: ["api", "admin", "pharmacy-owners", "{{pharmacyOwnerId}}", "reject"] }
                     }
@@ -584,32 +906,50 @@ const adminFolder = {
             ]
         },
         {
-            name: "System Users & Expense Approvals",
+            name: "User Account Moderation",
             item: [
                 {
-                    name: "Get All System Users",
+                    name: "Get All Registered Users",
                     request: {
                         auth: authHeader("adminToken"),
                         method: "GET",
                         header: [],
-                        url: { raw: "{{baseUrl}}/api/admin/users", host: ["{{baseUrl}}"], path: ["api", "admin", "users"] }
+                        url: {
+                            raw: "{{baseUrl}}/api/admin/users?role=patient&status=active&page=1&limit=20",
+                            host: ["{{baseUrl}}"],
+                            path: ["api", "admin", "users"],
+                            query: [
+                                { key: "role", value: "patient" },
+                                { key: "status", value: "active" },
+                                { key: "page", value: "1" },
+                                { key: "limit", value: "20" }
+                            ]
+                        }
                     }
                 },
                 {
-                    name: "Suspend User",
+                    name: "Suspend / Reactivate User",
                     request: {
                         auth: authHeader("adminToken"),
                         method: "PUT",
                         header: [{ key: "Content-Type", value: "application/json" }],
                         body: {
                             mode: "raw",
-                            raw: JSON.stringify({ reason: "Terms of service violation" }, null, 2)
+                            raw: JSON.stringify({
+                                reason: "Policy violation regarding automated booking scripts",
+                                suspend: true
+                            }, null, 2)
                         },
                         url: { raw: "{{baseUrl}}/api/admin/users/{{patientId}}/suspend", host: ["{{baseUrl}}"], path: ["api", "admin", "users", "{{patientId}}", "suspend"] }
                     }
-                },
+                }
+            ]
+        },
+        {
+            name: "MR Expense Approvals",
+            item: [
                 {
-                    name: "Get Pending Expenses",
+                    name: "Get Pending Expense Approvals",
                     request: {
                         auth: authHeader("adminToken"),
                         method: "GET",
@@ -618,25 +958,93 @@ const adminFolder = {
                     }
                 },
                 {
-                    name: "Approve Expense",
-                    request: {
-                        auth: authHeader("adminToken"),
-                        method: "PUT",
-                        header: [],
-                        url: { raw: "{{baseUrl}}/api/admin/expenses/65f1a2b3c4d5e6f7a8b9c0e3/approve", host: ["{{baseUrl}}"], path: ["api", "admin", "expenses", "65f1a2b3c4d5e6f7a8b9c0e3", "approve"] }
-                    }
-                },
-                {
-                    name: "Reject Expense",
+                    name: "Approve MR Expense",
                     request: {
                         auth: authHeader("adminToken"),
                         method: "PUT",
                         header: [{ key: "Content-Type", value: "application/json" }],
                         body: {
                             mode: "raw",
-                            raw: JSON.stringify({ reason: "Missing original bills/receipts" }, null, 2)
+                            raw: JSON.stringify({ approvedAmount: 1200, notes: "Approved per policy" }, null, 2)
                         },
-                        url: { raw: "{{baseUrl}}/api/admin/expenses/65f1a2b3c4d5e6f7a8b9c0e3/reject", host: ["{{baseUrl}}"], path: ["api", "admin", "expenses", "65f1a2b3c4d5e6f7a8b9c0e3", "reject"] }
+                        url: { raw: "{{baseUrl}}/api/admin/expenses/{{expenseId}}/approve", host: ["{{baseUrl}}"], path: ["api", "admin", "expenses", "{{expenseId}}", "approve"] }
+                    }
+                },
+                {
+                    name: "Reject MR Expense",
+                    request: {
+                        auth: authHeader("adminToken"),
+                        method: "PUT",
+                        header: [{ key: "Content-Type", value: "application/json" }],
+                        body: {
+                            mode: "raw",
+                            raw: JSON.stringify({ reason: "Missing supporting travel receipts" }, null, 2)
+                        },
+                        url: { raw: "{{baseUrl}}/api/admin/expenses/{{expenseId}}/reject", host: ["{{baseUrl}}"], path: ["api", "admin", "expenses", "{{expenseId}}", "reject"] }
+                    }
+                }
+            ]
+        },
+        {
+            name: "Financials, Transactions & Revenue",
+            item: [
+                {
+                    name: "Get Payments Dashboard Stats",
+                    request: {
+                        auth: authHeader("adminToken"),
+                        method: "GET",
+                        header: [],
+                        url: { raw: "{{baseUrl}}/api/admin/payments/dashboard", host: ["{{baseUrl}}"], path: ["api", "admin", "payments", "dashboard"] }
+                    }
+                },
+                {
+                    name: "Get All Transactions",
+                    request: {
+                        auth: authHeader("adminToken"),
+                        method: "GET",
+                        header: [],
+                        url: {
+                            raw: "{{baseUrl}}/api/admin/payments/transactions?page=1&limit=25",
+                            host: ["{{baseUrl}}"],
+                            path: ["api", "admin", "payments", "transactions"],
+                            query: [{ key: "page", value: "1" }, { key: "limit", value: "25" }]
+                        }
+                    }
+                },
+                {
+                    name: "Get Doctor Appointment Payments",
+                    request: {
+                        auth: authHeader("adminToken"),
+                        method: "GET",
+                        header: [],
+                        url: { raw: "{{baseUrl}}/api/admin/payments/appointments", host: ["{{baseUrl}}"], path: ["api", "admin", "payments", "appointments"] }
+                    }
+                },
+                {
+                    name: "Get Pharmacy Invoices (POS)",
+                    request: {
+                        auth: authHeader("adminToken"),
+                        method: "GET",
+                        header: [],
+                        url: { raw: "{{baseUrl}}/api/admin/payments/pharmacy-invoices", host: ["{{baseUrl}}"], path: ["api", "admin", "payments", "pharmacy-invoices"] }
+                    }
+                },
+                {
+                    name: "Get Pharmacy Online Orders",
+                    request: {
+                        auth: authHeader("adminToken"),
+                        method: "GET",
+                        header: [],
+                        url: { raw: "{{baseUrl}}/api/admin/payments/pharmacy-orders", host: ["{{baseUrl}}"], path: ["api", "admin", "payments", "pharmacy-orders"] }
+                    }
+                },
+                {
+                    name: "Get All MR Expenses Report",
+                    request: {
+                        auth: authHeader("adminToken"),
+                        method: "GET",
+                        header: [],
+                        url: { raw: "{{baseUrl}}/api/admin/payments/mr-expenses", host: ["{{baseUrl}}"], path: ["api", "admin", "payments", "mr-expenses"] }
                     }
                 }
             ]
@@ -644,14 +1052,14 @@ const adminFolder = {
     ]
 };
 
-// -------------------------------------------------------------
+// ─────────────────────────────────────────────────────────────────────────────
 // 03. Doctor Portal
-// -------------------------------------------------------------
+// ─────────────────────────────────────────────────────────────────────────────
 const doctorFolder = {
     name: "03. Doctor Portal",
     item: [
         {
-            name: "Doctor Profile",
+            name: "Doctor Profile & Schedule",
             item: [
                 {
                     name: "Get Doctor Profile",
@@ -672,14 +1080,41 @@ const doctorFolder = {
                             mode: "raw",
                             raw: JSON.stringify({
                                 consultationFee: 1000,
-                                about: "Senior Cardiologist & Interventional Heart Specialist"
+                                about: "Senior Cardiologist & Interventional Heart Specialist",
+                                languages: ["English", "Hindi", "Punjabi"]
                             }, null, 2)
                         },
                         url: { raw: "{{baseUrl}}/api/doctors/profile", host: ["{{baseUrl}}"], path: ["api", "doctors", "profile"] }
                     }
                 },
                 {
-                    name: "Get Schedule",
+                    name: "Update Doctor Availability Status",
+                    request: {
+                        auth: authHeader("doctorToken"),
+                        method: "PUT",
+                        header: [{ key: "Content-Type", value: "application/json" }],
+                        body: {
+                            mode: "raw",
+                            raw: JSON.stringify({ status: "available" }, null, 2)
+                        },
+                        url: { raw: "{{baseUrl}}/api/doctors/status", host: ["{{baseUrl}}"], path: ["api", "doctors", "status"] }
+                    }
+                },
+                {
+                    name: "Update Online Status (Live Presence)",
+                    request: {
+                        auth: authHeader("doctorToken"),
+                        method: "PUT",
+                        header: [{ key: "Content-Type", value: "application/json" }],
+                        body: {
+                            mode: "raw",
+                            raw: JSON.stringify({ isOnline: true }, null, 2)
+                        },
+                        url: { raw: "{{baseUrl}}/api/doctors/online-status", host: ["{{baseUrl}}"], path: ["api", "doctors", "online-status"] }
+                    }
+                },
+                {
+                    name: "Get Doctor Schedule",
                     request: {
                         auth: authHeader("doctorToken"),
                         method: "GET",
@@ -688,7 +1123,7 @@ const doctorFolder = {
                     }
                 },
                 {
-                    name: "Update Schedule",
+                    name: "Update Doctor Schedule",
                     request: {
                         auth: authHeader("doctorToken"),
                         method: "PUT",
@@ -703,6 +1138,25 @@ const doctorFolder = {
                             }, null, 2)
                         },
                         url: { raw: "{{baseUrl}}/api/doctors/schedule", host: ["{{baseUrl}}"], path: ["api", "doctors", "schedule"] }
+                    }
+                },
+                {
+                    name: "Submit Verification Documents",
+                    request: {
+                        auth: authHeader("doctorToken"),
+                        method: "POST",
+                        header: [{ key: "Content-Type", value: "application/json" }],
+                        body: {
+                            mode: "raw",
+                            raw: JSON.stringify({
+                                registrationCouncil: "Medical Council of India",
+                                medicalCouncilNumber: "MCI-45892",
+                                documents: [
+                                    { documentType: "license", documentUrl: "/uploads/license.pdf" }
+                                ]
+                            }, null, 2)
+                        },
+                        url: { raw: "{{baseUrl}}/api/doctors/profile/verify", host: ["{{baseUrl}}"], path: ["api", "doctors", "profile", "verify"] }
                     }
                 }
             ]
@@ -729,7 +1183,10 @@ const doctorFolder = {
                             raw: "{{baseUrl}}/api/doctors/appointments?status=confirmed&date=today",
                             host: ["{{baseUrl}}"],
                             path: ["api", "doctors", "appointments"],
-                            query: [{ key: "status", value: "confirmed" }, { key: "date", value: "today" }]
+                            query: [
+                                { key: "status", value: "confirmed" },
+                                { key: "date", value: "today" }
+                            ]
                         }
                     }
                 },
@@ -756,25 +1213,32 @@ const doctorFolder = {
                     request: {
                         auth: authHeader("doctorToken"),
                         method: "PUT",
-                        header: [],
+                        header: [{ key: "Content-Type", value: "application/json" }],
+                        body: {
+                            mode: "raw",
+                            raw: JSON.stringify({
+                                clinicalNotes: "Patient examined. Vitals normal. Prescribed hypertension medication.",
+                                diagnosis: "Stage 1 Hypertension"
+                            }, null, 2)
+                        },
                         url: { raw: "{{baseUrl}}/api/doctors/appointments/{{appointmentId}}/complete", host: ["{{baseUrl}}"], path: ["api", "doctors", "appointments", "{{appointmentId}}", "complete"] }
                     }
                 },
                 {
-                    name: "Cancel Appointment",
+                    name: "Cancel Appointment (Doctor)",
                     request: {
                         auth: authHeader("doctorToken"),
                         method: "PUT",
                         header: [{ key: "Content-Type", value: "application/json" }],
                         body: {
                             mode: "raw",
-                            raw: JSON.stringify({ reason: "Emergency surgery scheduled" }, null, 2)
+                            raw: JSON.stringify({ reason: "Emergency surgery schedule conflict" }, null, 2)
                         },
                         url: { raw: "{{baseUrl}}/api/doctors/appointments/{{appointmentId}}/cancel", host: ["{{baseUrl}}"], path: ["api", "doctors", "appointments", "{{appointmentId}}", "cancel"] }
                     }
                 },
                 {
-                    name: "Get Doctor Patients List",
+                    name: "Get My Patients List",
                     request: {
                         auth: authHeader("doctorToken"),
                         method: "GET",
@@ -783,12 +1247,21 @@ const doctorFolder = {
                     }
                 },
                 {
-                    name: "Get Patient Profile (Doctor View)",
+                    name: "Get Patient Clinical Profile",
                     request: {
                         auth: authHeader("doctorToken"),
                         method: "GET",
                         header: [],
                         url: { raw: "{{baseUrl}}/api/doctors/patients/{{patientId}}", host: ["{{baseUrl}}"], path: ["api", "doctors", "patients", "{{patientId}}"] }
+                    }
+                },
+                {
+                    name: "Get Patient Medical History",
+                    request: {
+                        auth: authHeader("doctorToken"),
+                        method: "GET",
+                        header: [],
+                        url: { raw: "{{baseUrl}}/api/doctors/patients/{{patientId}}/history", host: ["{{baseUrl}}"], path: ["api", "doctors", "patients", "{{patientId}}", "history"] }
                     }
                 }
             ]
@@ -798,6 +1271,7 @@ const doctorFolder = {
             item: [
                 {
                     name: "Create Prescription",
+                    event: [saveIdScript("prescriptionId", ["_id", "id", "prescriptionId"])],
                     request: {
                         auth: authHeader("doctorToken"),
                         method: "POST",
@@ -808,21 +1282,24 @@ const doctorFolder = {
                                 patientId: "{{patientId}}",
                                 appointmentId: "{{appointmentId}}",
                                 diagnosis: "Hypertension Stage 1",
-                                symptoms: ["Mild headache", "High BP (140/90)"],
                                 medicines: [
                                     {
-                                        name: "Amlodipine",
+                                        name: "Amlodipine 5mg",
                                         dosage: "5mg",
+                                        timing: "OD",
                                         frequency: "Once daily (Morning)",
                                         duration: "30 days",
-                                        instructions: "Take after breakfast"
+                                        instructions: "Take after breakfast",
+                                        withFood: true
                                     }
                                 ],
-                                advice: "Reduce salt intake and monitor BP every alternate day",
-                                followUpDate: "2026-10-15"
+                                instructions: ["Reduce salt intake", "Daily 30 min morning walk"],
+                                followUpDate: "2026-11-15",
+                                notes: "Monitor BP every morning"
                             }, null, 2)
                         },
-                        url: { raw: "{{baseUrl}}/api/doctors/prescriptions", host: ["{{baseUrl}}"], path: ["api", "doctors", "prescriptions"] }
+                        url: { raw: "{{baseUrl}}/api/doctors/prescriptions", host: ["{{baseUrl}}"], path: ["api", "doctors", "prescriptions"] },
+                        description: "Validates schema and auto-saves generated {{prescriptionId}}."
                     }
                 },
                 {
@@ -835,7 +1312,7 @@ const doctorFolder = {
                     }
                 },
                 {
-                    name: "Get MR Meetings",
+                    name: "Get MR Meeting Requests",
                     request: {
                         auth: authHeader("doctorToken"),
                         method: "GET",
@@ -848,8 +1325,12 @@ const doctorFolder = {
                     request: {
                         auth: authHeader("doctorToken"),
                         method: "POST",
-                        header: [],
-                        url: { raw: "{{baseUrl}}/api/doctors/mr-meetings/65f1a2b3c4d5e6f7a8b9c0e4/approve", host: ["{{baseUrl}}"], path: ["api", "doctors", "mr-meetings", "65f1a2b3c4d5e6f7a8b9c0e4", "approve"] }
+                        header: [{ key: "Content-Type", value: "application/json" }],
+                        body: {
+                            mode: "raw",
+                            raw: JSON.stringify({ slotTime: "14:30" }, null, 2)
+                        },
+                        url: { raw: "{{baseUrl}}/api/doctors/mr-meetings/{{meetingId}}/approve", host: ["{{baseUrl}}"], path: ["api", "doctors", "mr-meetings", "{{meetingId}}", "approve"] }
                     }
                 },
                 {
@@ -860,18 +1341,18 @@ const doctorFolder = {
                         header: [{ key: "Content-Type", value: "application/json" }],
                         body: {
                             mode: "raw",
-                            raw: JSON.stringify({ reason: "Busy schedule on requested date" }, null, 2)
+                            raw: JSON.stringify({ reason: "OPD clinic fully booked this week" }, null, 2)
                         },
-                        url: { raw: "{{baseUrl}}/api/doctors/mr-meetings/65f1a2b3c4d5e6f7a8b9c0e4/reject", host: ["{{baseUrl}}"], path: ["api", "doctors", "mr-meetings", "65f1a2b3c4d5e6f7a8b9c0e4", "reject"] }
+                        url: { raw: "{{baseUrl}}/api/doctors/mr-meetings/{{meetingId}}/reject", host: ["{{baseUrl}}"], path: ["api", "doctors", "mr-meetings", "{{meetingId}}", "reject"] }
                     }
                 }
             ]
         },
         {
-            name: "Analytics & Earnings",
+            name: "Earnings, Withdrawals & Analytics",
             item: [
                 {
-                    name: "Get Doctor Analytics",
+                    name: "Get Doctor Overall Analytics",
                     request: {
                         auth: authHeader("doctorToken"),
                         method: "GET",
@@ -885,11 +1366,34 @@ const doctorFolder = {
                         auth: authHeader("doctorToken"),
                         method: "GET",
                         header: [],
-                        url: { raw: "{{baseUrl}}/api/doctors/analytics/revenue", host: ["{{baseUrl}}"], path: ["api", "doctors", "analytics", "revenue"] }
+                        url: {
+                            raw: "{{baseUrl}}/api/doctors/analytics/revenue?period=monthly",
+                            host: ["{{baseUrl}}"],
+                            path: ["api", "doctors", "analytics", "revenue"],
+                            query: [{ key: "period", value: "monthly" }]
+                        }
                     }
                 },
                 {
-                    name: "Get Doctor Earnings",
+                    name: "Get Rating Analytics",
+                    request: {
+                        auth: authHeader("doctorToken"),
+                        method: "GET",
+                        header: [],
+                        url: { raw: "{{baseUrl}}/api/doctors/analytics/ratings", host: ["{{baseUrl}}"], path: ["api", "doctors", "analytics", "ratings"] }
+                    }
+                },
+                {
+                    name: "Get Appointment Trends",
+                    request: {
+                        auth: authHeader("doctorToken"),
+                        method: "GET",
+                        header: [],
+                        url: { raw: "{{baseUrl}}/api/doctors/analytics/appointments", host: ["{{baseUrl}}"], path: ["api", "doctors", "analytics", "appointments"] }
+                    }
+                },
+                {
+                    name: "Get Earnings Summary",
                     request: {
                         auth: authHeader("doctorToken"),
                         method: "GET",
@@ -898,7 +1402,7 @@ const doctorFolder = {
                     }
                 },
                 {
-                    name: "Request Withdrawal",
+                    name: "Request Earnings Withdrawal",
                     request: {
                         auth: authHeader("doctorToken"),
                         method: "POST",
@@ -906,12 +1410,24 @@ const doctorFolder = {
                         body: {
                             mode: "raw",
                             raw: JSON.stringify({
-                                amount: 15000,
-                                bankAccount: "HDFC0001234",
-                                ifscCode: "HDFC0001234"
+                                amount: 5000,
+                                bankDetails: {
+                                    accountNumber: "123456789012",
+                                    ifscCode: "HDFC0001234",
+                                    accountHolderName: "Dr. Ananya Sharma"
+                                }
                             }, null, 2)
                         },
                         url: { raw: "{{baseUrl}}/api/doctors/earnings/withdraw", host: ["{{baseUrl}}"], path: ["api", "doctors", "earnings", "withdraw"] }
+                    }
+                },
+                {
+                    name: "Get Earnings History",
+                    request: {
+                        auth: authHeader("doctorToken"),
+                        method: "GET",
+                        header: [],
+                        url: { raw: "{{baseUrl}}/api/doctors/earnings/history", host: ["{{baseUrl}}"], path: ["api", "doctors", "earnings", "history"] }
                     }
                 }
             ]
@@ -919,9 +1435,9 @@ const doctorFolder = {
     ]
 };
 
-// -------------------------------------------------------------
+// ─────────────────────────────────────────────────────────────────────────────
 // 04. Patient Portal
-// -------------------------------------------------------------
+// ─────────────────────────────────────────────────────────────────────────────
 const patientFolder = {
     name: "04. Patient Portal",
     item: [
@@ -929,7 +1445,7 @@ const patientFolder = {
             name: "Profile & Dashboard",
             item: [
                 {
-                    name: "Patient Dashboard",
+                    name: "Patient Dashboard Stats",
                     request: {
                         auth: authHeader("patientToken"),
                         method: "GET",
@@ -956,33 +1472,69 @@ const patientFolder = {
                             mode: "raw",
                             raw: JSON.stringify({
                                 bloodGroup: "O+",
-                                emergencyContact: "+919876543299"
+                                emergencyContact: {
+                                    name: "Sunita Verma",
+                                    phone: "+919876500000",
+                                    relation: "Mother"
+                                },
+                                allergies: ["Penicillin", "Sulfa drugs"]
                             }, null, 2)
                         },
                         url: { raw: "{{baseUrl}}/api/patients/profile", host: ["{{baseUrl}}"], path: ["api", "patients", "profile"] }
+                    }
+                },
+                {
+                    name: "Get Family Members",
+                    request: {
+                        auth: authHeader("patientToken"),
+                        method: "GET",
+                        header: [],
+                        url: { raw: "{{baseUrl}}/api/patients/family-members", host: ["{{baseUrl}}"], path: ["api", "patients", "family-members"] }
+                    }
+                },
+                {
+                    name: "Add Family Member",
+                    request: {
+                        auth: authHeader("patientToken"),
+                        method: "POST",
+                        header: [{ key: "Content-Type", value: "application/json" }],
+                        body: {
+                            mode: "raw",
+                            raw: JSON.stringify({
+                                fullName: "Sneha Verma",
+                                relation: "Sister",
+                                gender: "female",
+                                dob: "1998-08-20"
+                            }, null, 2)
+                        },
+                        url: { raw: "{{baseUrl}}/api/patients/family-members", host: ["{{baseUrl}}"], path: ["api", "patients", "family-members"] }
                     }
                 }
             ]
         },
         {
-            name: "Doctor Search & Appointments",
+            name: "Find Doctors & Appointments",
             item: [
                 {
-                    name: "Search Doctors",
+                    name: "Search Doctors (Specialty, Location, Pricing)",
                     request: {
                         auth: authHeader("patientToken"),
                         method: "GET",
                         header: [],
                         url: {
-                            raw: "{{baseUrl}}/api/patients/doctors?specialization=Cardiology&city=Delhi",
+                            raw: "{{baseUrl}}/api/patients/doctors?specialization=Cardiology&page=1&limit=10",
                             host: ["{{baseUrl}}"],
                             path: ["api", "patients", "doctors"],
-                            query: [{ key: "specialization", value: "Cardiology" }, { key: "city", value: "Delhi" }]
+                            query: [
+                                { key: "specialization", value: "Cardiology" },
+                                { key: "page", value: "1" },
+                                { key: "limit", value: "10" }
+                            ]
                         }
                     }
                 },
                 {
-                    name: "Get Doctor Details",
+                    name: "Get Doctor Details by ID",
                     request: {
                         auth: authHeader("patientToken"),
                         method: "GET",
@@ -997,15 +1549,16 @@ const patientFolder = {
                         method: "GET",
                         header: [],
                         url: {
-                            raw: "{{baseUrl}}/api/patients/doctors/{{doctorId}}/available-slots?date=2026-09-15",
+                            raw: "{{baseUrl}}/api/patients/doctors/{{doctorId}}/available-slots?date=2026-10-25",
                             host: ["{{baseUrl}}"],
                             path: ["api", "patients", "doctors", "{{doctorId}}", "available-slots"],
-                            query: [{ key: "date", value: "2026-09-15" }]
+                            query: [{ key: "date", value: "2026-10-25" }]
                         }
                     }
                 },
                 {
-                    name: "Book Appointment",
+                    name: "Book Appointment (Joi Schema Validated)",
+                    event: [saveIdScript("appointmentId", ["_id", "id", "appointmentId"])],
                     request: {
                         auth: authHeader("patientToken"),
                         method: "POST",
@@ -1014,13 +1567,14 @@ const patientFolder = {
                             mode: "raw",
                             raw: JSON.stringify({
                                 doctorId: "{{doctorId}}",
-                                appointmentDate: "2026-09-15",
-                                timeSlot: "10:30 AM",
-                                reason: "Routine cardiac checkup and BP monitoring",
-                                type: "in-person"
+                                appointmentDate: "2026-10-25",
+                                appointmentTime: "10:30",
+                                consultationType: "clinic",
+                                symptoms: "Routine cardiac checkup and BP monitoring"
                             }, null, 2)
                         },
-                        url: { raw: "{{baseUrl}}/api/patients/appointments", host: ["{{baseUrl}}"], path: ["api", "patients", "appointments"] }
+                        url: { raw: "{{baseUrl}}/api/patients/appointments", host: ["{{baseUrl}}"], path: ["api", "patients", "appointments"] },
+                        description: "Complies with Joi validation schema (HH:MM time format, clinic/video/chat consultationType) and auto-saves {{appointmentId}}."
                     }
                 },
                 {
@@ -1050,15 +1604,29 @@ const patientFolder = {
                         body: {
                             mode: "raw",
                             raw: JSON.stringify({
-                                appointmentDate: "2026-09-18",
-                                timeSlot: "11:00 AM"
+                                appointmentDate: "2026-10-28",
+                                appointmentTime: "11:00",
+                                reason: "Office schedule shift"
                             }, null, 2)
                         },
                         url: { raw: "{{baseUrl}}/api/patients/appointments/{{appointmentId}}/reschedule", host: ["{{baseUrl}}"], path: ["api", "patients", "appointments", "{{appointmentId}}", "reschedule"] }
                     }
                 },
                 {
-                    name: "Pay Appointment Fee",
+                    name: "Cancel Appointment",
+                    request: {
+                        auth: authHeader("patientToken"),
+                        method: "PUT",
+                        header: [{ key: "Content-Type", value: "application/json" }],
+                        body: {
+                            mode: "raw",
+                            raw: JSON.stringify({ reason: "Patient had personal emergency" }, null, 2)
+                        },
+                        url: { raw: "{{baseUrl}}/api/patients/appointments/{{appointmentId}}/cancel", host: ["{{baseUrl}}"], path: ["api", "patients", "appointments", "{{appointmentId}}", "cancel"] }
+                    }
+                },
+                {
+                    name: "Pay for Appointment (Mark Paid)",
                     request: {
                         auth: authHeader("patientToken"),
                         method: "POST",
@@ -1066,14 +1634,24 @@ const patientFolder = {
                         body: {
                             mode: "raw",
                             raw: JSON.stringify({
-                                paymentMethod: "razorpay"
+                                paymentMethod: "razorpay",
+                                paymentId: "pay_sample_12345"
                             }, null, 2)
                         },
                         url: { raw: "{{baseUrl}}/api/patients/appointments/{{appointmentId}}/pay", host: ["{{baseUrl}}"], path: ["api", "patients", "appointments", "{{appointmentId}}", "pay"] }
                     }
                 },
                 {
-                    name: "Rate Appointment & Doctor",
+                    name: "Get Consultation Session Info",
+                    request: {
+                        auth: authHeader("patientToken"),
+                        method: "GET",
+                        header: [],
+                        url: { raw: "{{baseUrl}}/api/patients/appointments/{{appointmentId}}/consultation-session", host: ["{{baseUrl}}"], path: ["api", "patients", "appointments", "{{appointmentId}}", "consultation-session"] }
+                    }
+                },
+                {
+                    name: "Rate Completed Appointment",
                     request: {
                         auth: authHeader("patientToken"),
                         method: "POST",
@@ -1082,28 +1660,19 @@ const patientFolder = {
                             mode: "raw",
                             raw: JSON.stringify({
                                 rating: 5,
-                                review: "Extremely professional, patient, and thorough doctor!"
+                                review: "Extremely attentive and thorough diagnosis. Highly recommended!"
                             }, null, 2)
                         },
                         url: { raw: "{{baseUrl}}/api/patients/appointments/{{appointmentId}}/rate", host: ["{{baseUrl}}"], path: ["api", "patients", "appointments", "{{appointmentId}}", "rate"] }
-                    }
-                },
-                {
-                    name: "Get Video Consultation Room Session",
-                    request: {
-                        auth: authHeader("patientToken"),
-                        method: "GET",
-                        header: [],
-                        url: { raw: "{{baseUrl}}/api/patients/appointments/{{appointmentId}}/consultation-session", host: ["{{baseUrl}}"], path: ["api", "patients", "appointments", "{{appointmentId}}", "consultation-session"] }
                     }
                 }
             ]
         },
         {
-            name: "Prescriptions & Health Records",
+            name: "Prescriptions & Medical Records",
             item: [
                 {
-                    name: "Get My Prescriptions",
+                    name: "Get All My Prescriptions",
                     request: {
                         auth: authHeader("patientToken"),
                         method: "GET",
@@ -1130,7 +1699,7 @@ const patientFolder = {
                     }
                 },
                 {
-                    name: "Get Medical Records",
+                    name: "Get Patient Medical Records",
                     request: {
                         auth: authHeader("patientToken"),
                         method: "GET",
@@ -1139,7 +1708,38 @@ const patientFolder = {
                     }
                 },
                 {
-                    name: "Log Health Metric (Vitals)",
+                    name: "Upload Medical Record (Multipart)",
+                    request: {
+                        auth: authHeader("patientToken"),
+                        method: "POST",
+                        header: [],
+                        body: {
+                            mode: "formdata",
+                            formdata: [
+                                { key: "title", value: "Annual Blood Test Report 2026", type: "text" },
+                                { key: "recordType", value: "lab_report", type: "text" },
+                                { key: "file", type: "file", src: "" }
+                            ]
+                        },
+                        url: { raw: "{{baseUrl}}/api/patients/medical-records", host: ["{{baseUrl}}"], path: ["api", "patients", "medical-records"] }
+                    }
+                }
+            ]
+        },
+        {
+            name: "Health Tracking & Emergency Contacts",
+            item: [
+                {
+                    name: "Get Health Metrics History",
+                    request: {
+                        auth: authHeader("patientToken"),
+                        method: "GET",
+                        header: [],
+                        url: { raw: "{{baseUrl}}/api/patients/health-tracking", host: ["{{baseUrl}}"], path: ["api", "patients", "health-tracking"] }
+                    }
+                },
+                {
+                    name: "Log Health Metric (Vitals / Blood Pressure / Sugar)",
                     request: {
                         auth: authHeader("patientToken"),
                         method: "POST",
@@ -1147,55 +1747,22 @@ const patientFolder = {
                         body: {
                             mode: "raw",
                             raw: JSON.stringify({
-                                type: "blood_pressure",
+                                metricType: "blood_pressure",
                                 value: { systolic: 120, diastolic: 80 },
                                 unit: "mmHg",
-                                recordedAt: new Date().toISOString()
+                                measuredAt: new Date().toISOString()
                             }, null, 2)
                         },
                         url: { raw: "{{baseUrl}}/api/patients/health-tracking", host: ["{{baseUrl}}"], path: ["api", "patients", "health-tracking"] }
                     }
                 },
                 {
-                    name: "Get Health Statistics",
+                    name: "Get Health Statistics & Trends",
                     request: {
                         auth: authHeader("patientToken"),
                         method: "GET",
                         header: [],
                         url: { raw: "{{baseUrl}}/api/patients/health-tracking/statistics", host: ["{{baseUrl}}"], path: ["api", "patients", "health-tracking", "statistics"] }
-                    }
-                }
-            ]
-        },
-        {
-            name: "Family & Emergency Contacts",
-            item: [
-                {
-                    name: "Get Family Members",
-                    request: {
-                        auth: authHeader("patientToken"),
-                        method: "GET",
-                        header: [],
-                        url: { raw: "{{baseUrl}}/api/patients/family-members", host: ["{{baseUrl}}"], path: ["api", "patients", "family-members"] }
-                    }
-                },
-                {
-                    name: "Add Family Member",
-                    request: {
-                        auth: authHeader("patientToken"),
-                        method: "POST",
-                        header: [{ key: "Content-Type", value: "application/json" }],
-                        body: {
-                            mode: "raw",
-                            raw: JSON.stringify({
-                                name: "Pooja Verma",
-                                relation: "Spouse",
-                                age: 28,
-                                gender: "female",
-                                bloodGroup: "A+"
-                            }, null, 2)
-                        },
-                        url: { raw: "{{baseUrl}}/api/patients/family-members", host: ["{{baseUrl}}"], path: ["api", "patients", "family-members"] }
                     }
                 },
                 {
@@ -1216,12 +1783,44 @@ const patientFolder = {
                         body: {
                             mode: "raw",
                             raw: JSON.stringify({
-                                name: "Ramesh Verma (Father)",
-                                phone: "+919876500099",
-                                relationship: "Father"
+                                name: "Ramesh Verma",
+                                phone: "+919876543290",
+                                relation: "Brother"
                             }, null, 2)
                         },
                         url: { raw: "{{baseUrl}}/api/patients/emergency-contacts", host: ["{{baseUrl}}"], path: ["api", "patients", "emergency-contacts"] }
+                    }
+                }
+            ]
+        },
+        {
+            name: "Pharmacy Ordering (Patient Subsystem)",
+            item: [
+                {
+                    name: "Get Patient Pharmacy Orders",
+                    request: {
+                        auth: authHeader("patientToken"),
+                        method: "GET",
+                        header: [],
+                        url: { raw: "{{baseUrl}}/api/patients/pharmacy-orders", host: ["{{baseUrl}}"], path: ["api", "patients", "pharmacy-orders"] }
+                    }
+                },
+                {
+                    name: "Create Pharmacy Order from Prescription",
+                    event: [saveIdScript("orderId", ["_id", "id", "orderId"])],
+                    request: {
+                        auth: authHeader("patientToken"),
+                        method: "POST",
+                        header: [{ key: "Content-Type", value: "application/json" }],
+                        body: {
+                            mode: "raw",
+                            raw: JSON.stringify({
+                                prescriptionId: "{{prescriptionId}}",
+                                deliveryAddress: "221B Baker Street, Sector 4, New Delhi",
+                                paymentMethod: "cash_on_delivery"
+                            }, null, 2)
+                        },
+                        url: { raw: "{{baseUrl}}/api/patients/pharmacy-orders", host: ["{{baseUrl}}"], path: ["api", "patients", "pharmacy-orders"] }
                     }
                 }
             ]
@@ -1229,118 +1828,225 @@ const patientFolder = {
     ]
 };
 
-// -------------------------------------------------------------
-// 05. Medical Representative (MR)
-// -------------------------------------------------------------
+// ─────────────────────────────────────────────────────────────────────────────
+// 05. Medical Representative (MR) Portal
+// ─────────────────────────────────────────────────────────────────────────────
 const mrFolder = {
-    name: "05. Medical Representative (MR)",
+    name: "05. Medical Representative (MR) Portal",
     item: [
         {
-            name: "Get MR Profile",
-            request: {
-                auth: authHeader("mrToken"),
-                method: "GET",
-                header: [],
-                url: { raw: "{{baseUrl}}/api/mr/profile", host: ["{{baseUrl}}"], path: ["api", "mr", "profile"] }
-            }
-        },
-        {
-            name: "Search Target Doctors",
-            request: {
-                auth: authHeader("mrToken"),
-                method: "GET",
-                header: [],
-                url: { raw: "{{baseUrl}}/api/mr/doctors?territory=North Delhi", host: ["{{baseUrl}}"], path: ["api", "mr", "doctors"] }
-            }
-        },
-        {
-            name: "Request Meeting with Doctor",
-            request: {
-                auth: authHeader("mrToken"),
-                method: "POST",
-                header: [{ key: "Content-Type", value: "application/json" }],
-                body: {
-                    mode: "raw",
-                    raw: JSON.stringify({
-                        doctorId: "{{doctorId}}",
-                        preferredDate: "2026-09-20",
-                        preferredTimeSlot: "02:00 PM",
-                        agenda: "Product Demonstration: New Cardiac Drug formulations & clinical samples"
-                    }, null, 2)
-                },
-                url: { raw: "{{baseUrl}}/api/mr/meeting-requests", host: ["{{baseUrl}}"], path: ["api", "mr", "meeting-requests"] }
-            }
-        },
-        {
-            name: "Get Visit Plan",
-            request: {
-                auth: authHeader("mrToken"),
-                method: "GET",
-                header: [],
-                url: { raw: "{{baseUrl}}/api/mr/visit-plan", host: ["{{baseUrl}}"], path: ["api", "mr", "visit-plan"] }
-            }
-        },
-        {
-            name: "Submit Daily Call Report (DCR)",
-            request: {
-                auth: authHeader("mrToken"),
-                method: "POST",
-                header: [{ key: "Content-Type", value: "application/json" }],
-                body: {
-                    mode: "raw",
-                    raw: JSON.stringify({
-                        date: new Date().toISOString(),
-                        doctorId: "{{doctorId}}",
-                        productsDiscussed: ["CardioMed 10", "VasoPure 50"],
-                        samplesGiven: [{ productName: "CardioMed 10", quantity: 5 }],
-                        doctorFeedback: "Positive response, interested in 100mg trial batch",
-                        nextFollowUp: "2026-10-05"
-                    }, null, 2)
-                },
-                url: { raw: "{{baseUrl}}/api/mr/dcr", host: ["{{baseUrl}}"], path: ["api", "mr", "dcr"] }
-            }
-        },
-        {
-            name: "Get Sample Inventory",
-            request: {
-                auth: authHeader("mrToken"),
-                method: "GET",
-                header: [],
-                url: { raw: "{{baseUrl}}/api/mr/samples", host: ["{{baseUrl}}"], path: ["api", "mr", "samples"] }
-            }
-        },
-        {
-            name: "Log Field Expense",
-            request: {
-                auth: authHeader("mrToken"),
-                method: "POST",
-                header: [{ key: "Content-Type", value: "application/json" }],
-                body: {
-                    mode: "raw",
-                    raw: JSON.stringify({
-                        category: "Travel & Fuel",
-                        amount: 850,
-                        date: new Date().toISOString(),
-                        description: "Travel to North Delhi Clinic visits"
-                    }, null, 2)
-                },
-                url: { raw: "{{baseUrl}}/api/mr/expenses", host: ["{{baseUrl}}"], path: ["api", "mr", "expenses"] }
-            }
-        },
-        {
-            name: "Get Territory Analytics",
-            request: {
-                auth: authHeader("mrToken"),
-                method: "GET",
-                header: [],
-                url: { raw: "{{baseUrl}}/api/mr/analytics", host: ["{{baseUrl}}"], path: ["api", "mr", "analytics"] }
-            }
-        },
-        {
-            name: "Chemist Directory",
+            name: "MR Profile & Doctors Directory",
             item: [
                 {
-                    name: "Get Chemists List",
+                    name: "Get MR Profile",
+                    request: {
+                        auth: authHeader("mrToken"),
+                        method: "GET",
+                        header: [],
+                        url: { raw: "{{baseUrl}}/api/mr/profile", host: ["{{baseUrl}}"], path: ["api", "mr", "profile"] }
+                    }
+                },
+                {
+                    name: "Update MR Profile",
+                    request: {
+                        auth: authHeader("mrToken"),
+                        method: "PUT",
+                        header: [{ key: "Content-Type", value: "application/json" }],
+                        body: {
+                            mode: "raw",
+                            raw: JSON.stringify({
+                                territory: "South Delhi & Gurgaon",
+                                designation: "Area Business Manager"
+                            }, null, 2)
+                        },
+                        url: { raw: "{{baseUrl}}/api/mr/profile", host: ["{{baseUrl}}"], path: ["api", "mr", "profile"] }
+                    }
+                },
+                {
+                    name: "Search Doctors in Territory",
+                    request: {
+                        auth: authHeader("mrToken"),
+                        method: "GET",
+                        header: [],
+                        url: {
+                            raw: "{{baseUrl}}/api/mr/doctors?specialization=Cardiology",
+                            host: ["{{baseUrl}}"],
+                            path: ["api", "mr", "doctors"],
+                            query: [{ key: "specialization", value: "Cardiology" }]
+                        }
+                    }
+                },
+                {
+                    name: "Get Doctor Details (MR View)",
+                    request: {
+                        auth: authHeader("mrToken"),
+                        method: "GET",
+                        header: [],
+                        url: { raw: "{{baseUrl}}/api/mr/doctors/{{doctorId}}", host: ["{{baseUrl}}"], path: ["api", "mr", "doctors", "{{doctorId}}"] }
+                    }
+                }
+            ]
+        },
+        {
+            name: "Doctor Meeting Requests & Tour Plans",
+            item: [
+                {
+                    name: "Request Meeting with Doctor",
+                    event: [saveIdScript("meetingId", ["_id", "id", "meetingId"])],
+                    request: {
+                        auth: authHeader("mrToken"),
+                        method: "POST",
+                        header: [{ key: "Content-Type", value: "application/json" }],
+                        body: {
+                            mode: "raw",
+                            raw: JSON.stringify({
+                                doctorId: "{{doctorId}}",
+                                proposedDate: "2026-10-22",
+                                proposedTime: "14:00",
+                                agenda: "Introduction of new cardiac formulation (Atorvastatin + Aspirin combination)",
+                                sampleProducts: ["Atorvastatin 20mg", "Rosuvastatin 10mg"]
+                            }, null, 2)
+                        },
+                        url: { raw: "{{baseUrl}}/api/mr/meeting-requests", host: ["{{baseUrl}}"], path: ["api", "mr", "meeting-requests"] }
+                    }
+                },
+                {
+                    name: "Get All Meeting Requests",
+                    request: {
+                        auth: authHeader("mrToken"),
+                        method: "GET",
+                        header: [],
+                        url: { raw: "{{baseUrl}}/api/mr/meeting-requests", host: ["{{baseUrl}}"], path: ["api", "mr", "meeting-requests"] }
+                    }
+                },
+                {
+                    name: "Get Visit Plan",
+                    request: {
+                        auth: authHeader("mrToken"),
+                        method: "GET",
+                        header: [],
+                        url: { raw: "{{baseUrl}}/api/mr/visit-plan", host: ["{{baseUrl}}"], path: ["api", "mr", "visit-plan"] }
+                    }
+                },
+                {
+                    name: "Get Tour Plan",
+                    request: {
+                        auth: authHeader("mrToken"),
+                        method: "GET",
+                        header: [],
+                        url: { raw: "{{baseUrl}}/api/mr/tour-plan", host: ["{{baseUrl}}"], path: ["api", "mr", "tour-plan"] }
+                    }
+                },
+                {
+                    name: "Create Monthly Tour Plan (TP)",
+                    event: [saveIdScript("tourPlanId", ["_id", "id", "tourPlanId"])],
+                    request: {
+                        auth: authHeader("mrToken"),
+                        method: "POST",
+                        header: [{ key: "Content-Type", value: "application/json" }],
+                        body: {
+                            mode: "raw",
+                            raw: JSON.stringify({
+                                month: "October",
+                                year: 2026,
+                                routes: [
+                                    { date: "2026-10-20", area: "Connaught Place", targetDoctors: 6, targetChemists: 4 },
+                                    { date: "2026-10-21", area: "Karol Bagh", targetDoctors: 8, targetChemists: 5 }
+                                ]
+                            }, null, 2)
+                        },
+                        url: { raw: "{{baseUrl}}/api/mr/tour-plan", host: ["{{baseUrl}}"], path: ["api", "mr", "tour-plan"] }
+                    }
+                },
+                {
+                    name: "Get Tour Plan Weekly Breakdown",
+                    request: {
+                        auth: authHeader("mrToken"),
+                        method: "GET",
+                        header: [],
+                        url: { raw: "{{baseUrl}}/api/mr/tour-plan/{{tourPlanId}}/weekly", host: ["{{baseUrl}}"], path: ["api", "mr", "tour-plan", "{{tourPlanId}}", "weekly"] }
+                    }
+                }
+            ]
+        },
+        {
+            name: "DCR (Daily Call Reports) & Samples",
+            item: [
+                {
+                    name: "Get DCR List",
+                    request: {
+                        auth: authHeader("mrToken"),
+                        method: "GET",
+                        header: [],
+                        url: { raw: "{{baseUrl}}/api/mr/dcr", host: ["{{baseUrl}}"], path: ["api", "mr", "dcr"] }
+                    }
+                },
+                {
+                    name: "Submit Daily Call Report (DCR)",
+                    request: {
+                        auth: authHeader("mrToken"),
+                        method: "POST",
+                        header: [{ key: "Content-Type", value: "application/json" }],
+                        body: {
+                            mode: "raw",
+                            raw: JSON.stringify({
+                                date: "2026-10-20",
+                                area: "Connaught Place",
+                                doctorVisits: [
+                                    {
+                                        doctorId: "{{doctorId}}",
+                                        time: "14:30",
+                                        productsDiscussed: ["Atorvastatin 20mg"],
+                                        feedback: "Doctor showed keen interest in prescribing.",
+                                        samplesGiven: 2
+                                    }
+                                ],
+                                chemistVisits: [
+                                    {
+                                        chemistName: "Gupta Medical Store",
+                                        pobAmount: 15000,
+                                        feedback: "Stock running low on 20mg formulation"
+                                    }
+                                ]
+                            }, null, 2)
+                        },
+                        url: { raw: "{{baseUrl}}/api/mr/dcr", host: ["{{baseUrl}}"], path: ["api", "mr", "dcr"] }
+                    }
+                },
+                {
+                    name: "Get Sample Inventory",
+                    request: {
+                        auth: authHeader("mrToken"),
+                        method: "GET",
+                        header: [],
+                        url: { raw: "{{baseUrl}}/api/mr/samples", host: ["{{baseUrl}}"], path: ["api", "mr", "samples"] }
+                    }
+                },
+                {
+                    name: "Distribute Samples to Doctor",
+                    request: {
+                        auth: authHeader("mrToken"),
+                        method: "POST",
+                        header: [{ key: "Content-Type", value: "application/json" }],
+                        body: {
+                            mode: "raw",
+                            raw: JSON.stringify({
+                                doctorId: "{{doctorId}}",
+                                samples: [
+                                    { productName: "Atorvastatin 20mg", quantity: 5, batchNumber: "ATV-2026-99" }
+                                ]
+                            }, null, 2)
+                        },
+                        url: { raw: "{{baseUrl}}/api/mr/samples/distribute", host: ["{{baseUrl}}"], path: ["api", "mr", "samples", "distribute"] }
+                    }
+                }
+            ]
+        },
+        {
+            name: "Chemist Directory & Field Expenses",
+            item: [
+                {
+                    name: "Get Chemists in Territory",
                     request: {
                         auth: authHeader("mrToken"),
                         method: "GET",
@@ -1350,6 +2056,7 @@ const mrFolder = {
                 },
                 {
                     name: "Add New Chemist",
+                    event: [saveIdScript("chemistId", ["_id", "id", "chemistId"])],
                     request: {
                         auth: authHeader("mrToken"),
                         method: "POST",
@@ -1357,14 +2064,65 @@ const mrFolder = {
                         body: {
                             mode: "raw",
                             raw: JSON.stringify({
-                                chemistName: "Apollo MedPlus Pharmacy",
-                                contactPerson: "Suresh Gupta",
-                                phone: "+919811223344",
-                                address: "Shop 12, Market Complex, North Delhi",
-                                territory: "North Delhi"
+                                storeName: "Capital Chemist & Druggist",
+                                contactPerson: "Satish Bansal",
+                                phone: "9876543000",
+                                address: "Shop 12, Main Market, CP, New Delhi"
                             }, null, 2)
                         },
                         url: { raw: "{{baseUrl}}/api/mr/chemists", host: ["{{baseUrl}}"], path: ["api", "mr", "chemists"] }
+                    }
+                },
+                {
+                    name: "Update Chemist Details",
+                    request: {
+                        auth: authHeader("mrToken"),
+                        method: "PUT",
+                        header: [{ key: "Content-Type", value: "application/json" }],
+                        body: {
+                            mode: "raw",
+                            raw: JSON.stringify({
+                                phone: "9876543999"
+                            }, null, 2)
+                        },
+                        url: { raw: "{{baseUrl}}/api/mr/chemists/{{chemistId}}", host: ["{{baseUrl}}"], path: ["api", "mr", "chemists", "{{chemistId}}"] }
+                    }
+                },
+                {
+                    name: "Get MR Field Expenses",
+                    request: {
+                        auth: authHeader("mrToken"),
+                        method: "GET",
+                        header: [],
+                        url: { raw: "{{baseUrl}}/api/mr/expenses", host: ["{{baseUrl}}"], path: ["api", "mr", "expenses"] }
+                    }
+                },
+                {
+                    name: "Log Field Expense",
+                    request: {
+                        auth: authHeader("mrToken"),
+                        method: "POST",
+                        header: [{ key: "Content-Type", value: "application/json" }],
+                        body: {
+                            mode: "raw",
+                            raw: JSON.stringify({
+                                date: "2026-10-20",
+                                category: "travel",
+                                amount: 850,
+                                description: "Cab travel across CP and Karol Bagh territory",
+                                receiptUrl: "/uploads/receipt_oct20.jpg"
+                            }, null, 2)
+                        },
+                        url: { raw: "{{baseUrl}}/api/mr/expenses", host: ["{{baseUrl}}"], path: ["api", "mr", "expenses"] }
+                    }
+                },
+                {
+                    name: "Get Territory Analytics",
+                    request: {
+                        auth: authHeader("mrToken"),
+                        method: "GET",
+                        header: [],
+                        url: { raw: "{{baseUrl}}/api/mr/analytics", host: ["{{baseUrl}}"], path: ["api", "mr", "analytics"] }
                     }
                 }
             ]
@@ -1372,14 +2130,14 @@ const mrFolder = {
     ]
 };
 
-// -------------------------------------------------------------
-// 06. Payments & Billing
-// -------------------------------------------------------------
+// ─────────────────────────────────────────────────────────────────────────────
+// 06. Payments & Razorpay Gateway
+// ─────────────────────────────────────────────────────────────────────────────
 const paymentsFolder = {
-    name: "06. Payments & Razorpay",
+    name: "06. Payments & Razorpay Gateway",
     item: [
         {
-            name: "Create Payment Order (Authenticated)",
+            name: "Create Payment Order (Authenticated Patient)",
             request: {
                 auth: authHeader("patientToken"),
                 method: "POST",
@@ -1397,7 +2155,39 @@ const paymentsFolder = {
             }
         },
         {
-            name: "Verify Payment Signature",
+            name: "Direct Create Order (/api/create-order)",
+            request: {
+                method: "POST",
+                header: [{ key: "Content-Type", value: "application/json" }],
+                body: {
+                    mode: "raw",
+                    raw: JSON.stringify({
+                        amount: 500,
+                        currency: "INR",
+                        receipt: "rcpt_direct_202"
+                    }, null, 2)
+                },
+                url: { raw: "{{baseUrl}}/api/create-order", host: ["{{baseUrl}}"], path: ["api", "create-order"] }
+            }
+        },
+        {
+            name: "Direct Verify Payment (/api/verify-payment)",
+            request: {
+                method: "POST",
+                header: [{ key: "Content-Type", value: "application/json" }],
+                body: {
+                    mode: "raw",
+                    raw: JSON.stringify({
+                        razorpay_order_id: "order_mock_12345",
+                        razorpay_payment_id: "pay_mock_98765",
+                        razorpay_signature: "mock_signature_hash"
+                    }, null, 2)
+                },
+                url: { raw: "{{baseUrl}}/api/verify-payment", host: ["{{baseUrl}}"], path: ["api", "verify-payment"] }
+            }
+        },
+        {
+            name: "Payments Verify Payment (/api/payments/verify-payment)",
             request: {
                 method: "POST",
                 header: [{ key: "Content-Type", value: "application/json" }],
@@ -1413,23 +2203,7 @@ const paymentsFolder = {
             }
         },
         {
-            name: "Direct Create Order (/api/create-order)",
-            request: {
-                method: "POST",
-                header: [{ key: "Content-Type", value: "application/json" }],
-                body: {
-                    mode: "raw",
-                    raw: JSON.stringify({
-                        amount: 500,
-                        currency: "INR",
-                        receipt: "receipt_01"
-                    }, null, 2)
-                },
-                url: { raw: "{{baseUrl}}/api/create-order", host: ["{{baseUrl}}"], path: ["api", "create-order"] }
-            }
-        },
-        {
-            name: "Payment Webhook Simulation",
+            name: "Payment Webhook Simulation (Public/Razorpay)",
             request: {
                 method: "POST",
                 header: [{ key: "Content-Type", value: "application/json" }],
@@ -1456,14 +2230,14 @@ const paymentsFolder = {
     ]
 };
 
-// -------------------------------------------------------------
-// 07. AI & Smart Healthcare
-// -------------------------------------------------------------
+// ─────────────────────────────────────────────────────────────────────────────
+// 07. AI Diagnostics & Smart Healthcare
+// ─────────────────────────────────────────────────────────────────────────────
 const aiFolder = {
-    name: "07. AI & Smart Healthcare",
+    name: "07. AI Diagnostics & Smart Healthcare",
     item: [
         {
-            name: "AI Symptom Checker",
+            name: "AI Symptom Checker (Gemini AI)",
             request: {
                 auth: authHeader("patientToken"),
                 method: "POST",
@@ -1501,14 +2275,14 @@ const aiFolder = {
     ]
 };
 
-// -------------------------------------------------------------
+// ─────────────────────────────────────────────────────────────────────────────
 // 08. Diagnostic & Lab Tests
-// -------------------------------------------------------------
+// ─────────────────────────────────────────────────────────────────────────────
 const labFolder = {
     name: "08. Diagnostic & Lab Tests",
     item: [
         {
-            name: "Get All Lab Tests",
+            name: "Get All Lab Tests Catalog",
             request: {
                 auth: authHeader("patientToken"),
                 method: "GET",
@@ -1522,7 +2296,7 @@ const labFolder = {
                 auth: authHeader("patientToken"),
                 method: "GET",
                 header: [],
-                url: { raw: "{{baseUrl}}/api/lab/tests/65f1a2b3c4d5e6f7a8b9c0e5", host: ["{{baseUrl}}"], path: ["api", "lab", "tests", "65f1a2b3c4d5e6f7a8b9c0e5"] }
+                url: { raw: "{{baseUrl}}/api/lab/tests/{{labTestId}}", host: ["{{baseUrl}}"], path: ["api", "lab", "tests", "{{labTestId}}"] }
             }
         },
         {
@@ -1534,8 +2308,8 @@ const labFolder = {
                 body: {
                     mode: "raw",
                     raw: JSON.stringify({
-                        testId: "65f1a2b3c4d5e6f7a8b9c0e5",
-                        bookingDate: "2026-09-18",
+                        testId: "{{labTestId}}",
+                        bookingDate: "2026-10-25",
                         timeSlot: "08:00 AM",
                         sampleCollectionType: "home_collection",
                         address: "221B Baker Street, Sector 4, New Delhi"
@@ -1556,11 +2330,11 @@ const labFolder = {
     ]
 };
 
-// -------------------------------------------------------------
-// 09. Emergency & Tele-Consultation
-// -------------------------------------------------------------
+// ─────────────────────────────────────────────────────────────────────────────
+// 09. Emergency Services & Tele-Consultation
+// ─────────────────────────────────────────────────────────────────────────────
 const emergencyFolder = {
-    name: "09. Emergency & Tele-Consultation",
+    name: "09. Emergency Services & Tele-Consultation",
     item: [
         {
             name: "Send SOS Emergency Alert",
@@ -1620,66 +2394,130 @@ const emergencyFolder = {
                 header: [],
                 url: { raw: "{{baseUrl}}/api/consultations/room_101/messages", host: ["{{baseUrl}}"], path: ["api", "consultations", "room_101", "messages"] }
             }
+        }
+    ]
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 10. Real-time Calling & Device Notifications (ZegoCloud & FCM)
+// ─────────────────────────────────────────────────────────────────────────────
+const callingFolder = {
+    name: "10. Real-time Calling & Device Notifications",
+    item: [
+        {
+            name: "ZegoCloud - Generate Token04 (POST)",
+            request: {
+                auth: authHeader("patientToken"),
+                method: "POST",
+                header: [{ key: "Content-Type", value: "application/json" }],
+                body: {
+                    mode: "raw",
+                    raw: JSON.stringify({
+                        callID: "{{callId}}"
+                    }, null, 2)
+                },
+                url: { raw: "{{baseUrl}}/api/zego/token", host: ["{{baseUrl}}"], path: ["api", "zego", "token"] },
+                description: "Generates server-authoritative ZegoCloud Token04 for secure video/audio RTC calling session."
+            }
         },
         {
-            name: "Send Video Call Push Notification",
+            name: "ZegoCloud - Generate Token04 (GET Alias)",
+            request: {
+                auth: authHeader("patientToken"),
+                method: "GET",
+                header: [],
+                url: {
+                    raw: "{{baseUrl}}/api/zego/token?callID={{callId}}",
+                    host: ["{{baseUrl}}"],
+                    path: ["api", "zego", "token"],
+                    query: [{ key: "callID", value: "{{callId}}" }]
+                }
+            }
+        },
+        {
+            name: "Send Video Call Push Notification (FCM)",
             request: {
                 method: "POST",
                 header: [{ key: "Content-Type", value: "application/json" }],
                 body: {
                     mode: "raw",
                     raw: JSON.stringify({
-                        fcmToken: "sample_device_fcm_token",
-                        callerName: "Dr. Ananya Sharma",
-                        channelId: "medionic_channel_45",
+                        fcmToken: "sample_device_fcm_token_here",
+                        callerName: "Dr. Rajesh Sharma",
+                        channelId: "medionic_call_room_101",
                         callType: "video"
                     }, null, 2)
                 },
                 url: { raw: "{{baseUrl}}/api/app_data/send_call_notification", host: ["{{baseUrl}}"], path: ["api", "app_data", "send_call_notification"] }
             }
+        },
+        {
+            name: "Save / Refresh Device FCM Token",
+            request: {
+                auth: authHeader("patientToken"),
+                method: "POST",
+                header: [{ key: "Content-Type", value: "application/json" }],
+                body: {
+                    mode: "raw",
+                    raw: JSON.stringify({
+                        fcmToken: "dK9s_sample_fcm_device_token_xyz123",
+                        platform: "android"
+                    }, null, 2)
+                },
+                url: { raw: "{{baseUrl}}/api/users/fcm-token", host: ["{{baseUrl}}"], path: ["api", "users", "fcm-token"] },
+                description: "Stores device push token for video call invites and real-time reminders."
+            }
+        },
+        {
+            name: "Clear Device FCM Token (On Logout)",
+            request: {
+                auth: authHeader("patientToken"),
+                method: "DELETE",
+                header: [],
+                url: { raw: "{{baseUrl}}/api/users/fcm-token", host: ["{{baseUrl}}"], path: ["api", "users", "fcm-token"] },
+                description: "Stops sending push notifications to device upon user sign-out."
+            }
         }
     ]
 };
 
-// -------------------------------------------------------------
-// 10. Pharmacy Subsystem (v1)
-// -------------------------------------------------------------
+// ─────────────────────────────────────────────────────────────────────────────
+// 11. Pharmacy Subsystem (Unified /api/v1)
+// ─────────────────────────────────────────────────────────────────────────────
 const pharmacyFolder = {
-    name: "10. Pharmacy Subsystem (v1)",
+    name: "11. Pharmacy Subsystem (Unified /api/v1)",
     item: [
         {
             name: "Auth & Store Owner",
             item: [
                 {
-                    name: "Register Pharmacy Owner",
-                    event: [saveTokenScript("pharmacyToken")],
+                    name: "Register Pharmacy Owner & Branch (Strict Validation)",
+                    event: [saveAuthScript("pharmacyToken")],
                     request: {
                         method: "POST",
                         header: [{ key: "Content-Type", value: "application/json" }],
                         body: {
                             mode: "raw",
                             raw: JSON.stringify({
-                                name: "Suresh Gupta",
+                                full_name: "Suresh Gupta",
                                 email: "pharmacy@medionic.com",
                                 password: "Password@123",
                                 phone: "+919811223399",
-                                pharmacyName: "Medionic Central Pharmacy",
-                                drugLicenseNumber: "DL-DL-2024-99881",
-                                gstin: "07AAAAA0000A1Z5",
-                                address: {
-                                    street: "Shop 14, Ring Road Market",
-                                    city: "New Delhi",
-                                    state: "Delhi",
-                                    pincode: "110001"
+                                branch_details: {
+                                    name: "Medionic Central Pharmacy",
+                                    drug_license_no: "DL-UP-2024-99881",
+                                    gstin: "07AAAAA0000A1Z5",
+                                    address: "Shop 14, Ring Road Market, New Delhi, 110001"
                                 }
                             }, null, 2)
                         },
-                        url: { raw: "{{apiPrefixV1}}/auth/register", host: ["{{apiPrefixV1}}"], path: ["auth", "register"] }
+                        url: { raw: "{{apiPrefixV1}}/auth/register", host: ["{{apiPrefixV1}}"], path: ["auth", "register"] },
+                        description: "Complies with registerOwnerRules (full_name, branch_details with GSTIN & Drug License regex) and auto-saves {{pharmacyToken}} & {{branchId}}."
                     }
                 },
                 {
-                    name: "Login Pharmacy Owner/Staff",
-                    event: [saveTokenScript("pharmacyToken")],
+                    name: "Login Pharmacy Owner / Staff",
+                    event: [saveAuthScript("pharmacyToken")],
                     request: {
                         method: "POST",
                         header: [{ key: "Content-Type", value: "application/json" }],
@@ -1690,7 +2528,8 @@ const pharmacyFolder = {
                                 password: "Password@123"
                             }, null, 2)
                         },
-                        url: { raw: "{{apiPrefixV1}}/auth/login", host: ["{{apiPrefixV1}}"], path: ["auth", "login"] }
+                        url: { raw: "{{apiPrefixV1}}/auth/login", host: ["{{apiPrefixV1}}"], path: ["auth", "login"] },
+                        description: "Auto-saves {{pharmacyToken}}, {{branchId}} and {{pharmacyOwnerId}}."
                     }
                 },
                 {
@@ -1709,7 +2548,7 @@ const pharmacyFolder = {
                         header: [{ key: "Content-Type", value: "application/json" }],
                         body: {
                             mode: "raw",
-                            raw: JSON.stringify({ phone: "+919811223399" }, null, 2)
+                            raw: JSON.stringify({ phone: "+919811223399", purpose: "login" }, null, 2)
                         },
                         url: { raw: "{{apiPrefixV1}}/auth/send-otp", host: ["{{apiPrefixV1}}"], path: ["auth", "send-otp"] }
                     }
@@ -1725,6 +2564,41 @@ const pharmacyFolder = {
                         },
                         url: { raw: "{{apiPrefixV1}}/auth/verify-otp", host: ["{{apiPrefixV1}}"], path: ["auth", "verify-otp"] }
                     }
+                },
+                {
+                    name: "Refresh Pharmacy Token",
+                    event: [saveAuthScript("pharmacyToken")],
+                    request: {
+                        method: "POST",
+                        header: [{ key: "Content-Type", value: "application/json" }],
+                        body: {
+                            mode: "raw",
+                            raw: JSON.stringify({ refreshToken: "sample-refresh-token" }, null, 2)
+                        },
+                        url: { raw: "{{apiPrefixV1}}/auth/refresh-token", host: ["{{apiPrefixV1}}"], path: ["auth", "refresh-token"] }
+                    }
+                },
+                {
+                    name: "Change Password",
+                    request: {
+                        auth: authHeader("pharmacyToken"),
+                        method: "POST",
+                        header: [{ key: "Content-Type", value: "application/json" }],
+                        body: {
+                            mode: "raw",
+                            raw: JSON.stringify({ current_password: "Password@123", new_password: "NewPassword@123" }, null, 2)
+                        },
+                        url: { raw: "{{apiPrefixV1}}/auth/change-password", host: ["{{apiPrefixV1}}"], path: ["auth", "change-password"] }
+                    }
+                },
+                {
+                    name: "Pharmacy Logout",
+                    request: {
+                        auth: authHeader("pharmacyToken"),
+                        method: "POST",
+                        header: [],
+                        url: { raw: "{{apiPrefixV1}}/auth/logout", host: ["{{apiPrefixV1}}"], path: ["auth", "logout"] }
+                    }
                 }
             ]
         },
@@ -1733,6 +2607,7 @@ const pharmacyFolder = {
             item: [
                 {
                     name: "Create Pharmacy Branch",
+                    event: [saveIdScript("branchId", ["_id", "id", "branchId"])],
                     request: {
                         auth: authHeader("pharmacyToken"),
                         method: "POST",
@@ -1740,36 +2615,49 @@ const pharmacyFolder = {
                         body: {
                             mode: "raw",
                             raw: JSON.stringify({
-                                branchName: "Medionic Saket Branch",
-                                branchCode: "MED-SAKET-01",
-                                address: {
-                                    street: "Shop 5, Community Centre, Saket",
-                                    city: "New Delhi",
-                                    state: "Delhi",
-                                    pincode: "110017"
-                                },
-                                contactNumber: "+919811223388"
+                                name: "Medionic Saket Branch",
+                                drug_license_no: "DL-DL-2024-11223",
+                                gstin: "07BBBBB1111B1Z6",
+                                address: "Shop 5, Community Centre, Saket, New Delhi, 110017"
                             }, null, 2)
                         },
                         url: { raw: "{{apiPrefixV1}}/branch", host: ["{{apiPrefixV1}}"], path: ["branch"] }
                     }
                 },
                 {
-                    name: "Get All My Branches",
-                    request: {
-                        auth: authHeader("pharmacyToken"),
-                        method: "GET",
-                        header: [],
-                        url: { raw: "{{apiPrefixV1}}/branch/all-branches", host: ["{{apiPrefixV1}}"], path: ["branch", "all-branches"] }
-                    }
-                },
-                {
-                    name: "Get Current Branch Info",
+                    name: "Get My Branch Details",
                     request: {
                         auth: authHeader("pharmacyToken"),
                         method: "GET",
                         header: [],
                         url: { raw: "{{apiPrefixV1}}/branch/my-branch", host: ["{{apiPrefixV1}}"], path: ["branch", "my-branch"] }
+                    }
+                },
+                {
+                    name: "Get Branch by ID",
+                    request: {
+                        auth: authHeader("pharmacyToken"),
+                        method: "GET",
+                        header: [],
+                        url: { raw: "{{apiPrefixV1}}/branch/{{branchId}}", host: ["{{apiPrefixV1}}"], path: ["branch", "{{branchId}}"] }
+                    }
+                },
+                {
+                    name: "Toggle Branch Open/Closed Availability",
+                    request: {
+                        auth: authHeader("pharmacyToken"),
+                        method: "PATCH",
+                        header: [],
+                        url: { raw: "{{apiPrefixV1}}/branch/{{branchId}}/toggle-availability", host: ["{{apiPrefixV1}}"], path: ["branch", "{{branchId}}", "toggle-availability"] }
+                    }
+                },
+                {
+                    name: "List All Branches",
+                    request: {
+                        auth: authHeader("pharmacyToken"),
+                        method: "GET",
+                        header: [],
+                        url: { raw: "{{apiPrefixV1}}/branch", host: ["{{apiPrefixV1}}"], path: ["branch"] }
                     }
                 }
             ]
@@ -1779,6 +2667,7 @@ const pharmacyFolder = {
             item: [
                 {
                     name: "Create Staff Member",
+                    event: [saveIdScript("staffId", ["_id", "id", "staffId"])],
                     request: {
                         auth: authHeader("pharmacyToken"),
                         method: "POST",
@@ -1786,15 +2675,16 @@ const pharmacyFolder = {
                         body: {
                             mode: "raw",
                             raw: JSON.stringify({
-                                name: "Aman Singh",
+                                full_name: "Aman Singh",
                                 email: "pharmacist1@medionic.com",
                                 password: "Password@123",
-                                phone: "+919877001122",
-                                role: "pharmacist",
-                                branchId: "{{branchId}}"
+                                phone: "9877001122",
+                                role: "PHARMACIST",
+                                branch_id: "{{branchId}}"
                             }, null, 2)
                         },
-                        url: { raw: "{{apiPrefixV1}}/staff", host: ["{{apiPrefixV1}}"], path: ["staff"] }
+                        url: { raw: "{{apiPrefixV1}}/staff", host: ["{{apiPrefixV1}}"], path: ["staff"] },
+                        description: "Complies with createStaffRules (full_name, uppercase PHARMACIST role, branch_id)."
                     }
                 },
                 {
@@ -1804,6 +2694,15 @@ const pharmacyFolder = {
                         method: "GET",
                         header: [],
                         url: { raw: "{{apiPrefixV1}}/staff", host: ["{{apiPrefixV1}}"], path: ["staff"] }
+                    }
+                },
+                {
+                    name: "Get Staff Details",
+                    request: {
+                        auth: authHeader("pharmacyToken"),
+                        method: "GET",
+                        header: [],
+                        url: { raw: "{{apiPrefixV1}}/staff/{{staffId}}", host: ["{{apiPrefixV1}}"], path: ["staff", "{{staffId}}"] }
                     }
                 },
                 {
@@ -1829,27 +2728,41 @@ const pharmacyFolder = {
                         header: [{ key: "Content-Type", value: "application/json" }],
                         body: {
                             mode: "raw",
-                            raw: JSON.stringify({ isOnline: true, dutyStatus: "on_duty" }, null, 2)
+                            raw: JSON.stringify({ duty_status: "ON_DUTY" }, null, 2)
                         },
                         url: { raw: "{{apiPrefixV1}}/staff/duty-status", host: ["{{apiPrefixV1}}"], path: ["staff", "duty-status"] }
+                    }
+                },
+                {
+                    name: "Block Staff Member",
+                    request: {
+                        auth: authHeader("pharmacyToken"),
+                        method: "POST",
+                        header: [{ key: "Content-Type", value: "application/json" }],
+                        body: {
+                            mode: "raw",
+                            raw: JSON.stringify({ reason: "Unauthorized discount tampering" }, null, 2)
+                        },
+                        url: { raw: "{{apiPrefixV1}}/staff/{{staffId}}/block", host: ["{{apiPrefixV1}}"], path: ["staff", "{{staffId}}", "block"] }
+                    }
+                },
+                {
+                    name: "Unblock Staff Member",
+                    request: {
+                        auth: authHeader("pharmacyToken"),
+                        method: "POST",
+                        header: [],
+                        url: { raw: "{{apiPrefixV1}}/staff/{{staffId}}/unblock", host: ["{{apiPrefixV1}}"], path: ["staff", "{{staffId}}", "unblock"] }
                     }
                 }
             ]
         },
         {
-            name: "Inventory & Batches",
+            name: "Inventory & Medicines Management",
             item: [
                 {
-                    name: "Get Medicine Categories",
-                    request: {
-                        auth: authHeader("pharmacyToken"),
-                        method: "GET",
-                        header: [],
-                        url: { raw: "{{apiPrefixV1}}/inventory/categories", host: ["{{apiPrefixV1}}"], path: ["inventory", "categories"] }
-                    }
-                },
-                {
-                    name: "Create Category",
+                    name: "Add New Medicine to Inventory",
+                    event: [saveIdScript("medicineId", ["_id", "id", "medicineId"])],
                     request: {
                         auth: authHeader("pharmacyToken"),
                         method: "POST",
@@ -1857,80 +2770,93 @@ const pharmacyFolder = {
                         body: {
                             mode: "raw",
                             raw: JSON.stringify({
-                                name: "Antibiotics",
-                                description: "Broad and narrow spectrum antibiotic medicines"
+                                name: "Paracetamol 650mg",
+                                generic_name: "Paracetamol",
+                                manufacturer: "Cipla Ltd",
+                                sku: "PARA-650-01",
+                                hsn_code: "300490",
+                                form: "Tablet",
+                                unit: "Strip",
+                                unit_quantity: 10,
+                                is_prescription_required: false,
+                                purchase_rate: 20,
+                                mrp: 35,
+                                sale_price: 30,
+                                gst_rate: 12,
+                                low_stock_threshold: 50
                             }, null, 2)
                         },
-                        url: { raw: "{{apiPrefixV1}}/inventory/categories", host: ["{{apiPrefixV1}}"], path: ["inventory", "categories"] }
+                        url: { raw: "{{apiPrefixV1}}/inventory", host: ["{{apiPrefixV1}}"], path: ["inventory"] },
+                        description: "Complies with createMedicineRules and auto-saves {{medicineId}}."
                     }
                 },
                 {
-                    name: "Get Medicines List",
+                    name: "Get All Inventory Medicines",
                     request: {
                         auth: authHeader("pharmacyToken"),
                         method: "GET",
                         header: [],
                         url: {
-                            raw: "{{apiPrefixV1}}/inventory/medicines?search=Paracetamol&page=1&limit=20",
+                            raw: "{{apiPrefixV1}}/inventory?search=Paracetamol&page=1&limit=20",
                             host: ["{{apiPrefixV1}}"],
-                            path: ["inventory", "medicines"],
-                            query: [{ key: "search", value: "Paracetamol" }, { key: "page", value: "1" }, { key: "limit", value: "20" }]
+                            path: ["inventory"],
+                            query: [
+                                { key: "search", value: "Paracetamol" },
+                                { key: "page", value: "1" },
+                                { key: "limit", value: "20" }
+                            ]
                         }
                     }
                 },
                 {
-                    name: "Create Medicine",
-                    request: {
-                        auth: authHeader("pharmacyToken"),
-                        method: "POST",
-                        header: [{ key: "Content-Type", value: "application/json" }],
-                        body: {
-                            mode: "raw",
-                            raw: JSON.stringify({
-                                name: "Augmentin 625 Duo Tablet",
-                                genericName: "Amoxicillin + Clavulanic Acid",
-                                manufacturer: "GSK",
-                                category: "Antibiotics",
-                                hsnCode: "3004",
-                                gstRate: 12,
-                                unit: "strip",
-                                minStockAlert: 20,
-                                rackLocation: "Aisle 3 - Shelf B",
-                                requiresPrescription: true
-                            }, null, 2)
-                        },
-                        url: { raw: "{{apiPrefixV1}}/inventory/medicines", host: ["{{apiPrefixV1}}"], path: ["inventory", "medicines"] }
-                    }
-                },
-                {
-                    name: "Add Medicine Batch",
-                    request: {
-                        auth: authHeader("pharmacyToken"),
-                        method: "POST",
-                        header: [{ key: "Content-Type", value: "application/json" }],
-                        body: {
-                            mode: "raw",
-                            raw: JSON.stringify({
-                                medicineId: "{{medicineId}}",
-                                batchNumber: "AUG-2024-88A",
-                                expiryDate: "2027-08-31",
-                                purchasePrice: 150,
-                                mrp: 210,
-                                sellingPrice: 195,
-                                quantity: 100,
-                                barcode: "8901234567890"
-                            }, null, 2)
-                        },
-                        url: { raw: "{{apiPrefixV1}}/inventory/batches", host: ["{{apiPrefixV1}}"], path: ["inventory", "batches"] }
-                    }
-                },
-                {
-                    name: "Lookup Barcode",
+                    name: "Get Medicine by ID",
                     request: {
                         auth: authHeader("pharmacyToken"),
                         method: "GET",
                         header: [],
-                        url: { raw: "{{apiPrefixV1}}/inventory/barcode/8901234567890", host: ["{{apiPrefixV1}}"], path: ["inventory", "barcode", "8901234567890"] }
+                        url: { raw: "{{apiPrefixV1}}/inventory/{{medicineId}}", host: ["{{apiPrefixV1}}"], path: ["inventory", "{{medicineId}}"] }
+                    }
+                },
+                {
+                    name: "Update Medicine Info",
+                    request: {
+                        auth: authHeader("pharmacyToken"),
+                        method: "PUT",
+                        header: [{ key: "Content-Type", value: "application/json" }],
+                        body: {
+                            mode: "raw",
+                            raw: JSON.stringify({ sale_price: 32 }, null, 2)
+                        },
+                        url: { raw: "{{apiPrefixV1}}/inventory/{{medicineId}}", host: ["{{apiPrefixV1}}"], path: ["inventory", "{{medicineId}}"] }
+                    }
+                },
+                {
+                    name: "Add Batch to Medicine",
+                    request: {
+                        auth: authHeader("pharmacyToken"),
+                        method: "POST",
+                        header: [{ key: "Content-Type", value: "application/json" }],
+                        body: {
+                            mode: "raw",
+                            raw: JSON.stringify({
+                                batch_number: "BT-2026-OCT-01",
+                                expiry_date: "2027-10-01",
+                                quantity: 500,
+                                purchase_rate: 18,
+                                mrp: 35,
+                                sale_price: 30
+                            }, null, 2)
+                        },
+                        url: { raw: "{{apiPrefixV1}}/inventory/{{medicineId}}/batches", host: ["{{apiPrefixV1}}"], path: ["inventory", "{{medicineId}}", "batches"] }
+                    }
+                },
+                {
+                    name: "Get Batches for Medicine",
+                    request: {
+                        auth: authHeader("pharmacyToken"),
+                        method: "GET",
+                        header: [],
+                        url: { raw: "{{apiPrefixV1}}/inventory/{{medicineId}}/batches", host: ["{{apiPrefixV1}}"], path: ["inventory", "{{medicineId}}", "batches"] }
                     }
                 },
                 {
@@ -1939,25 +2865,20 @@ const pharmacyFolder = {
                         auth: authHeader("pharmacyToken"),
                         method: "GET",
                         header: [],
-                        url: { raw: "{{apiPrefixV1}}/inventory/alerts/low-stock", host: ["{{apiPrefixV1}}"], path: ["inventory", "alerts", "low-stock"] }
+                        url: { raw: "{{apiPrefixV1}}/inventory/low-stock", host: ["{{apiPrefixV1}}"], path: ["inventory", "low-stock"] }
                     }
                 },
                 {
-                    name: "Get Expiring Batches",
+                    name: "Get Expiring Soon Batches",
                     request: {
                         auth: authHeader("pharmacyToken"),
                         method: "GET",
                         header: [],
-                        url: { raw: "{{apiPrefixV1}}/inventory/alerts/expiring?days=90", host: ["{{apiPrefixV1}}"], path: ["inventory", "alerts", "expiring"], query: [{ key: "days", value: "90" }] }
+                        url: { raw: "{{apiPrefixV1}}/inventory/expiring-soon", host: ["{{apiPrefixV1}}"], path: ["inventory", "expiring-soon"] }
                     }
-                }
-            ]
-        },
-        {
-            name: "POS & Invoicing",
-            item: [
+                },
                 {
-                    name: "Create POS Invoice / Walk-in Bill",
+                    name: "Adjust Stock (Damage / Correction)",
                     request: {
                         auth: authHeader("pharmacyToken"),
                         method: "POST",
@@ -1965,82 +2886,269 @@ const pharmacyFolder = {
                         body: {
                             mode: "raw",
                             raw: JSON.stringify({
-                                customerName: "Rajesh Kumar",
-                                customerPhone: "+919876500111",
-                                doctorName: "Dr. Ananya Sharma",
-                                items: [
-                                    {
-                                        medicineId: "{{medicineId}}",
-                                        batchNumber: "AUG-2024-88A",
-                                        quantity: 2,
-                                        unitPrice: 195,
-                                        discountPercent: 5,
-                                        gstPercent: 12
-                                    }
-                                ],
-                                paymentMode: "cash",
-                                paidAmount: 370
+                                medicine_id: "{{medicineId}}",
+                                batch_id: "65f1a2b3c4d5e6f7a8b9c0d8",
+                                adjustment_type: "REDUCE",
+                                quantity: 10,
+                                reason: "Damaged during transit"
                             }, null, 2)
                         },
-                        url: { raw: "{{apiPrefixV1}}/pos/invoices", host: ["{{apiPrefixV1}}"], path: ["pos", "invoices"] }
-                    }
-                },
-                {
-                    name: "Get All Invoices",
-                    request: {
-                        auth: authHeader("pharmacyToken"),
-                        method: "GET",
-                        header: [],
-                        url: { raw: "{{apiPrefixV1}}/pos/invoices", host: ["{{apiPrefixV1}}"], path: ["pos", "invoices"] }
-                    }
-                },
-                {
-                    name: "Get Invoice Print Bill / Receipt",
-                    request: {
-                        auth: authHeader("pharmacyToken"),
-                        method: "GET",
-                        header: [],
-                        url: { raw: "{{apiPrefixV1}}/pos/invoices/{{invoiceId}}/receipt", host: ["{{apiPrefixV1}}"], path: ["pos", "invoices", "{{invoiceId}}", "receipt"] }
+                        url: { raw: "{{apiPrefixV1}}/inventory/adjust-stock", host: ["{{apiPrefixV1}}"], path: ["inventory", "adjust-stock"] }
                     }
                 }
             ]
         },
         {
-            name: "Online Orders & Prescriptions",
+            name: "POS & Billing (Counter Sales)",
             item: [
                 {
-                    name: "Get Store Orders",
+                    name: "Create POS Invoice (Counter Sale)",
+                    event: [saveIdScript("invoiceId", ["_id", "id", "invoiceId"])],
+                    request: {
+                        auth: authHeader("pharmacyToken"),
+                        method: "POST",
+                        header: [{ key: "Content-Type", value: "application/json" }],
+                        body: {
+                            mode: "raw",
+                            raw: JSON.stringify({
+                                items: [
+                                    {
+                                        medicine_id: "{{medicineId}}",
+                                        batch_id: "65f1a2b3c4d5e6f7a8b9c0d8",
+                                        quantity: 2,
+                                        discount_percent: 5
+                                    }
+                                ],
+                                payment_mode: "CASH",
+                                patient_name: "Ramesh Kumar",
+                                patient_phone: "9876543210",
+                                doctor_name: "Dr Sharma",
+                                amount_paid: 60,
+                                notes: "Walk-in purchase"
+                            }, null, 2)
+                        },
+                        url: { raw: "{{apiPrefixV1}}/pos/invoices", host: ["{{apiPrefixV1}}"], path: ["pos", "invoices"] },
+                        description: "Complies with createInvoiceRules and auto-saves {{invoiceId}}."
+                    }
+                },
+                {
+                    name: "Get All POS Invoices",
                     request: {
                         auth: authHeader("pharmacyToken"),
                         method: "GET",
                         header: [],
-                        url: { raw: "{{apiPrefixV1}}/orders?status=pending", host: ["{{apiPrefixV1}}"], path: ["orders"], query: [{ key: "status", value: "pending" }] }
+                        url: { raw: "{{apiPrefixV1}}/pos/invoices", host: ["{{apiPrefixV1}}"], path: ["pos", "invoices"] }
                     }
                 },
                 {
-                    name: "Accept Order",
+                    name: "Get Invoice Details by ID",
+                    request: {
+                        auth: authHeader("pharmacyToken"),
+                        method: "GET",
+                        header: [],
+                        url: { raw: "{{apiPrefixV1}}/pos/invoices/{{invoiceId}}", host: ["{{apiPrefixV1}}"], path: ["pos", "invoices", "{{invoiceId}}"] }
+                    }
+                },
+                {
+                    name: "Process Return / Refund on Invoice",
                     request: {
                         auth: authHeader("pharmacyToken"),
                         method: "POST",
-                        header: [],
-                        url: { raw: "{{apiPrefixV1}}/orders/{{orderId}}/accept", host: ["{{apiPrefixV1}}"], path: ["orders", "{{orderId}}", "accept"] }
+                        header: [{ key: "Content-Type", value: "application/json" }],
+                        body: {
+                            mode: "raw",
+                            raw: JSON.stringify({
+                                items: [
+                                    {
+                                        medicine_id: "{{medicineId}}",
+                                        quantity: 1,
+                                        reason: "Incorrect dosage purchased"
+                                    }
+                                ]
+                            }, null, 2)
+                        },
+                        url: { raw: "{{apiPrefixV1}}/pos/invoices/{{invoiceId}}/return", host: ["{{apiPrefixV1}}"], path: ["pos", "invoices", "{{invoiceId}}", "return"] }
                     }
                 },
                 {
-                    name: "Update Order Status (Packed / Out for Delivery)",
+                    name: "Daily Register Summary",
+                    request: {
+                        auth: authHeader("pharmacyToken"),
+                        method: "GET",
+                        header: [],
+                        url: { raw: "{{apiPrefixV1}}/pos/daily-register", host: ["{{apiPrefixV1}}"], path: ["pos", "daily-register"] }
+                    }
+                }
+            ]
+        },
+        {
+            name: "Customer CRM & Khata Ledger",
+            item: [
+                {
+                    name: "Create Customer",
+                    event: [saveIdScript("customerId", ["_id", "id", "customerId"])],
+                    request: {
+                        auth: authHeader("pharmacyToken"),
+                        method: "POST",
+                        header: [{ key: "Content-Type", value: "application/json" }],
+                        body: {
+                            mode: "raw",
+                            raw: JSON.stringify({
+                                name: "Ramesh Kumar",
+                                phone: "9876543210",
+                                email: "ramesh.kumar@example.com",
+                                address: "B-12, Green Park",
+                                city: "New Delhi",
+                                pincode: "110016"
+                            }, null, 2)
+                        },
+                        url: { raw: "{{apiPrefixV1}}/customers", host: ["{{apiPrefixV1}}"], path: ["customers"] },
+                        description: "Complies with createCustomerRules and auto-saves {{customerId}}."
+                    }
+                },
+                {
+                    name: "Get All Customers",
+                    request: {
+                        auth: authHeader("pharmacyToken"),
+                        method: "GET",
+                        header: [],
+                        url: { raw: "{{apiPrefixV1}}/customers", host: ["{{apiPrefixV1}}"], path: ["customers"] }
+                    }
+                },
+                {
+                    name: "Get Customer Details",
+                    request: {
+                        auth: authHeader("pharmacyToken"),
+                        method: "GET",
+                        header: [],
+                        url: { raw: "{{apiPrefixV1}}/customers/{{customerId}}", host: ["{{apiPrefixV1}}"], path: ["customers", "{{customerId}}"] }
+                    }
+                },
+                {
+                    name: "Get Customer Khata Ledger",
+                    request: {
+                        auth: authHeader("pharmacyToken"),
+                        method: "GET",
+                        header: [],
+                        url: { raw: "{{apiPrefixV1}}/customers/{{customerId}}/ledger", host: ["{{apiPrefixV1}}"], path: ["customers", "{{customerId}}", "ledger"] }
+                    }
+                },
+                {
+                    name: "Settle Khata Payment",
+                    request: {
+                        auth: authHeader("pharmacyToken"),
+                        method: "POST",
+                        header: [{ key: "Content-Type", value: "application/json" }],
+                        body: {
+                            mode: "raw",
+                            raw: JSON.stringify({
+                                amount: 500,
+                                paymentMode: "UPI",
+                                referenceId: "UPI-SETTLE-88990",
+                                notes: "Partial balance clearance"
+                            }, null, 2)
+                        },
+                        url: { raw: "{{apiPrefixV1}}/customers/{{customerId}}/settle-ledger", host: ["{{apiPrefixV1}}"], path: ["customers", "{{customerId}}", "settle-ledger"] }
+                    }
+                }
+            ]
+        },
+        {
+            name: "Orders & Delivery Fulfillment",
+            item: [
+                {
+                    name: "Create Pharmacy Order",
+                    event: [saveIdScript("orderId", ["_id", "id", "orderId"])],
+                    request: {
+                        auth: authHeader("pharmacyToken"),
+                        method: "POST",
+                        header: [{ key: "Content-Type", value: "application/json" }],
+                        body: {
+                            mode: "raw",
+                            raw: JSON.stringify({
+                                customer_name: "Rahul Verma",
+                                customer_phone: "+919876543210",
+                                delivery_address: "221B Baker Street, Sector 4, New Delhi",
+                                items: [
+                                    {
+                                        medicine_id: "{{medicineId}}",
+                                        quantity: 2
+                                    }
+                                ],
+                                payment_method: "COD"
+                            }, null, 2)
+                        },
+                        url: { raw: "{{apiPrefixV1}}/orders", host: ["{{apiPrefixV1}}"], path: ["orders"] }
+                    }
+                },
+                {
+                    name: "Get All Pharmacy Orders",
+                    request: {
+                        auth: authHeader("pharmacyToken"),
+                        method: "GET",
+                        header: [],
+                        url: { raw: "{{apiPrefixV1}}/orders", host: ["{{apiPrefixV1}}"], path: ["orders"] }
+                    }
+                },
+                {
+                    name: "Get Order Details",
+                    request: {
+                        auth: authHeader("pharmacyToken"),
+                        method: "GET",
+                        header: [],
+                        url: { raw: "{{apiPrefixV1}}/orders/{{orderId}}", host: ["{{apiPrefixV1}}"], path: ["orders", "{{orderId}}"] }
+                    }
+                },
+                {
+                    name: "Update Order Status",
                     request: {
                         auth: authHeader("pharmacyToken"),
                         method: "PATCH",
                         header: [{ key: "Content-Type", value: "application/json" }],
                         body: {
                             mode: "raw",
-                            raw: JSON.stringify({ status: "out_for_delivery", deliveryPartner: "Dunzo / Shadowfax" }, null, 2)
+                            raw: JSON.stringify({ status: "PACKED" }, null, 2)
                         },
                         url: { raw: "{{apiPrefixV1}}/orders/{{orderId}}/status", host: ["{{apiPrefixV1}}"], path: ["orders", "{{orderId}}", "status"] }
                     }
                 },
                 {
-                    name: "Get Uploaded Prescriptions",
+                    name: "Assign Delivery Agent",
+                    request: {
+                        auth: authHeader("pharmacyToken"),
+                        method: "POST",
+                        header: [{ key: "Content-Type", value: "application/json" }],
+                        body: {
+                            mode: "raw",
+                            raw: JSON.stringify({ delivery_agent_id: "{{staffId}}" }, null, 2)
+                        },
+                        url: { raw: "{{apiPrefixV1}}/orders/{{orderId}}/assign-delivery", host: ["{{apiPrefixV1}}"], path: ["orders", "{{orderId}}", "assign-delivery"] }
+                    }
+                }
+            ]
+        },
+        {
+            name: "Digital Prescriptions",
+            item: [
+                {
+                    name: "Upload Prescription Image",
+                    request: {
+                        auth: authHeader("pharmacyToken"),
+                        method: "POST",
+                        header: [],
+                        body: {
+                            mode: "formdata",
+                            formdata: [
+                                { key: "patient_name", value: "Rahul Verma", type: "text" },
+                                { key: "patient_phone", value: "+919876543210", type: "text" },
+                                { key: "prescription_image", type: "file", src: "" }
+                            ]
+                        },
+                        url: { raw: "{{apiPrefixV1}}/prescriptions", host: ["{{apiPrefixV1}}"], path: ["prescriptions"] }
+                    }
+                },
+                {
+                    name: "Get All Uploaded Prescriptions",
                     request: {
                         auth: authHeader("pharmacyToken"),
                         method: "GET",
@@ -2049,14 +3157,26 @@ const pharmacyFolder = {
                     }
                 },
                 {
-                    name: "Verify & Dispense Prescription",
+                    name: "Get Prescription by ID",
+                    request: {
+                        auth: authHeader("pharmacyToken"),
+                        method: "GET",
+                        header: [],
+                        url: { raw: "{{apiPrefixV1}}/prescriptions/{{prescriptionId}}", host: ["{{apiPrefixV1}}"], path: ["prescriptions", "{{prescriptionId}}"] }
+                    }
+                },
+                {
+                    name: "Verify Prescription (Pharmacist Approval)",
                     request: {
                         auth: authHeader("pharmacyToken"),
                         method: "PATCH",
                         header: [{ key: "Content-Type", value: "application/json" }],
                         body: {
                             mode: "raw",
-                            raw: JSON.stringify({ isVerified: true, pharmacistNotes: "Dosage verified with registered doctor" }, null, 2)
+                            raw: JSON.stringify({
+                                status: "VERIFIED",
+                                remarks: "Dr. Ananya Sharma valid signature & MCI registration verified."
+                            }, null, 2)
                         },
                         url: { raw: "{{apiPrefixV1}}/prescriptions/{{prescriptionId}}/verify", host: ["{{apiPrefixV1}}"], path: ["prescriptions", "{{prescriptionId}}", "verify"] }
                     }
@@ -2064,105 +3184,56 @@ const pharmacyFolder = {
             ]
         },
         {
-            name: "Customers & Khata (Credit Book)",
+            name: "Reports & Financial Intelligence",
             item: [
                 {
-                    name: "Get All Pharmacy Customers",
-                    request: {
-                        auth: authHeader("pharmacyToken"),
-                        method: "GET",
-                        header: [],
-                        url: { raw: "{{apiPrefixV1}}/customers", host: ["{{apiPrefixV1}}"], path: ["customers"] }
-                    }
-                },
-                {
-                    name: "Add Customer",
-                    request: {
-                        auth: authHeader("pharmacyToken"),
-                        method: "POST",
-                        header: [{ key: "Content-Type", value: "application/json" }],
-                        body: {
-                            mode: "raw",
-                            raw: JSON.stringify({
-                                name: "Harish Sharma",
-                                phone: "+919812345678",
-                                email: "harish@gmail.com",
-                                creditLimit: 5000,
-                                address: "Flat 402, Royal Residency, New Delhi"
-                            }, null, 2)
-                        },
-                        url: { raw: "{{apiPrefixV1}}/customers", host: ["{{apiPrefixV1}}"], path: ["customers"] }
-                    }
-                },
-                {
-                    name: "Settle Khata Credit",
-                    request: {
-                        auth: authHeader("pharmacyToken"),
-                        method: "POST",
-                        header: [{ key: "Content-Type", value: "application/json" }],
-                        body: {
-                            mode: "raw",
-                            raw: JSON.stringify({
-                                amount: 1500,
-                                paymentMode: "upi",
-                                referenceId: "UPI99882211"
-                            }, null, 2)
-                        },
-                        url: { raw: "{{apiPrefixV1}}/customers/{{customerId}}/settle-khata", host: ["{{apiPrefixV1}}"], path: ["customers", "{{customerId}}", "settle-khata"] }
-                    }
-                }
-            ]
-        },
-        {
-            name: "Reports & Notifications",
-            item: [
-                {
-                    name: "Get Pharmacy Dashboard Stats",
-                    request: {
-                        auth: authHeader("pharmacyToken"),
-                        method: "GET",
-                        header: [],
-                        url: { raw: "{{apiPrefixV1}}/reports/dashboard", host: ["{{apiPrefixV1}}"], path: ["reports", "dashboard"] }
-                    }
-                },
-                {
-                    name: "Get Sales Report",
+                    name: "Get Sales Report (Daily / Weekly / Monthly)",
                     request: {
                         auth: authHeader("pharmacyToken"),
                         method: "GET",
                         header: [],
                         url: {
-                            raw: "{{apiPrefixV1}}/reports/sales?period=monthly&startDate=2026-09-01&endDate=2026-09-30",
+                            raw: "{{apiPrefixV1}}/reports/sales?period=today",
                             host: ["{{apiPrefixV1}}"],
                             path: ["reports", "sales"],
-                            query: [
-                                { key: "period", value: "monthly" },
-                                { key: "startDate", value: "2026-09-01" },
-                                { key: "endDate", value: "2026-09-30" }
-                            ]
+                            query: [{ key: "period", value: "today" }]
                         }
                     }
                 },
                 {
-                    name: "Get Top Selling Medicines",
+                    name: "Get Inventory Movement (Fast / Slow Moving)",
                     request: {
                         auth: authHeader("pharmacyToken"),
                         method: "GET",
                         header: [],
-                        url: { raw: "{{apiPrefixV1}}/reports/top-medicines?limit=10", host: ["{{apiPrefixV1}}"], path: ["reports", "top-medicines"], query: [{ key: "limit", value: "10" }] }
+                        url: { raw: "{{apiPrefixV1}}/reports/inventory-movement", host: ["{{apiPrefixV1}}"], path: ["reports", "inventory-movement"] }
                     }
                 },
                 {
-                    name: "Get GST Inward/Outward Report",
+                    name: "Get GST & Tax Summary Report",
                     request: {
                         auth: authHeader("pharmacyToken"),
                         method: "GET",
                         header: [],
-                        url: { raw: "{{apiPrefixV1}}/reports/gst?month=09&year=2026", host: ["{{apiPrefixV1}}"], path: ["reports", "gst"], query: [{ key: "month", value: "09" }, { key: "year", value: "2026" }] }
+                        url: { raw: "{{apiPrefixV1}}/reports/gst-summary", host: ["{{apiPrefixV1}}"], path: ["reports", "gst-summary"] }
                     }
                 },
                 {
-                    name: "Get Notifications",
+                    name: "Get Profit & Loss (PnL) Summary",
+                    request: {
+                        auth: authHeader("pharmacyToken"),
+                        method: "GET",
+                        header: [],
+                        url: { raw: "{{apiPrefixV1}}/reports/pnl", host: ["{{apiPrefixV1}}"], path: ["reports", "pnl"] }
+                    }
+                }
+            ]
+        },
+        {
+            name: "Alerts & Notifications",
+            item: [
+                {
+                    name: "Get In-App Notifications",
                     request: {
                         auth: authHeader("pharmacyToken"),
                         method: "GET",
@@ -2184,7 +3255,71 @@ const pharmacyFolder = {
     ]
 };
 
-// Add all folders to items
+// ─────────────────────────────────────────────────────────────────────────────
+// 12. Pharmacy Legacy Catalog (/api/pharmacy)
+// ─────────────────────────────────────────────────────────────────────────────
+const pharmacyLegacyFolder = {
+    name: "12. Pharmacy Legacy Catalog (/api/pharmacy)",
+    item: [
+        {
+            name: "Get Products Catalog",
+            request: {
+                auth: authHeader("patientToken"),
+                method: "GET",
+                header: [],
+                url: { raw: "{{baseUrl}}/api/pharmacy/products", host: ["{{baseUrl}}"], path: ["api", "pharmacy", "products"] }
+            }
+        },
+        {
+            name: "Get Product Details",
+            request: {
+                auth: authHeader("patientToken"),
+                method: "GET",
+                header: [],
+                url: { raw: "{{baseUrl}}/api/pharmacy/products/65f1a2b3c4d5e6f7a8b9c0e0", host: ["{{baseUrl}}"], path: ["api", "pharmacy", "products", "65f1a2b3c4d5e6f7a8b9c0e0"] }
+            }
+        },
+        {
+            name: "Create Legacy Pharmacy Order",
+            request: {
+                auth: authHeader("patientToken"),
+                method: "POST",
+                header: [],
+                body: {
+                    mode: "formdata",
+                    formdata: [
+                        { key: "items", value: JSON.stringify([{ productId: "65f1a2b3c4d5e6f7a8b9c0e0", quantity: 2 }]), type: "text" },
+                        { key: "deliveryAddress", value: "221B Baker Street, Sector 4, New Delhi", type: "text" },
+                        { key: "paymentMethod", value: "cod", type: "text" }
+                    ]
+                },
+                url: { raw: "{{baseUrl}}/api/pharmacy/orders", host: ["{{baseUrl}}"], path: ["api", "pharmacy", "orders"] }
+            }
+        },
+        {
+            name: "Get My Legacy Pharmacy Orders",
+            request: {
+                auth: authHeader("patientToken"),
+                method: "GET",
+                header: [],
+                url: { raw: "{{baseUrl}}/api/pharmacy/orders", host: ["{{baseUrl}}"], path: ["api", "pharmacy", "orders"] }
+            }
+        },
+        {
+            name: "Get Legacy Order by ID",
+            request: {
+                auth: authHeader("patientToken"),
+                method: "GET",
+                header: [],
+                url: { raw: "{{baseUrl}}/api/pharmacy/orders/{{orderId}}", host: ["{{baseUrl}}"], path: ["api", "pharmacy", "orders", "{{orderId}}"] }
+            }
+        }
+    ]
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ASSEMBLE ITEMS IN COLLECTION
+// ─────────────────────────────────────────────────────────────────────────────
 collection.item.push(
     healthFolder,
     authFolder,
@@ -2196,11 +3331,20 @@ collection.item.push(
     aiFolder,
     labFolder,
     emergencyFolder,
-    pharmacyFolder
+    callingFolder,
+    pharmacyFolder,
+    pharmacyLegacyFolder
 );
 
-// Write to JSON file
+// ─────────────────────────────────────────────────────────────────────────────
+// WRITE OUTPUT
+// ─────────────────────────────────────────────────────────────────────────────
 const outputPath = path.join(__dirname, 'medionic_postman_collection.json');
 fs.writeFileSync(outputPath, JSON.stringify(collection, null, 2), 'utf-8');
 
-console.log(`✅ Postman Collection successfully generated with ${collection.item.length} main categories at: ${outputPath}`);
+console.log(`\n==========================================================`);
+console.log(`🎉 Master Postman Collection successfully generated!`);
+console.log(`📁 File: ${outputPath}`);
+console.log(`📦 Categories: ${collection.item.length}`);
+console.log(`🔑 Variables: ${collection.variable.length}`);
+console.log(`==========================================================\n`);

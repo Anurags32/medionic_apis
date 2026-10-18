@@ -31,12 +31,7 @@ exports.adminRegister = async (req, res, next) => {
             return next(new ErrorResponse('Invalid secret key. Admin registration not authorized.', 403));
         }
 
-        // Only allow if no admin exists yet
-        const existingAdmin = await User.findOne({ role: constants.ROLES.ADMIN });
-        if (existingAdmin) {
-            return next(new ErrorResponse('An admin account already exists. Contact your super admin.', 409));
-        }
-
+        // Check if email already registered
         const existingEmail = await User.findOne({ email: email.toLowerCase() });
         if (existingEmail) {
             return next(new ErrorResponse('Email already registered', 400));
