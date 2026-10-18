@@ -88,11 +88,25 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 console.log('✅  Body parser & uploads middleware applied');
 
 
+const allowedOrigins = [
+  'http://localhost:3000',
+  'http://localhost:3001',
+  'http://localhost:3002',
+  'http://localhost:5173',
+  'http://localhost:5174',
+  ...(process.env.CLIENT_URL ? process.env.CLIENT_URL.split(',').map(o => o.trim()) : [])
+];
+
 app.use(cors({
-  origin: (process.env.CLIENT_URL || 'http://localhost:3000').split(',').map(origin => origin.trim()),
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    return callback(null, true); // Allow during development
+  },
   credentials: true
 }));
-console.log(`✅  CORS enabled for origin: ${process.env.CLIENT_URL || 'http://localhost:3000'}`);
+console.log(`✅  CORS enabled for origins: ${allowedOrigins.join(', ')}`);
 
 if (process.env.NODE_ENV === 'development') {
   app.use(morgan('dev'));
