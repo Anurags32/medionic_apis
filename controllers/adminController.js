@@ -19,7 +19,7 @@ const { ROLES: PHARMACY_ROLES } = require('../config/pharmacyConstants');
 // ─── ADMIN REGISTRATION ──────────────────────────────────────────────────────
 exports.adminRegister = async (req, res, next) => {
     try {
-        const { fullName, email, password, secretKey } = req.body;
+        const { fullName, email, password, secretKey, phone } = req.body;
 
         if (!fullName || !email || !password || !secretKey) {
             return next(new ErrorResponse('Please provide fullName, email, password, and secretKey', 400));
@@ -41,7 +41,7 @@ exports.adminRegister = async (req, res, next) => {
         const firstName = nameParts[0];
         const lastName = nameParts.slice(1).join(' ') || '';
 
-        const adminUser = await User.create({
+        const userData = {
             email: email.toLowerCase(),
             password,
             firstName,
@@ -50,7 +50,13 @@ exports.adminRegister = async (req, res, next) => {
             status: constants.USER_STATUS.ACTIVE,
             isVerified: true,
             profileComplete: true,
-        });
+        };
+
+        if (phone && String(phone).trim()) {
+            userData.phone = String(phone).trim();
+        }
+
+        const adminUser = await User.create(userData);
 
         const token = generateToken(adminUser._id);
         const refreshToken = generateRefreshToken(adminUser._id);

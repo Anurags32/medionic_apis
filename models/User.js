@@ -41,7 +41,8 @@ const userSchema = new mongoose.Schema({
     },
     phone: {
         type: String,
-        trim: true
+        trim: true,
+        sparse: true
     },
     isVerified: {
         type: Boolean,
