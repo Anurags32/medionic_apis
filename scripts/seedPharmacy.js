@@ -73,6 +73,11 @@ const seedDatabase = async () => {
             is_blocked: false,
         });
 
+        // Link the store to its owner (same as registration does); without this the
+        // store drops out of GET /branch/all-branches once the owner switches away.
+        branch.owner_id = owner._id;
+        await branch.save();
+
         const pharmacist = await db.User.create({
             branch_id: branch._id,
             full_name: 'Rahul Sharma (Senior Pharmacist)',

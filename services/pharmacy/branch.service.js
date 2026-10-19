@@ -259,6 +259,20 @@ const switchActiveBranch = async (user, targetBranchId) => {
 
     const accessToken = generateAccessToken(tokenPayload);
 
+    // Legacy/seeded stores may have no owner_id. When an owner leaves such a store
+    // (it is their current one), record them as its owner so it stays in their
+    // all-branches list instead of disappearing after the switch.
+    if (
+        user.role === ROLES.PHARMACY_OWNER &&
+        user.branchId &&
+        user.branchId.toString() !== branch._id.toString()
+    ) {
+        await Branch.updateOne(
+            { _id: user.branchId, $or: [{ owner_id: null }, { owner_id: { $exists: false } }] },
+            { $set: { owner_id: user.id } }
+        );
+    }
+
     await User.updateOne({ _id: user.id }, { branch_id: branch._id });
 
     return {
