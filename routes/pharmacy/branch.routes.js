@@ -10,6 +10,7 @@ const { createBranchRules, updateBranchRules } = require('../../validations/phar
 router.use(authenticateToken);
 
 router.post('/', authorizeOwnerOnly, validate(createBranchRules), branchController.createBranch);
+router.get('/', authorizeOwnerOnly, branchController.getMyBranches);
 router.get('/all-branches', authorizeOwnerOnly, branchController.getMyBranches);
 router.get('/my-branch', branchController.getMyBranch);
 router.get('/subscription', branchController.getSubscription);

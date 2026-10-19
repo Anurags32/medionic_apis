@@ -327,8 +327,11 @@ const createBatch = async (branchId, userId, payload) => {
         sale_price,
         gst_rate,
         initial_stock,
+        quantity,
         rack_location,
     } = payload;
+
+    const initialStockVal = initial_stock !== undefined ? initial_stock : (quantity !== undefined ? quantity : 0);
 
     const medicine = await Medicine.findOne({ _id: medicine_id, branch_id: branchId });
     if (!medicine) {
@@ -345,7 +348,7 @@ const createBatch = async (branchId, userId, payload) => {
         mrp: mrp || 0,
         sale_price: sale_price || mrp,
         gst_rate: gst_rate || 12,
-        current_stock: initial_stock || 0,
+        current_stock: initialStockVal || 0,
         rack_location: rack_location || '',
     });
 
@@ -375,7 +378,18 @@ const createBatch = async (branchId, userId, payload) => {
 };
 
 const adjustStock = async (branchId, userId, payload) => {
-    const { batch_id, quantity_changed, transaction_type, reason } = payload;
+    let { batch_id, quantity_changed, transaction_type, reason, adjustment_type, quantity } = payload;
+
+    if (quantity_changed === undefined && quantity !== undefined) {
+        const qtyNum = parseInt(quantity, 10) || 0;
+        if (adjustment_type === 'REDUCE') {
+            quantity_changed = -Math.abs(qtyNum);
+            transaction_type = transaction_type || 'DAMAGED_EXPIRED_OUT';
+        } else {
+            quantity_changed = Math.abs(qtyNum);
+            transaction_type = transaction_type || 'ADJUSTMENT';
+        }
+    }
 
     const batch = await MedicineBatch.findOne({
         _id: batch_id,
@@ -398,7 +412,7 @@ const adjustStock = async (branchId, userId, payload) => {
         branch_id: branchId,
         medicine_id: batch.medicine_id,
         batch_id: batch._id,
-        type: transaction_type || STOCK_LOG_TYPES.ADJUSTMENT_IN,
+        type: transaction_type === 'ADJUSTMENT_IN' ? 'ADJUSTMENT' : (transaction_type || 'ADJUSTMENT'),
         quantity: parseInt(quantity_changed),
         balance_after: newStock,
         remarks: reason || 'Manual Stock Adjustment',
@@ -926,6 +940,14 @@ const createMedicineWithBatch = async (branchId, userId, payload, file) => {
     }
 };
 
+const getMedicineBatches = async (branchId, medicineId) => {
+    return await MedicineBatch.find({
+        medicine_id: medicineId,
+        branch_id: branchId,
+        is_active: true,
+    }).sort({ expiry_date: 1 });
+};
+
 module.exports = {
     createCategory,
     getCategories,
@@ -943,4 +965,5 @@ module.exports = {
     getLowStockMedicines,
     getExpiringBatches,
     getExpiredBatches,
+    getMedicineBatches,
 };

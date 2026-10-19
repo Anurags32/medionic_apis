@@ -15,6 +15,16 @@ router.post(
     prescriptionController.upload
 );
 
+router.post(
+    '/',
+    authorizeFeature(FEATURES.PRESCRIPTIONS_VIEW),
+    uploadPrescription.fields([
+        { name: 'prescription_image', maxCount: 1 },
+        { name: 'prescription', maxCount: 1 },
+    ]),
+    prescriptionController.upload
+);
+
 router.get(
     '/',
     authorizeFeature(FEATURES.PRESCRIPTIONS_VIEW),

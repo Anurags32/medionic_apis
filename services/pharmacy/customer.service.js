@@ -115,9 +115,41 @@ const settleKhataPayment = async (branchId, customerId, amount, paymentMode, not
     };
 };
 
+const getCustomerLedger = async (branchId, customerId) => {
+    const customer = await Customer.findOne({
+        _id: customerId,
+        branch_id: branchId,
+    });
+
+    if (!customer) {
+        throw new ApiError(404, 'Customer not found in this branch', 'CUSTOMER_NOT_FOUND');
+    }
+
+    const invoices = await Invoice.find({ customer_id: customer._id, branch_id: branchId })
+        .sort({ invoice_date: -1 });
+
+    return {
+        customer_id: customer._id.toString(),
+        name: customer.name,
+        phone: customer.phone,
+        khata_balance: customer.khata_balance || 0,
+        ledger: invoices.map(inv => ({
+            id: inv._id.toString(),
+            invoice_number: inv.invoice_number,
+            date: inv.invoice_date,
+            total_amount: inv.grand_total,
+            amount_paid: inv.amount_paid,
+            balance_due: inv.balance_due,
+            payment_mode: inv.payment_mode,
+            payment_status: inv.payment_status,
+        })),
+    };
+};
+
 module.exports = {
     createCustomer,
     getCustomers,
     getCustomerById,
     settleKhataPayment,
+    getCustomerLedger,
 };

@@ -92,7 +92,7 @@ const updateStaff = asyncHandler(async (req, res) => {
 });
 
 const updatePermissions = asyncHandler(async (req, res) => {
-    const { features } = req.body;
+    const features = req.body.permissions || req.body.features || [];
     const result = await staffService.updateStaffPermissions(req.user.branchId, req.params.id, features);
     res.status(200).json(new ApiResponse(200, result, 'Staff permissions updated successfully'));
 });
@@ -118,9 +118,21 @@ const forceLogoutStaff = asyncHandler(async (req, res) => {
 });
 
 const toggleBlockStaff = asyncHandler(async (req, res) => {
-    const { is_blocked, block_reason } = req.body;
-    const result = await staffService.toggleBlockStaff(req.user.branchId, req.params.id, is_blocked, block_reason);
+    const { is_blocked, block_reason, reason } = req.body;
+    const finalReason = block_reason || reason || 'Action by Pharmacy Owner';
+    const result = await staffService.toggleBlockStaff(req.user.branchId, req.params.id, is_blocked, finalReason);
     res.status(200).json(new ApiResponse(200, result, result.message));
+});
+
+const blockStaff = asyncHandler(async (req, res) => {
+    const reason = req.body.reason || req.body.block_reason || 'Blocked by Pharmacy Owner';
+    const result = await staffService.toggleBlockStaff(req.user.branchId, req.params.id, true, reason);
+    res.status(200).json(new ApiResponse(200, result, 'Staff member blocked successfully'));
+});
+
+const unblockStaff = asyncHandler(async (req, res) => {
+    const result = await staffService.toggleBlockStaff(req.user.branchId, req.params.id, false);
+    res.status(200).json(new ApiResponse(200, result, 'Staff member unblocked successfully'));
 });
 
 const transferBranch = asyncHandler(async (req, res) => {
@@ -151,6 +163,8 @@ module.exports = {
     resetToDefault,
     forceLogoutStaff,
     toggleBlockStaff,
+    blockStaff,
+    unblockStaff,
     transferBranch,
     deleteStaff,
 };

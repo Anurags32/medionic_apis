@@ -350,10 +350,114 @@ const getInvoices = async (branchId, query = {}) => {
     };
 };
 
+const returnInvoiceItems = async (branchId, userId, invoiceId, items = []) => {
+    const invoice = await Invoice.findOne({ _id: invoiceId, branch_id: branchId });
+    if (!invoice) {
+        throw new ApiError(404, 'Invoice not found', 'INVOICE_NOT_FOUND');
+    }
+
+    let totalRefund = 0;
+    const returnedItemsResult = [];
+
+    for (const item of items) {
+        const medicineId = item.medicine_id;
+        const qtyToReturn = parseInt(item.quantity, 10) || 1;
+        const reason = item.reason || 'Customer Return';
+
+        const medicine = await Medicine.findById(medicineId);
+        const batch = await MedicineBatch.findOne({ medicine_id: medicineId, branch_id: branchId }).sort({ expiry_date: -1 });
+
+        if (batch) {
+            batch.current_stock += qtyToReturn;
+            await batch.save();
+
+            await StockLog.create({
+                branch_id: branchId,
+                medicine_id: medicineId,
+                batch_id: batch._id,
+                type: 'RETURN_IN',
+                quantity: qtyToReturn,
+                balance_after: batch.current_stock,
+                remarks: `Return on invoice ${invoice.invoice_number}: ${reason}`,
+                created_by_user_id: userId,
+            });
+        }
+
+        const unitPrice = medicine ? (medicine.sale_price || medicine.mrp || 0) : 0;
+        const refundItemAmount = unitPrice * qtyToReturn;
+        totalRefund += refundItemAmount;
+
+        returnedItemsResult.push({
+            medicine_id: medicineId,
+            medicine_name: medicine ? medicine.name : '',
+            quantity: qtyToReturn,
+            refund_amount: refundItemAmount,
+            reason,
+        });
+    }
+
+    return {
+        invoice_id: invoice._id.toString(),
+        invoice_number: invoice.invoice_number,
+        returned_items: returnedItemsResult,
+        refund_amount: totalRefund,
+        message: 'Return and refund processed successfully',
+    };
+};
+
+const getDailyRegisterSummary = async (branchId) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    const invoices = await Invoice.find({
+        branch_id: branchId,
+        invoice_date: { $gte: today, $lt: tomorrow },
+    }).sort({ invoice_date: -1 });
+
+    let totalSales = 0;
+    let cashSales = 0;
+    let upiSales = 0;
+    let cardSales = 0;
+    let creditSales = 0;
+    let totalTax = 0;
+
+    for (const inv of invoices) {
+        totalSales += inv.grand_total || 0;
+        totalTax += inv.total_tax || 0;
+        const mode = (inv.payment_mode || '').toUpperCase();
+        if (mode === 'CASH') cashSales += inv.grand_total || 0;
+        else if (mode === 'UPI') upiSales += inv.grand_total || 0;
+        else if (mode === 'CARD') cardSales += inv.grand_total || 0;
+        else if (mode === 'CREDIT' || mode === 'KHATA') creditSales += inv.grand_total || 0;
+    }
+
+    return {
+        date: today.toISOString().split('T')[0],
+        total_invoices: invoices.length,
+        total_sales: Math.round(totalSales * 100) / 100,
+        cash_sales: Math.round(cashSales * 100) / 100,
+        upi_sales: Math.round(upiSales * 100) / 100,
+        card_sales: Math.round(cardSales * 100) / 100,
+        credit_sales: Math.round(creditSales * 100) / 100,
+        total_tax: Math.round(totalTax * 100) / 100,
+        invoices: invoices.map(i => ({
+            id: i._id.toString(),
+            invoice_number: i.invoice_number,
+            grand_total: i.grand_total,
+            payment_mode: i.payment_mode,
+            invoice_date: i.invoice_date,
+        })),
+    };
+};
+
 module.exports = {
     createInvoice,
     getInvoiceById,
     getInvoiceReceipt,
     getInvoices,
+    returnInvoiceItems,
+    getDailyRegisterSummary,
 };
 

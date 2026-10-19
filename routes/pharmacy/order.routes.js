@@ -54,4 +54,16 @@ router.patch(
     orderController.assignPacker
 );
 
+router.post(
+    '/:id/assign-delivery',
+    authorizeFeature(FEATURES.ORDERS_PROCESS),
+    orderController.assignDeliveryAgent
+);
+
+router.post(
+    '/:id/assign-packer',
+    authorizeFeature(FEATURES.ORDERS_PROCESS),
+    orderController.assignPacker
+);
+
 module.exports = router;

@@ -46,5 +46,17 @@ router.get(
     posController.getInvoiceById
 );
 
+router.post(
+    '/invoices/:id/return',
+    authorizeFeature(FEATURES.BILLING_POS),
+    posController.returnInvoice
+);
+
+router.get(
+    '/daily-register',
+    authorizeFeature(FEATURES.BILLING_POS),
+    posController.getDailyRegister
+);
+
 module.exports = router;
 

@@ -16,6 +16,9 @@ const rateLimiter = ({ windowMs = 15 * 60 * 1000, max = 100, message = 'Too many
     if (interval.unref) interval.unref();
 
     return (req, res, next) => {
+        if (process.env.NODE_ENV !== 'production') {
+            return next();
+        }
         const ip = req.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown-ip';
         const now = Date.now();
 

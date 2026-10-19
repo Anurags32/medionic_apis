@@ -203,9 +203,12 @@ const updateMedicineRules = [
 
 const createBatchRules = [
     body('medicine_id')
-        .notEmpty().withMessage('Valid medicine_id is required')
-        .bail()
-        .isMongoId().withMessage('medicine_id must be a valid ObjectId'),
+        .custom((val, { req }) => {
+            const id = val || req.params?.id;
+            if (!id) throw new Error('Valid medicine_id is required');
+            if (!/^[0-9a-fA-F]{24}$/.test(id)) throw new Error('medicine_id must be a valid ObjectId');
+            return true;
+        }),
 
     body('batch_number')
         .trim()
@@ -365,13 +368,14 @@ const adjustStockRules = [
         .notEmpty().withMessage('Valid batch_id is required')
         .bail()
         .isMongoId().withMessage('batch_id must be a valid ObjectId'),
-    body('quantity_changed')
-        .notEmpty().withMessage('quantity_changed is required')
-        .bail()
-        .isInt().withMessage('Quantity changed must be an integer'),
-    body('transaction_type')
-        .isIn(['PURCHASE_IN', 'SALE_OUT', 'RETURN_IN', 'DAMAGED_EXPIRED_OUT', 'ADJUSTMENT', 'ADJUSTMENT_IN', 'ADJUSTMENT_OUT'])
-        .withMessage('Invalid transaction_type'),
+    body().custom((val, { req }) => {
+        const hasDirect = req.body.quantity_changed !== undefined && req.body.transaction_type !== undefined;
+        const hasAdjustment = req.body.adjustment_type !== undefined && req.body.quantity !== undefined;
+        if (!hasDirect && !hasAdjustment) {
+            throw new Error('Either quantity_changed & transaction_type OR adjustment_type & quantity is required');
+        }
+        return true;
+    }),
     body('reason')
         .optional()
         .isString().withMessage('Reason must be a text string'),

@@ -30,9 +30,15 @@ const updateOrderStatus = asyncHandler(async (req, res) => {
 });
 
 const assignPacker = asyncHandler(async (req, res) => {
-    const { packer_id } = req.body;
+    const packer_id = req.body.packer_id || req.body.delivery_agent_id;
     const order = await orderService.assignPacker(req.user.branchId, req.params.id, packer_id);
     res.status(200).json(new ApiResponse(200, order, 'Packer assigned to order successfully'));
+});
+
+const assignDeliveryAgent = asyncHandler(async (req, res) => {
+    const delivery_agent_id = req.body.delivery_agent_id || req.body.packer_id;
+    const order = await orderService.assignDeliveryAgent(req.user.branchId, req.params.id, delivery_agent_id);
+    res.status(200).json(new ApiResponse(200, order, 'Delivery agent assigned successfully'));
 });
 
 module.exports = {
@@ -42,4 +48,5 @@ module.exports = {
     getOrderById,
     updateOrderStatus,
     assignPacker,
+    assignDeliveryAgent,
 };

@@ -45,5 +45,7 @@ router.post('/:id/revoke-all', authorizeOwnerOnly, staffController.revokeAllPerm
 router.post('/:id/reset-default', authorizeOwnerOnly, staffController.resetToDefault);
 
 router.patch('/:id/block', authorizeOwnerOnly, validate(blockStaffRules), staffController.toggleBlockStaff);
+router.post('/:id/block', authorizeOwnerOnly, staffController.blockStaff);
+router.post('/:id/unblock', authorizeOwnerOnly, staffController.unblockStaff);
 
 module.exports = router;

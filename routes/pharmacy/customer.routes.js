@@ -32,10 +32,22 @@ router.get(
     customerController.getCustomerById
 );
 
+router.get(
+    '/:id/ledger',
+    authorizeFeature(FEATURES.CUSTOMERS_MANAGE),
+    customerController.getCustomerLedger
+);
+
 router.post(
     '/:id/settle-khata',
     authorizeFeature(FEATURES.CUSTOMERS_MANAGE),
     validate(settleKhataRules),
+    customerController.settleKhata
+);
+
+router.post(
+    '/:id/settle-ledger',
+    authorizeFeature(FEATURES.CUSTOMERS_MANAGE),
     customerController.settleKhata
 );
 

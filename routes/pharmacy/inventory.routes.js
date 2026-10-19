@@ -28,6 +28,9 @@ router.post(
 );
 
 router.get('/medicines', authorizeFeature(FEATURES.INVENTORY_VIEW), inventoryController.getMedicines);
+router.get('/', authorizeFeature(FEATURES.INVENTORY_VIEW), inventoryController.getMedicines);
+router.get('/low-stock', authorizeFeature(FEATURES.INVENTORY_VIEW), inventoryController.getLowStock);
+router.get('/expiring-soon', authorizeFeature(FEATURES.INVENTORY_VIEW), inventoryController.getExpiringBatches);
 router.get('/medicines/:id', authorizeFeature(FEATURES.INVENTORY_VIEW), inventoryController.getMedicineById);
 router.post(
     '/medicines/with-batch',
@@ -45,8 +48,40 @@ router.post(
     validate(createMedicineRules),
     inventoryController.createMedicine
 );
+router.post(
+    '/',
+    authorizeFeature(FEATURES.INVENTORY_MANAGE),
+    requireActiveSubscription,
+    uploadMedicineImage.single('image'),
+    validate(createMedicineRules),
+    inventoryController.createMedicine
+);
 router.put(
     '/medicines/:id',
+    authorizeFeature(FEATURES.INVENTORY_MANAGE),
+    uploadMedicineImage.single('image'),
+    validate(updateMedicineRules),
+    inventoryController.updateMedicine
+);
+router.post(
+    '/:id/batches',
+    authorizeFeature(FEATURES.INVENTORY_MANAGE),
+    requireActiveSubscription,
+    validate(createBatchRules),
+    inventoryController.addBatchToMedicine
+);
+router.get(
+    '/:id/batches',
+    authorizeFeature(FEATURES.INVENTORY_VIEW),
+    inventoryController.getMedicineBatches
+);
+router.get(
+    '/:id',
+    authorizeFeature(FEATURES.INVENTORY_VIEW),
+    inventoryController.getMedicineById
+);
+router.put(
+    '/:id',
     authorizeFeature(FEATURES.INVENTORY_MANAGE),
     uploadMedicineImage.single('image'),
     validate(updateMedicineRules),

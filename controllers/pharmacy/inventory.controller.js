@@ -44,6 +44,21 @@ const createBatch = asyncHandler(async (req, res) => {
     res.status(201).json(new ApiResponse(201, batch, 'Medicine batch added successfully'));
 });
 
+const getMedicineBatches = asyncHandler(async (req, res) => {
+    const medicineId = req.params.medicineId || req.params.id;
+    const batches = await inventoryService.getMedicineBatches(req.user.branchId, medicineId);
+    res.status(200).json(new ApiResponse(200, batches, 'Medicine batches fetched successfully'));
+});
+
+const addBatchToMedicine = asyncHandler(async (req, res) => {
+    const medicineId = req.params.medicineId || req.params.id;
+    const batch = await inventoryService.createBatch(req.user.branchId, req.user.userId, {
+        ...req.body,
+        medicine_id: medicineId,
+    });
+    res.status(201).json(new ApiResponse(201, batch, 'Medicine batch added successfully'));
+});
+
 const adjustStock = asyncHandler(async (req, res) => {
     const result = await inventoryService.adjustStock(req.user.branchId, req.user.userId, req.body);
     res.status(200).json(new ApiResponse(200, result, 'Stock adjusted successfully'));
@@ -141,6 +156,8 @@ module.exports = {
     getMedicines,
     getMedicineById,
     createBatch,
+    getMedicineBatches,
+    addBatchToMedicine,
     adjustStock,
     processReturn,
     lookupBarcode,

@@ -35,10 +35,22 @@ const getGstReport = asyncHandler(async (req, res) => {
     res.status(200).json(new ApiResponse(200, gstData, 'GST report fetched successfully'));
 });
 
+const getInventoryMovement = asyncHandler(async (req, res) => {
+    const data = await reportService.getInventoryMovementReport(req.user.branchId);
+    res.status(200).json(new ApiResponse(200, data, 'Inventory movement report fetched successfully'));
+});
+
+const getPnl = asyncHandler(async (req, res) => {
+    const data = await reportService.getPnlReport(req.user.branchId, req.query);
+    res.status(200).json(new ApiResponse(200, data, 'Profit and Loss report fetched successfully'));
+});
+
 module.exports = {
     getDashboardStats,
     getAggregatedDashboard,
     getSalesReport,
     getTopSellingMedicines,
     getGstReport,
+    getInventoryMovement,
+    getPnl,
 };

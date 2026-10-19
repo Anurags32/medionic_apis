@@ -53,9 +53,13 @@ const updateStaffRules = [
 
 const updatePermissionsRules = [
     param('id').notEmpty().withMessage('Valid staff ID is required'),
-    body('features')
-        .isArray()
-        .withMessage('features must be an array of feature strings'),
+    body().custom((val, { req }) => {
+        const perms = req.body.permissions || req.body.features;
+        if (!perms || !Array.isArray(perms)) {
+            throw new Error('permissions or features must be an array of feature strings');
+        }
+        return true;
+    }),
 ];
 
 const blockStaffRules = [

@@ -13,5 +13,8 @@ router.get('/dashboard/aggregated', reportController.getAggregatedDashboard);
 router.get('/sales', reportController.getSalesReport);
 router.get('/top-medicines', reportController.getTopSellingMedicines);
 router.get('/gst', reportController.getGstReport);
+router.get('/gst-summary', reportController.getGstReport);
+router.get('/inventory-movement', reportController.getInventoryMovement);
+router.get('/pnl', reportController.getPnl);
 
 module.exports = router;

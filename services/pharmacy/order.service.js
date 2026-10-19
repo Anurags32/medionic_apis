@@ -459,6 +459,31 @@ const assignPacker = async (branchId, orderId, packerId) => {
     return order;
 };
 
+const assignDeliveryAgent = async (branchId, orderId, deliveryAgentId) => {
+    const order = await Order.findOne({ _id: orderId, branch_id: branchId });
+    if (!order) {
+        throw new ApiError(404, 'Order not found', 'ORDER_NOT_FOUND');
+    }
+
+    const agent = await User.findOne({ _id: deliveryAgentId, branch_id: branchId });
+    if (!agent) {
+        throw new ApiError(404, 'Delivery agent not found in this branch', 'USER_NOT_FOUND');
+    }
+
+    order.delivery_agent_id = deliveryAgentId;
+    order.assigned_packer_id = order.assigned_packer_id || deliveryAgentId;
+    order.status = ORDER_STATUS.DISPATCHED;
+    await order.save();
+
+    emitToUser(deliveryAgentId.toString(), 'order:assigned_delivery', {
+        orderId: order._id.toString(),
+        orderNumber: order.order_number,
+        message: `You have been assigned to deliver Order ${order.order_number}`,
+    });
+
+    return order;
+};
+
 module.exports = {
     createOrder,
     acceptOrder,
@@ -466,4 +491,5 @@ module.exports = {
     getOrderById,
     updateOrderStatus,
     assignPacker,
+    assignDeliveryAgent,
 };

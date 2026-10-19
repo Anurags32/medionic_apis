@@ -19,15 +19,21 @@ const getCustomerById = asyncHandler(async (req, res) => {
 });
 
 const settleKhata = asyncHandler(async (req, res) => {
-    const { amount, payment_mode, notes } = req.body;
+    const { amount, payment_mode, paymentMode, notes } = req.body;
+    const mode = payment_mode || paymentMode || 'CASH';
     const result = await customerService.settleKhataPayment(
         req.user.branchId,
         req.params.id,
         amount,
-        payment_mode,
+        mode,
         notes
     );
     res.status(200).json(new ApiResponse(200, result, 'Khata payment recorded successfully'));
+});
+
+const getCustomerLedger = asyncHandler(async (req, res) => {
+    const result = await customerService.getCustomerLedger(req.user.branchId, req.params.id);
+    res.status(200).json(new ApiResponse(200, result, 'Customer Khata ledger fetched successfully'));
 });
 
 module.exports = {
@@ -35,4 +41,5 @@ module.exports = {
     getCustomers,
     getCustomerById,
     settleKhata,
+    getCustomerLedger,
 };

@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const { Invoice, Order, User, Branch } = require('../../models/pharmacy');
+const { Invoice, Order, User, Branch, Medicine } = require('../../models/pharmacy');
 const inventoryService = require('./inventory.service');
 const staffService = require('./staff.service');
 const reportCache = require('../../utils/pharmacyCache');
@@ -276,10 +276,106 @@ const getAggregatedDashboard = async (branchId) => {
     return result;
 };
 
+const getInventoryMovementReport = async (branchId) => {
+    const branchObjectId = new mongoose.Types.ObjectId(branchId);
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+    const fastMoving = await Invoice.aggregate([
+        { $match: { branch_id: branchObjectId, invoice_date: { $gte: thirtyDaysAgo } } },
+        { $unwind: '$items' },
+        {
+            $group: {
+                _id: '$items.medicine_id',
+                medicine_name: { $first: '$items.medicine_name' },
+                total_quantity_sold: { $sum: '$items.quantity' },
+                total_revenue: { $sum: '$items.total_amount' },
+            },
+        },
+        { $sort: { total_quantity_sold: -1 } },
+        { $limit: 15 },
+    ]);
+
+    const soldMedicineIds = fastMoving.map(m => m._id);
+    const slowMoving = await Medicine.find({
+        branch_id: branchObjectId,
+        _id: { $nin: soldMedicineIds },
+        is_active: true,
+    }).select('name generic_name manufacturer current_stock sale_price').limit(15);
+
+    return {
+        period: 'Last 30 Days',
+        fast_moving: fastMoving.map(f => ({
+            medicine_id: f._id,
+            name: f.medicine_name,
+            total_sold: f.total_quantity_sold,
+            revenue: f.total_revenue,
+        })),
+        slow_moving: slowMoving.map(s => ({
+            medicine_id: s._id,
+            name: s.name,
+            generic_name: s.generic_name,
+            current_stock: s.current_stock || 0,
+            sale_price: s.sale_price,
+        })),
+    };
+};
+
+const getPnlReport = async (branchId, query = {}) => {
+    const branchObjectId = new mongoose.Types.ObjectId(branchId);
+    const { startDate, endDate, period } = query;
+    const match = { branch_id: branchObjectId };
+
+    if (period === 'today') {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        match.invoice_date = { $gte: today };
+    } else if (startDate && endDate) {
+        match.invoice_date = {
+            $gte: new Date(startDate),
+            $lte: new Date(endDate + 'T23:59:59.999Z'),
+        };
+    }
+
+    const invoices = await Invoice.find(match).select('subtotal grand_total discount_amount cgst_amount sgst_amount items');
+
+    let totalRevenue = 0;
+    let totalDiscount = 0;
+    let totalTax = 0;
+    let estimatedCostOfGoods = 0;
+
+    for (const inv of invoices) {
+        totalRevenue += inv.grand_total || 0;
+        totalDiscount += inv.discount_amount || 0;
+        totalTax += (inv.cgst_amount || 0) + (inv.sgst_amount || 0);
+        for (const item of (inv.items || [])) {
+            const purchaseRate = item.purchase_rate || (item.sale_price ? item.sale_price * 0.7 : 0);
+            estimatedCostOfGoods += purchaseRate * (item.quantity || 1);
+        }
+    }
+
+    const netSales = totalRevenue - totalTax;
+    const grossProfit = Math.max(0, netSales - estimatedCostOfGoods);
+    const grossMarginPercent = netSales > 0 ? (grossProfit / netSales) * 100 : 0;
+
+    return {
+        period: period || 'all_time',
+        total_revenue: Math.round(totalRevenue * 100) / 100,
+        net_sales: Math.round(netSales * 100) / 100,
+        total_discount: Math.round(totalDiscount * 100) / 100,
+        total_tax: Math.round(totalTax * 100) / 100,
+        cost_of_goods_sold: Math.round(estimatedCostOfGoods * 100) / 100,
+        gross_profit: Math.round(grossProfit * 100) / 100,
+        gross_margin_percent: Math.round(grossMarginPercent * 100) / 100,
+    };
+};
+
 module.exports = {
     getDashboardStats,
     getAggregatedDashboard,
     getSalesReport,
     getTopSellingMedicines,
     getGstSummaryReport,
+    getInventoryMovementReport,
+    getPnlReport,
 };
