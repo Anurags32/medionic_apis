@@ -19,6 +19,20 @@ const createMedicine = asyncHandler(async (req, res) => {
     res.status(201).json(new ApiResponse(201, medicine, 'Medicine created successfully'));
 });
 
+const importMedicines = asyncHandler(async (req, res) => {
+    const userId = req.user?.userId || req.user?._id || req.user?.id;
+    const summary = await inventoryService.importMedicines(req.user.branchId, userId, req.body.rows, {
+        stop_on_error: req.body.stop_on_error === true,
+    });
+    res.status(200).json(new ApiResponse(200, summary, `Imported ${summary.created} medicines, ${summary.batches_added} batches added`));
+});
+
+const importTemplate = asyncHandler(async (req, res) => {
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="medislip-inventory-template.csv"');
+    res.status(200).send(inventoryService.importTemplateCsv());
+});
+
 const createMedicineWithBatch = asyncHandler(async (req, res) => {
     const result = await inventoryService.createMedicineWithBatch(req.user.branchId, req.user.userId, req.body, req.file);
     res.status(201).json(new ApiResponse(201, result, 'Medicine and batch created successfully'));
@@ -152,6 +166,8 @@ module.exports = {
     getCategories,
     createMedicine,
     createMedicineWithBatch,
+    importMedicines,
+    importTemplate,
     updateMedicine,
     getMedicines,
     getMedicineById,

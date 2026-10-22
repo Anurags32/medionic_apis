@@ -17,6 +17,11 @@ router.get('/subscription', branchController.getSubscription);
 router.get('/plan', branchController.getSubscription);
 router.post('/subscription/renew', authorizeOwnerOnly, branchController.renewSubscription);
 router.post('/plan/renew', authorizeOwnerOnly, branchController.renewSubscription);
+// Plan catalog + Razorpay recharge (exempt from planGuard: URL contains /plan)
+router.get('/plans', branchController.getPlans);
+router.post('/plan/checkout', authorizeOwnerOnly, branchController.createPlanCheckout);
+router.post('/plan/verify', authorizeOwnerOnly, branchController.verifyPlanPayment);
+router.get('/plan/history', branchController.getPlanHistory);
 router.get('/:id/subscription', branchController.getSubscription);
 router.get('/:id/staff', branchController.getBranchStaff);
 router.get('/stores/:id/staff', branchController.getBranchStaff);

@@ -32,6 +32,14 @@ router.get('/', authorizeFeature(FEATURES.INVENTORY_VIEW), inventoryController.g
 router.get('/low-stock', authorizeFeature(FEATURES.INVENTORY_VIEW), inventoryController.getLowStock);
 router.get('/expiring-soon', authorizeFeature(FEATURES.INVENTORY_VIEW), inventoryController.getExpiringBatches);
 router.get('/medicines/:id', authorizeFeature(FEATURES.INVENTORY_VIEW), inventoryController.getMedicineById);
+// Bulk import from Excel/CSV (rows parsed on the client). Before '/:id' routes.
+router.get('/import/template', authorizeFeature(FEATURES.INVENTORY_VIEW), inventoryController.importTemplate);
+router.post(
+    '/import',
+    authorizeFeature(FEATURES.INVENTORY_MANAGE),
+    requireActiveSubscription,
+    inventoryController.importMedicines
+);
 router.post(
     '/medicines/with-batch',
     authorizeFeature(FEATURES.INVENTORY_MANAGE),

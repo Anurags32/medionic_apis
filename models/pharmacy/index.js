@@ -16,6 +16,7 @@ const StockLog = require('./stock-log.model');
 const Notification = require('./notification.model');
 const OTP = require('./otp.model');
 const PharmacyReturn = require('./return.model');
+const PlanPayment = require('./plan-payment.model');
 
 module.exports = {
     mongoose,
@@ -35,4 +36,5 @@ module.exports = {
     Notification,
     OTP,
     PharmacyReturn,
+    PlanPayment,
 };

@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { TRIAL_DAYS } = require('../../config/pharmacyPlans');
 
 const branchSchema = new mongoose.Schema(
     {
@@ -59,9 +60,19 @@ const branchSchema = new mongoose.Schema(
             default: '',
         },
         subscription: {
+            // Catalog id from config/pharmacyPlans.js ('trial' | 'basic' | 'standard' | 'pro')
+            plan_id: {
+                type: String,
+                default: 'trial',
+            },
             plan_name: {
                 type: String,
-                default: 'Standard',
+                default: 'Free Trial',
+            },
+            billing_cycle: {
+                type: String,
+                enum: ['trial', 'monthly', 'yearly'],
+                default: 'trial',
             },
             status: {
                 type: String,
@@ -72,9 +83,10 @@ const branchSchema = new mongoose.Schema(
                 type: Date,
                 default: Date.now,
             },
+            // New branches start on the free trial (no card); see trialSubscription().
             expiry_date: {
                 type: Date,
-                default: () => new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+                default: () => new Date(Date.now() + TRIAL_DAYS * 24 * 60 * 60 * 1000),
             },
             auto_renew: {
                 type: Boolean,
@@ -168,10 +180,18 @@ branchSchema.methods.getSubscriptionDetails = function () {
     }
 
     const isReadOnly = status === 'EXPIRED';
+    const planId = this.subscription?.plan_id || 'trial';
+    const isTrial = planId === 'trial';
 
     return {
-        plan: this.subscription?.plan_name || 'Standard',
-        plan_name: this.subscription?.plan_name || 'Standard',
+        plan: this.subscription?.plan_name || 'Free Trial',
+        plan_name: this.subscription?.plan_name || 'Free Trial',
+        plan_id: planId,
+        billing_cycle: this.subscription?.billing_cycle || (isTrial ? 'trial' : 'monthly'),
+        is_trial: isTrial,
+        isTrial,
+        trial_days: TRIAL_DAYS,
+        start_date: this.subscription?.start_date ? new Date(this.subscription.start_date).toISOString() : null,
         status,
         expiryDate: expiry.toISOString(),
         expiry_date: expiry.toISOString(),
@@ -183,6 +203,20 @@ branchSchema.methods.getSubscriptionDetails = function () {
         is_read_only: isReadOnly,
         isExpired: isReadOnly,
         is_expired: isReadOnly,
+    };
+};
+
+/** Subscription sub-document for a brand-new branch: free 14-day trial. */
+branchSchema.statics.trialSubscription = function () {
+    const now = new Date();
+    return {
+        plan_id: 'trial',
+        plan_name: 'Free Trial',
+        billing_cycle: 'trial',
+        status: 'ACTIVE',
+        start_date: now,
+        expiry_date: new Date(now.getTime() + TRIAL_DAYS * 24 * 60 * 60 * 1000),
+        auto_renew: false,
     };
 };
 

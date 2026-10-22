@@ -1,8 +1,11 @@
-const { Branch, User } = require('../../models/pharmacy');
+const crypto = require('crypto');
+const Razorpay = require('razorpay');
+const { Branch, User, PlanPayment } = require('../../models/pharmacy');
 const ApiError = require('../../utils/ApiError');
 const { generateAccessToken, generateRefreshToken } = require('../../config/pharmacyJwt');
 const { emitToBranch, emitToUser } = require('../../socket/pharmacyEvents');
 const { ROLES, DEFAULT_ROLE_PERMISSIONS } = require('../../config/pharmacyConstants');
+const plansConfig = require('../../config/pharmacyPlans');
 
 
 const createBranch = async (ownerUser, payload) => {
@@ -45,6 +48,8 @@ const createBranch = async (ownerUser, payload) => {
         longitude: longitude !== undefined && longitude !== null ? parseFloat(longitude) : null,
         is_available: is_available !== undefined ? (is_available === true || is_available === 'true') : true,
         is_active: true,
+        // Plans are per branch: every new store starts on the free trial.
+        subscription: Branch.trialSubscription(),
     });
 
     emitToUser(ownerUser.id, 'branch:created', {
@@ -151,6 +156,165 @@ const renewBranchSubscription = async (branchId, payload = {}, user = null) => {
 
     await branch.save();
     return branch.getSubscriptionDetails();
+};
+
+// ─── Plans: catalog, Razorpay checkout, verification, history ────────────────
+
+const getPlanCatalog = () => plansConfig.planCatalog();
+
+const assertOwnsBranch = (branch, user) => {
+    if (!user || user.role !== ROLES.PHARMACY_OWNER) {
+        throw new ApiError(403, 'Only the pharmacy owner can recharge a plan', 'OWNER_ONLY');
+    }
+    const owned = !branch.owner_id
+        || branch.owner_id.toString() === user.id.toString()
+        || branch._id.toString() === user.branchId.toString();
+    if (!owned) {
+        throw new ApiError(403, 'You do not have permission to recharge this branch', 'BRANCH_ACCESS_DENIED');
+    }
+};
+
+const getRazorpayClient = () => {
+    const keyId = process.env.RAZORPAY_KEY_ID;
+    const keySecret = process.env.RAZORPAY_KEY_SECRET;
+    if (!keyId || !keySecret || keyId.startsWith('rzp_test_your')) {
+        throw new ApiError(503, 'Online payment is not configured on the server', 'PAYMENT_NOT_CONFIGURED');
+    }
+    return { client: new Razorpay({ key_id: keyId, key_secret: keySecret }), keyId, keySecret };
+};
+
+/**
+ * Creates a Razorpay order for a plan. The amount comes from the catalog
+ * (never from the client) and the attempt is stored as CREATED.
+ */
+const createPlanCheckout = async (branchId, payload, user) => {
+    const branch = await Branch.findById(branchId);
+    if (!branch) {
+        throw new ApiError(404, 'Branch not found', 'BRANCH_NOT_FOUND');
+    }
+    assertOwnsBranch(branch, user);
+
+    const plan = plansConfig.getPlan(payload.plan_id || payload.plan);
+    if (!plan || !plan.purchasable) {
+        throw new ApiError(400, 'Choose a valid paid plan (basic, standard or pro)', 'INVALID_PLAN');
+    }
+    const cycle = plansConfig.getCycle(payload.billing_cycle || payload.cycle || 'monthly');
+    if (!cycle) {
+        throw new ApiError(400, 'billing_cycle must be monthly or yearly', 'INVALID_BILLING_CYCLE');
+    }
+
+    const amount = plansConfig.planAmount(plan, cycle);
+    const { client, keyId } = getRazorpayClient();
+    const receipt = `plan_${branch.code || branch._id}_${Date.now()}`.slice(0, 40);
+    const order = await client.orders.create({
+        amount: Math.round(amount * 100),
+        currency: 'INR',
+        receipt,
+        notes: { branch_id: branch._id.toString(), plan_id: plan.id, billing_cycle: cycle.id },
+    });
+
+    const payment = await PlanPayment.create({
+        branch_id: branch._id,
+        created_by: user.id,
+        plan_id: plan.id,
+        plan_name: plan.name,
+        billing_cycle: cycle.id,
+        amount,
+        currency: 'INR',
+        status: 'CREATED',
+        razorpay_order_id: order.id,
+    });
+
+    return {
+        payment_id: payment._id.toString(),
+        key_id: keyId,
+        order_id: order.id,
+        amount: order.amount, // paise
+        currency: order.currency,
+        plan: { id: plan.id, name: plan.name },
+        billing_cycle: cycle.id,
+        days: cycle.days,
+        description: `MediSlip ${plan.name} · ${cycle.label} · ${branch.name}`,
+        prefill: { name: user.fullName || '', email: user.email || '', contact: user.phone || '' },
+    };
+};
+
+/**
+ * Verifies the Razorpay signature and, only then, extends the branch plan.
+ * Renewal starts from the current expiry when it is still in the future.
+ */
+const verifyPlanPayment = async (branchId, payload, user) => {
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = payload;
+    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+        throw new ApiError(400, 'razorpay_order_id, razorpay_payment_id and razorpay_signature are required', 'PAYMENT_FIELDS_REQUIRED');
+    }
+
+    const payment = await PlanPayment.findOne({ razorpay_order_id, branch_id: branchId });
+    if (!payment) {
+        throw new ApiError(404, 'Payment attempt not found for this branch', 'PAYMENT_NOT_FOUND');
+    }
+    const branch = await Branch.findById(branchId);
+    if (!branch) {
+        throw new ApiError(404, 'Branch not found', 'BRANCH_NOT_FOUND');
+    }
+    assertOwnsBranch(branch, user);
+
+    if (payment.status === 'PAID') {
+        return { subscription: branch.getSubscriptionDetails(), payment, already_processed: true };
+    }
+
+    const { keySecret } = getRazorpayClient();
+    const expected = crypto
+        .createHmac('sha256', keySecret)
+        .update(`${razorpay_order_id}|${razorpay_payment_id}`)
+        .digest('hex');
+    if (expected !== razorpay_signature) {
+        payment.status = 'FAILED';
+        payment.failure_reason = 'Invalid signature';
+        await payment.save();
+        throw new ApiError(400, 'Payment verification failed: invalid signature', 'PAYMENT_SIGNATURE_INVALID');
+    }
+
+    const plan = plansConfig.getPlan(payment.plan_id);
+    const cycle = plansConfig.getCycle(payment.billing_cycle);
+    const now = new Date();
+    const currentExpiry = branch.subscription?.expiry_date ? new Date(branch.subscription.expiry_date) : now;
+    // Trial days left are not carried over; paid time stacks on paid time.
+    const base = branch.subscription?.plan_id !== 'trial' && currentExpiry > now ? currentExpiry : now;
+    const newExpiry = new Date(base.getTime() + cycle.days * 24 * 60 * 60 * 1000);
+
+    branch.subscription = {
+        plan_id: plan.id,
+        plan_name: plan.name,
+        billing_cycle: cycle.id,
+        status: 'ACTIVE',
+        start_date: branch.subscription?.plan_id === plan.id && branch.subscription?.start_date ? branch.subscription.start_date : now,
+        expiry_date: newExpiry,
+        auto_renew: false,
+    };
+    await branch.save();
+
+    payment.status = 'PAID';
+    payment.razorpay_payment_id = razorpay_payment_id;
+    payment.period_start = base;
+    payment.period_end = newExpiry;
+    payment.paid_at = now;
+    await payment.save();
+
+    const subscription = branch.getSubscriptionDetails();
+    emitToBranch(branch._id.toString(), 'branch:plan_updated', { branchId: branch._id.toString(), subscription });
+    return { subscription, payment };
+};
+
+const getPlanHistory = async (branchId, user) => {
+    const branch = await Branch.findById(branchId);
+    if (!branch) {
+        throw new ApiError(404, 'Branch not found', 'BRANCH_NOT_FOUND');
+    }
+    if (user && user.role !== ROLES.PHARMACY_OWNER && branch._id.toString() !== user.branchId.toString()) {
+        throw new ApiError(403, 'You do not have permission to view this branch plan history', 'BRANCH_ACCESS_DENIED');
+    }
+    return PlanPayment.find({ branch_id: branchId }).sort({ created_at: -1 }).limit(50);
 };
 
 const updateBranchDetails = async (branchId, payload, user = null) => {
@@ -280,6 +444,10 @@ module.exports = {
     getBranchDetails,
     getBranchSubscription,
     renewBranchSubscription,
+    getPlanCatalog,
+    createPlanCheckout,
+    verifyPlanPayment,
+    getPlanHistory,
     updateBranchDetails,
     toggleBranchAvailability,
     switchActiveBranch,

@@ -70,12 +70,38 @@ const renewSubscription = asyncHandler(async (req, res) => {
     res.status(200).json(new ApiResponse(200, subscription, 'Subscription renewed successfully'));
 });
 
+const getPlans = asyncHandler(async (req, res) => {
+    res.status(200).json(new ApiResponse(200, branchService.getPlanCatalog(), 'Plans fetched successfully'));
+});
+
+const createPlanCheckout = asyncHandler(async (req, res) => {
+    const branchId = req.params.id || req.user.branchId;
+    const checkout = await branchService.createPlanCheckout(branchId, req.body, req.user);
+    res.status(201).json(new ApiResponse(201, checkout, 'Checkout created'));
+});
+
+const verifyPlanPayment = asyncHandler(async (req, res) => {
+    const branchId = req.params.id || req.user.branchId;
+    const result = await branchService.verifyPlanPayment(branchId, req.body, req.user);
+    res.status(200).json(new ApiResponse(200, result, 'Plan activated successfully'));
+});
+
+const getPlanHistory = asyncHandler(async (req, res) => {
+    const branchId = req.params.id || req.user.branchId;
+    const history = await branchService.getPlanHistory(branchId, req.user);
+    res.status(200).json(new ApiResponse(200, history, 'Plan history fetched successfully'));
+});
+
 module.exports = {
     createBranch,
     getMyBranches,
     getMyBranch,
     getSubscription,
     renewSubscription,
+    getPlans,
+    createPlanCheckout,
+    verifyPlanPayment,
+    getPlanHistory,
     getBranchStaff,
     addBranchStaff,
     removeBranchStaff,

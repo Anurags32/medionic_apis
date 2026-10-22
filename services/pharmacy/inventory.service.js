@@ -948,7 +948,216 @@ const getMedicineBatches = async (branchId, medicineId) => {
     }).sort({ expiry_date: 1 });
 };
 
+// ─── Bulk import (Excel / CSV → inventory) ───────────────────────────────────
+
+const IMPORT_MAX_ROWS = 2000;
+
+// Header aliases accepted in uploaded sheets (Marg / Tally / Excel exports).
+const IMPORT_ALIASES = {
+    name: ['name', 'medicine', 'medicine_name', 'item', 'item_name', 'product', 'product_name', 'drug'],
+    generic_name: ['generic_name', 'generic', 'salt', 'composition', 'molecule'],
+    sku_barcode: ['sku_barcode', 'barcode', 'sku', 'ean', 'code', 'item_code'],
+    manufacturer: ['manufacturer', 'company', 'brand', 'mfg', 'mfr', 'marketer'],
+    hsn_code: ['hsn_code', 'hsn', 'hsn_sac'],
+    category: ['category', 'category_name', 'group'],
+    form: ['form', 'type', 'dosage_form'],
+    unit: ['unit', 'pack', 'packing', 'pack_type'],
+    unit_quantity: ['unit_quantity', 'pack_size', 'units_per_pack', 'qty_per_pack'],
+    mrp: ['mrp', 'm_r_p'],
+    sale_price: ['sale_price', 'selling_price', 'sale', 'rate', 'price', 'sp'],
+    purchase_rate: ['purchase_rate', 'purchase_price', 'purchase', 'ptr', 'cost', 'cost_price', 'pp'],
+    gst_rate: ['gst_rate', 'gst', 'gst_percent', 'tax', 'tax_rate', 'gst_'],
+    batch_number: ['batch_number', 'batch', 'batch_no', 'lot', 'lot_no'],
+    expiry_date: ['expiry_date', 'expiry', 'exp', 'exp_date', 'expires'],
+    mfg_date: ['mfg_date', 'mfd', 'manufacturing_date', 'mfg_dt'],
+    initial_stock: ['initial_stock', 'stock', 'qty', 'quantity', 'opening_stock', 'closing_stock', 'current_stock', 'balance'],
+    rack_location: ['rack_location', 'rack', 'location', 'shelf'],
+    is_prescription_required: ['is_prescription_required', 'rx', 'prescription_required', 'schedule_h', 'rx_required'],
+    low_stock_threshold: ['low_stock_threshold', 'min_stock', 'reorder_level', 'minimum_stock'],
+};
+
+const normaliseHeader = (h) => String(h || '').trim().toLowerCase().replace(/%/g, '_percent').replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+
+const normaliseRow = (raw) => {
+    const out = {};
+    for (const [key, value] of Object.entries(raw || {})) {
+        const header = normaliseHeader(key);
+        if (!header) continue;
+        const field = Object.keys(IMPORT_ALIASES).find((f) => IMPORT_ALIASES[f].includes(header)) || header;
+        if (out[field] === undefined || out[field] === '') out[field] = typeof value === 'string' ? value.trim() : value;
+    }
+    return out;
+};
+
+const MONTHS = { jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6, jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12 };
+
+/** Accepts 2027-03-31, 31/03/2027, 03/2027, 03-27, Mar 2027, Mar-27 → Date (month-only → last day). */
+const parseImportDate = (value) => {
+    if (value === undefined || value === null || value === '') return null;
+    if (value instanceof Date) return isNaN(value.getTime()) ? null : value;
+    const s = String(value).trim();
+    const endOfMonth = (y, m) => new Date(y, m, 0, 23, 59, 59);
+    const year4 = (y) => (y < 100 ? 2000 + y : y);
+    let m;
+    if ((m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/))) return new Date(+m[1], +m[2] - 1, +m[3]);
+    if ((m = s.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})$/))) return new Date(year4(+m[3]), +m[2] - 1, +m[1]);
+    if ((m = s.match(/^(\d{1,2})[\/.-](\d{2,4})$/))) return endOfMonth(year4(+m[2]), +m[1]);
+    if ((m = s.match(/^([a-z]{3})[a-z]*[\s\/.-]*(\d{2,4})$/i))) {
+        const mon = MONTHS[m[1].toLowerCase()];
+        if (mon) return endOfMonth(year4(+m[2]), mon);
+    }
+    if ((m = s.match(/^(\d{4})[\/.-](\d{1,2})$/))) return endOfMonth(+m[1], +m[2]);
+    const d = new Date(s);
+    return isNaN(d.getTime()) ? null : d;
+};
+
+const parseNumber = (v) => {
+    if (v === undefined || v === null || v === '') return undefined;
+    const n = parseFloat(String(v).replace(/[₹,\s%]/g, ''));
+    return isNaN(n) ? undefined : n;
+};
+
+const parseBool = (v) => {
+    if (typeof v === 'boolean') return v;
+    const s = String(v || '').trim().toLowerCase();
+    return ['1', 'true', 'yes', 'y', 'rx', 'h', 'h1', 'x', 'schedule h', 'schedule h1'].includes(s);
+};
+
+/**
+ * Imports rows parsed from a CSV/Excel sheet. Existing medicines (same
+ * barcode, or same name + manufacturer) get a new batch when batch details
+ * are present, otherwise they are skipped. New medicines are created with
+ * their opening batch. Returns per-row results so the client can show a
+ * summary.
+ */
+const importMedicines = async (branchId, userId, rows, options = {}) => {
+    if (!Array.isArray(rows) || rows.length === 0) {
+        throw new ApiError(400, 'rows must be a non-empty array', 'ROWS_REQUIRED');
+    }
+    if (rows.length > IMPORT_MAX_ROWS) {
+        throw new ApiError(400, `Import at most ${IMPORT_MAX_ROWS} rows per request`, 'TOO_MANY_ROWS');
+    }
+
+    const categoryCache = new Map();
+    const resolveCategory = async (name) => {
+        const clean = String(name || '').trim();
+        if (!clean) return null;
+        const key = clean.toLowerCase();
+        if (categoryCache.has(key)) return categoryCache.get(key);
+        let cat = await Category.findOne({ branch_id: branchId, name: new RegExp(`^${clean.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') });
+        if (!cat) cat = await Category.create({ branch_id: branchId, name: clean, description: 'Imported' });
+        categoryCache.set(key, cat._id);
+        return cat._id;
+    };
+
+    const summary = { total: rows.length, created: 0, batches_added: 0, skipped: 0, failed: 0, errors: [] };
+
+    for (let i = 0; i < rows.length; i++) {
+        const r = normaliseRow(rows[i]);
+        const rowNo = i + 2; // sheet row (1 = header)
+        try {
+            const name = String(r.name || '').trim();
+            if (!name) {
+                summary.skipped++;
+                summary.errors.push({ row: rowNo, name: '', message: 'Blank name' });
+                continue;
+            }
+            const sku = String(r.sku_barcode || '').trim();
+            const manufacturer = String(r.manufacturer || '').trim();
+            const batchNumber = String(r.batch_number || '').trim();
+            const expiry = parseImportDate(r.expiry_date);
+            const mfg = parseImportDate(r.mfg_date);
+            const mrp = parseNumber(r.mrp);
+            const salePrice = parseNumber(r.sale_price);
+            const purchaseRate = parseNumber(r.purchase_rate);
+            const gstRate = parseNumber(r.gst_rate);
+            const stock = parseNumber(r.initial_stock);
+            const hasBatch = Boolean(batchNumber || expiry || (stock !== undefined && stock > 0));
+
+            if (hasBatch && !expiry) {
+                throw new ApiError(400, 'Expiry date missing or unreadable (use MM/YYYY or DD/MM/YYYY)', 'INVALID_EXPIRY_DATE');
+            }
+
+            // Existing medicine? (barcode first, then name + manufacturer)
+            const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const query = sku
+                ? { branch_id: branchId, sku_barcode: sku }
+                : { branch_id: branchId, name: new RegExp(`^${escaped}$`, 'i'), ...(manufacturer ? { manufacturer: new RegExp(`^${manufacturer.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') } : {}) };
+            const existing = await Medicine.findOne(query);
+
+            if (existing) {
+                if (!hasBatch) {
+                    summary.skipped++;
+                    summary.errors.push({ row: rowNo, name, message: 'Already exists (no batch details to add)' });
+                    continue;
+                }
+                await createBatch(branchId, userId, {
+                    medicine_id: existing._id,
+                    batch_number: batchNumber || `IMP-${Date.now().toString(36).toUpperCase()}`,
+                    mfg_date: mfg,
+                    expiry_date: expiry,
+                    purchase_rate: purchaseRate ?? existing.purchase_rate,
+                    mrp: mrp ?? existing.mrp,
+                    sale_price: salePrice ?? mrp ?? existing.sale_price,
+                    gst_rate: gstRate ?? existing.gst_rate,
+                    initial_stock: stock ?? 0,
+                    rack_location: r.rack_location,
+                });
+                summary.batches_added++;
+                continue;
+            }
+
+            const payload = {
+                userId,
+                category_id: await resolveCategory(r.category),
+                name,
+                generic_name: r.generic_name,
+                sku_barcode: sku || undefined,
+                manufacturer: manufacturer || undefined,
+                hsn_code: r.hsn_code,
+                form: r.form,
+                unit: r.unit,
+                unit_quantity: parseNumber(r.unit_quantity),
+                is_prescription_required: parseBool(r.is_prescription_required),
+                low_stock_threshold: parseNumber(r.low_stock_threshold),
+                mrp: mrp ?? 0,
+                sale_price: salePrice ?? mrp ?? 0,
+                purchase_rate: purchaseRate ?? 0,
+                gst_rate: gstRate ?? 0,
+            };
+            if (hasBatch) {
+                Object.assign(payload, {
+                    batch_number: batchNumber || `IMP-${Date.now().toString(36).toUpperCase()}`,
+                    mfg_date: mfg,
+                    expiry_date: expiry,
+                    initial_stock: stock ?? 0,
+                    rack_location: r.rack_location,
+                });
+            }
+            await createMedicine(branchId, payload, null);
+            summary.created++;
+        } catch (err) {
+            summary.failed++;
+            summary.errors.push({ row: rowNo, name: String(r.name || ''), message: err.message || 'Import failed' });
+            if (options.stop_on_error) break;
+        }
+    }
+
+    emitToBranch(branchId.toString(), 'inventory:stock_updated', { source: 'import', ...summary, errors: undefined });
+    return summary;
+};
+
+/** CSV template (headers + 2 sample rows) for the import dialog. */
+const importTemplateCsv = () => [
+    'name,generic_name,manufacturer,sku_barcode,hsn_code,category,form,unit,unit_quantity,gst_rate,mrp,sale_price,purchase_rate,batch_number,mfg_date,expiry_date,initial_stock,rack_location,is_prescription_required,low_stock_threshold',
+    'Paracetamol 500mg,Paracetamol,Cipla,8901234567890,3004,Analgesic,Tablet,Strip,10,12,30,28,22,PCM2401,01/2026,12/2027,50,A1,no,10',
+    'Amoxicillin 500mg,Amoxicillin,Sun Pharma,,3004,Antibiotic,Capsule,Strip,10,12,95,90,70,AMX2402,02/2026,06/2027,20,B3,yes,5',
+].join('\n');
+
 module.exports = {
+    importMedicines,
+    importTemplateCsv,
+    parseImportDate,
     createCategory,
     getCategories,
     createMedicine,
