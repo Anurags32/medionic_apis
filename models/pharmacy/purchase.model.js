@@ -66,6 +66,11 @@ const purchaseSchema = new mongoose.Schema(
         payment_status: { type: String, enum: PURCHASE_PAYMENT_STATUS, default: 'UNPAID', index: true },
         payments: { type: [purchasePaymentSchema], default: [] },
         notes: { type: String, default: '' },
+        // CANCELLED bills have had their stock reversed and count for nothing.
+        status: { type: String, enum: ['RECEIVED', 'CANCELLED'], default: 'RECEIVED', index: true },
+        cancel_reason: { type: String, default: '' },
+        cancelled_at: { type: Date, default: null },
+        cancelled_by_name: { type: String, default: '' },
         created_by: { type: mongoose.Schema.Types.ObjectId, ref: 'PharmacyStaff', default: null },
         created_by_name: { type: String, default: '' },
     },

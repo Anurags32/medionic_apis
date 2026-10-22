@@ -51,7 +51,13 @@ const addPurchasePayment = asyncHandler(async (req, res) => {
     res.status(200).json(new ApiResponse(200, purchase, 'Payment recorded successfully'));
 });
 
+const cancelPurchase = asyncHandler(async (req, res) => {
+    const purchase = await purchaseService.cancelPurchase(req.user.branchId, req.params.id, req.user, req.body);
+    res.status(200).json(new ApiResponse(200, purchase, `${purchase.purchase_number} cancelled, stock reversed`));
+});
+
 module.exports = {
+    cancelPurchase,
     createSupplier,
     getSuppliers,
     getSupplierById,

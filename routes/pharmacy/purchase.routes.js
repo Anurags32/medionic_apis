@@ -15,6 +15,7 @@ purchases.get('/summary', authorizeFeature(FEATURES.INVENTORY_VIEW), purchaseCon
 purchases.post('/', authorizeFeature(FEATURES.INVENTORY_MANAGE), requireActiveSubscription, purchaseController.createPurchase);
 purchases.get('/:id', authorizeFeature(FEATURES.INVENTORY_VIEW), purchaseController.getPurchaseById);
 purchases.post('/:id/payments', authorizeFeature(FEATURES.INVENTORY_MANAGE), requireActiveSubscription, purchaseController.addPurchasePayment);
+purchases.post('/:id/cancel', authorizeFeature(FEATURES.INVENTORY_MANAGE), requireActiveSubscription, purchaseController.cancelPurchase);
 
 const suppliers = express.Router();
 suppliers.use(authenticateToken);

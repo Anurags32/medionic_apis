@@ -48,7 +48,7 @@ const updateSupplier = async (branchId, supplierId, payload) => {
 
 /** Outstanding payable per supplier (sum of balance_due of their bills). */
 const outstandingBySupplier = async (branchId, supplierIds = null) => {
-    const match = { branch_id: new mongoose.Types.ObjectId(branchId), balance_due: { $gt: 0 } };
+    const match = { branch_id: new mongoose.Types.ObjectId(branchId), balance_due: { $gt: 0 }, status: { $ne: 'CANCELLED' } };
     if (supplierIds) match.supplier_id = { $in: supplierIds };
     const rows = await Purchase.aggregate([
         { $match: match },
@@ -84,7 +84,7 @@ const getSupplierById = async (branchId, supplierId) => {
         .limit(20)
         .select('-items');
     const totals = await Purchase.aggregate([
-        { $match: { branch_id: new mongoose.Types.ObjectId(branchId), supplier_id: supplier._id } },
+        { $match: { branch_id: new mongoose.Types.ObjectId(branchId), supplier_id: supplier._id, status: { $ne: 'CANCELLED' } } },
         { $group: { _id: null, total: { $sum: '$grand_total' }, paid: { $sum: '$amount_paid' }, due: { $sum: '$balance_due' }, bills: { $sum: 1 } } },
     ]);
     const t = totals[0] || { total: 0, paid: 0, due: 0, bills: 0 };
@@ -145,6 +145,24 @@ const createPurchase = async (branchId, user, payload) => {
 
     const invoiceDate = invoice_date ? new Date(invoice_date) : new Date();
     if (isNaN(invoiceDate.getTime())) throw new ApiError(400, 'Invalid invoice_date', 'INVALID_DATE');
+
+    // Same supplier bill entered twice? The client may confirm with allow_duplicate.
+    const billNo = String(supplier_invoice_number || '').trim();
+    if (billNo && payload.allow_duplicate !== true) {
+        const dup = await Purchase.findOne({
+            branch_id: branchId,
+            supplier_id: supplier._id,
+            status: { $ne: 'CANCELLED' },
+            supplier_invoice_number: new RegExp(`^${escapeRegex(billNo)}$`, 'i'),
+        }).select('purchase_number invoice_date grand_total');
+        if (dup) {
+            throw new ApiError(
+                409,
+                `Bill ${billNo} from ${supplier.name} is already recorded as ${dup.purchase_number} (${dup.grand_total})`,
+                'DUPLICATE_SUPPLIER_BILL'
+            );
+        }
+    }
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -326,11 +344,15 @@ const createPurchase = async (branchId, user, payload) => {
 };
 
 const getPurchases = async (branchId, query = {}) => {
-    const { supplier_id, payment_status, search, from, to, page = 1, limit = 25 } = query;
+    const { supplier_id, payment_status, status, search, from, to, page = 1, limit = 25 } = query;
     const filter = { branch_id: branchId };
     if (supplier_id) filter.supplier_id = supplier_id;
-    if (payment_status && Purchase.PAYMENT_STATUS.includes(String(payment_status).toUpperCase())) {
-        filter.payment_status = String(payment_status).toUpperCase();
+    const wanted = String(payment_status || '').toUpperCase();
+    if (wanted === 'CANCELLED' || String(status || '').toUpperCase() === 'CANCELLED') {
+        filter.status = 'CANCELLED';
+    } else if (Purchase.PAYMENT_STATUS.includes(wanted)) {
+        filter.payment_status = wanted;
+        filter.status = { $ne: 'CANCELLED' };
     }
     if (from || to) {
         filter.invoice_date = {};
@@ -373,11 +395,11 @@ const getPurchaseSummary = async (branchId) => {
     monthStart.setHours(0, 0, 0, 0);
     const [month, due, suppliers] = await Promise.all([
         Purchase.aggregate([
-            { $match: { branch_id: bId, invoice_date: { $gte: monthStart } } },
+            { $match: { branch_id: bId, invoice_date: { $gte: monthStart }, status: { $ne: 'CANCELLED' } } },
             { $group: { _id: null, total: { $sum: '$grand_total' }, bills: { $sum: 1 } } },
         ]),
         Purchase.aggregate([
-            { $match: { branch_id: bId, balance_due: { $gt: 0 } } },
+            { $match: { branch_id: bId, balance_due: { $gt: 0 }, status: { $ne: 'CANCELLED' } } },
             { $group: { _id: null, outstanding: { $sum: '$balance_due' }, bills: { $sum: 1 } } },
         ]),
         Supplier.countDocuments({ branch_id: branchId, is_active: true }),
@@ -391,9 +413,71 @@ const getPurchaseSummary = async (branchId) => {
     };
 };
 
+/**
+ * Cancels a bill: every line's stock (incl. free goods) is taken back out of
+ * its batch — refused when that stock has already been sold — and the bill
+ * stops counting towards payables and reports. Payments stay on record.
+ */
+const cancelPurchase = async (branchId, purchaseId, user, payload = {}) => {
+    const purchase = await Purchase.findOne({ _id: purchaseId, branch_id: branchId });
+    if (!purchase) throw new ApiError(404, 'Purchase not found', 'PURCHASE_NOT_FOUND');
+    if (purchase.status === 'CANCELLED') throw new ApiError(400, 'This purchase is already cancelled', 'ALREADY_CANCELLED');
+
+    // Check all batches first so a cancel is all-or-nothing.
+    const batches = [];
+    for (const item of purchase.items) {
+        const batch = await MedicineBatch.findOne({ _id: item.batch_id, branch_id: branchId });
+        const received = item.quantity + (item.free_quantity || 0);
+        if (!batch) throw new ApiError(400, `Batch ${item.batch_number} of ${item.medicine_name} no longer exists`, 'BATCH_NOT_FOUND');
+        if ((batch.current_stock || 0) < received) {
+            throw new ApiError(
+                400,
+                `${item.medicine_name} (batch ${item.batch_number}): only ${batch.current_stock} left of the ${received} received — stock already sold, cannot cancel. Use a purchase return instead.`,
+                'STOCK_ALREADY_USED'
+            );
+        }
+        batches.push({ batch, item, received });
+    }
+
+    const userId = user?.userId || user?.id || null;
+    for (const { batch, item, received } of batches) {
+        batch.current_stock -= received;
+        await batch.save();
+        await StockLog.create({
+            branch_id: branchId,
+            medicine_id: item.medicine_id,
+            batch_id: batch._id,
+            type: STOCK_TRANSACTION_TYPES.ADJUSTMENT,
+            quantity: -received,
+            balance_after: batch.current_stock,
+            unit_cost: item.purchase_rate,
+            reference_type: 'PURCHASE_CANCEL',
+            reference_id: purchase._id.toString(),
+            remarks: `${purchase.purchase_number} cancelled${payload.reason ? `: ${payload.reason}` : ''}`,
+            created_by_user_id: userId,
+        });
+    }
+
+    purchase.status = 'CANCELLED';
+    purchase.cancel_reason = String(payload.reason || '').trim();
+    purchase.cancelled_at = new Date();
+    purchase.cancelled_by_name = user?.fullName || '';
+    purchase.balance_due = 0;
+    await purchase.save();
+
+    emitToBranch(branchId.toString(), 'inventory:stock_updated', {
+        source: 'purchase_cancel',
+        purchase_id: purchase._id.toString(),
+        purchase_number: purchase.purchase_number,
+        items: batches.length,
+    });
+    return purchase;
+};
+
 const addPurchasePayment = async (branchId, purchaseId, user, payload) => {
     const purchase = await Purchase.findOne({ _id: purchaseId, branch_id: branchId });
     if (!purchase) throw new ApiError(404, 'Purchase not found', 'PURCHASE_NOT_FOUND');
+    if (purchase.status === 'CANCELLED') throw new ApiError(400, 'Cannot record a payment on a cancelled purchase', 'PURCHASE_CANCELLED');
 
     const amount = round2(num(payload.amount, 0));
     if (amount <= 0) throw new ApiError(400, 'Payment amount must be greater than 0', 'INVALID_AMOUNT');
@@ -430,4 +514,5 @@ module.exports = {
     getPurchaseById,
     getPurchaseSummary,
     addPurchasePayment,
+    cancelPurchase,
 };
