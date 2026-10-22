@@ -24,6 +24,16 @@ const updateSupplier = asyncHandler(async (req, res) => {
     res.status(200).json(new ApiResponse(200, supplier, 'Supplier updated successfully'));
 });
 
+const getSupplierLedger = asyncHandler(async (req, res) => {
+    const ledger = await purchaseService.getSupplierLedger(req.user.branchId, req.params.id);
+    res.status(200).json(new ApiResponse(200, ledger, 'Supplier ledger fetched successfully'));
+});
+
+const paySupplier = asyncHandler(async (req, res) => {
+    const result = await purchaseService.paySupplier(req.user.branchId, req.params.id, req.user, req.body);
+    res.status(200).json(new ApiResponse(200, result, `${result.amount} paid to ${result.supplier_name} across ${result.allocated.length} bill(s)`));
+});
+
 // ─── Purchases ───────────────────────────────────────────────────────────────
 
 const createPurchase = asyncHandler(async (req, res) => {
@@ -61,6 +71,8 @@ module.exports = {
     createSupplier,
     getSuppliers,
     getSupplierById,
+    getSupplierLedger,
+    paySupplier,
     updateSupplier,
     createPurchase,
     getPurchases,

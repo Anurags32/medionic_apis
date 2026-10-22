@@ -23,5 +23,7 @@ suppliers.get('/', authorizeFeature(FEATURES.INVENTORY_VIEW), purchaseController
 suppliers.post('/', authorizeFeature(FEATURES.INVENTORY_MANAGE), requireActiveSubscription, purchaseController.createSupplier);
 suppliers.get('/:id', authorizeFeature(FEATURES.INVENTORY_VIEW), purchaseController.getSupplierById);
 suppliers.put('/:id', authorizeFeature(FEATURES.INVENTORY_MANAGE), requireActiveSubscription, purchaseController.updateSupplier);
+suppliers.get('/:id/ledger', authorizeFeature(FEATURES.INVENTORY_VIEW), purchaseController.getSupplierLedger);
+suppliers.post('/:id/payments', authorizeFeature(FEATURES.INVENTORY_MANAGE), requireActiveSubscription, purchaseController.paySupplier);
 
 module.exports = { purchases, suppliers };

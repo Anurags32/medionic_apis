@@ -97,6 +97,136 @@ const getSupplierById = async (branchId, supplierId) => {
     return j;
 };
 
+/**
+ * Supplier ledger: bills as debits, payments as credits, in date order with a
+ * running balance. Payments made on a since-cancelled bill still appear
+ * (they are money the supplier owes back).
+ */
+const getSupplierLedger = async (branchId, supplierId) => {
+    const supplier = await Supplier.findOne({ _id: supplierId, branch_id: branchId });
+    if (!supplier) throw new ApiError(404, 'Supplier not found', 'SUPPLIER_NOT_FOUND');
+
+    const purchases = await Purchase.find({ branch_id: branchId, supplier_id: supplier._id })
+        .sort({ invoice_date: 1, created_at: 1 })
+        .select('purchase_number supplier_invoice_number invoice_date grand_total amount_paid balance_due payment_status status payments items created_at');
+
+    const entries = [];
+    for (const p of purchases) {
+        if (p.status !== 'CANCELLED') {
+            entries.push({
+                date: p.invoice_date,
+                type: 'BILL',
+                purchase_id: p._id,
+                purchase_number: p.purchase_number,
+                reference: p.supplier_invoice_number || '',
+                particulars: `Bill ${p.supplier_invoice_number || p.purchase_number} · ${p.items.length} item${p.items.length === 1 ? '' : 's'}`,
+                debit: round2(p.grand_total),
+                credit: 0,
+                payment_status: p.payment_status,
+            });
+        }
+        for (const pay of p.payments || []) {
+            entries.push({
+                date: pay.paid_at || p.created_at,
+                type: 'PAYMENT',
+                purchase_id: p._id,
+                purchase_number: p.purchase_number,
+                reference: pay.reference || '',
+                particulars: `Paid by ${pay.mode}${pay.reference ? ` · ${pay.reference}` : ''} against ${p.purchase_number}${p.status === 'CANCELLED' ? ' (bill cancelled — refund due)' : ''}`,
+                debit: 0,
+                credit: round2(pay.amount),
+                mode: pay.mode,
+            });
+        }
+    }
+    entries.sort((a, b) => new Date(a.date) - new Date(b.date));
+    let balance = 0;
+    for (const e of entries) {
+        balance = round2(balance + e.debit - e.credit);
+        e.balance = balance;
+    }
+
+    const totalBilled = round2(entries.reduce((s, e) => s + e.debit, 0));
+    const totalPaid = round2(entries.reduce((s, e) => s + e.credit, 0));
+    const unpaid = purchases.filter((p) => p.status !== 'CANCELLED' && p.balance_due > 0);
+    return {
+        supplier: supplier.toJSON(),
+        totals: {
+            billed: totalBilled,
+            paid: totalPaid,
+            balance: round2(totalBilled - totalPaid),
+            outstanding: round2(unpaid.reduce((s, p) => s + p.balance_due, 0)),
+            unpaid_bills: unpaid.length,
+            bills: purchases.filter((p) => p.status !== 'CANCELLED').length,
+        },
+        entries,
+    };
+};
+
+/**
+ * One payment to a supplier spread across their unpaid bills, oldest first
+ * (or exactly as `allocations: [{purchase_id, amount}]` says).
+ */
+const paySupplier = async (branchId, supplierId, user, payload = {}) => {
+    const supplier = await Supplier.findOne({ _id: supplierId, branch_id: branchId });
+    if (!supplier) throw new ApiError(404, 'Supplier not found', 'SUPPLIER_NOT_FOUND');
+
+    const mode = String(payload.mode || payload.payment_mode || 'CASH').toUpperCase();
+    if (!Purchase.PAYMENT_MODES.includes(mode) || mode === 'CREDIT') {
+        throw new ApiError(400, 'mode must be CASH, UPI, BANK or CHEQUE', 'INVALID_PAYMENT_MODE');
+    }
+    const paidAt = payload.paid_at ? new Date(payload.paid_at) : new Date();
+    const reference = String(payload.reference || '').trim();
+    const note = String(payload.note || '').trim();
+    const userId = user?.userId || user?.id || null;
+
+    const unpaid = await Purchase.find({ branch_id: branchId, supplier_id: supplier._id, status: { $ne: 'CANCELLED' }, balance_due: { $gt: 0 } })
+        .sort({ invoice_date: 1, created_at: 1 });
+    const outstanding = round2(unpaid.reduce((s, p) => s + p.balance_due, 0));
+
+    // Build the allocation plan.
+    let plan = [];
+    if (Array.isArray(payload.allocations) && payload.allocations.length) {
+        for (const a of payload.allocations) {
+            const p = unpaid.find((u) => u._id.toString() === String(a.purchase_id));
+            const amt = round2(num(a.amount, 0));
+            if (!p) throw new ApiError(400, `Purchase ${a.purchase_id} is not an unpaid bill of this supplier`, 'INVALID_ALLOCATION');
+            if (amt <= 0 || amt > p.balance_due + 0.005) throw new ApiError(400, `Allocation for ${p.purchase_number} must be between 0 and ${p.balance_due}`, 'INVALID_ALLOCATION');
+            plan.push({ purchase: p, amount: amt });
+        }
+    } else {
+        let remaining = round2(num(payload.amount, 0));
+        if (remaining <= 0) throw new ApiError(400, 'Payment amount must be greater than 0', 'INVALID_AMOUNT');
+        if (remaining > outstanding + 0.005) throw new ApiError(400, `Amount exceeds outstanding (${outstanding})`, 'AMOUNT_EXCEEDS_DUE');
+        for (const p of unpaid) {
+            if (remaining <= 0) break;
+            const amt = round2(Math.min(remaining, p.balance_due));
+            plan.push({ purchase: p, amount: amt });
+            remaining = round2(remaining - amt);
+        }
+    }
+
+    const allocated = [];
+    for (const { purchase, amount } of plan) {
+        purchase.payments.push({ amount, mode, reference, note, paid_at: paidAt, created_by: userId });
+        purchase.amount_paid = round2(purchase.amount_paid + amount);
+        purchase.balance_due = round2(Math.max(0, purchase.grand_total - purchase.amount_paid));
+        purchase.payment_status = paymentStatusFor(purchase.grand_total, purchase.amount_paid);
+        await purchase.save();
+        allocated.push({ purchase_id: purchase._id, purchase_number: purchase.purchase_number, amount, balance_due: purchase.balance_due, payment_status: purchase.payment_status });
+    }
+
+    const total = round2(allocated.reduce((s, a) => s + a.amount, 0));
+    return {
+        supplier_id: supplier._id,
+        supplier_name: supplier.name,
+        amount: total,
+        mode,
+        allocated,
+        outstanding_after: round2(outstanding - total),
+    };
+};
+
 // ─── Purchases ───────────────────────────────────────────────────────────────
 
 const nextPurchaseNumber = async (branchId, invoiceDate) => {
@@ -509,6 +639,8 @@ module.exports = {
     updateSupplier,
     getSuppliers,
     getSupplierById,
+    getSupplierLedger,
+    paySupplier,
     createPurchase,
     getPurchases,
     getPurchaseById,
