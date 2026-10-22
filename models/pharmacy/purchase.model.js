@@ -1,7 +1,9 @@
 const mongoose = require('mongoose');
 
 const PURCHASE_PAYMENT_STATUS = ['UNPAID', 'PARTIAL', 'PAID'];
-const PURCHASE_PAYMENT_MODES = ['CASH', 'UPI', 'BANK', 'CHEQUE', 'CREDIT'];
+const PURCHASE_PAYMENT_MODES = ['CASH', 'UPI', 'BANK', 'CHEQUE', 'CREDIT', 'DEBIT_NOTE'];
+// Modes a user can actually pay with (CREDIT = unpaid, DEBIT_NOTE = return adjustment).
+const PURCHASE_CASH_MODES = ['CASH', 'UPI', 'BANK', 'CHEQUE'];
 
 /** One line of a supplier bill; free goods add stock but are not charged. */
 const purchaseItemSchema = new mongoose.Schema(
@@ -56,6 +58,8 @@ const purchaseSchema = new mongoose.Schema(
         items: { type: [purchaseItemSchema], default: [] },
         subtotal: { type: Number, default: 0 },
         discount_amount: { type: Number, default: 0 },
+        bill_discount_percent: { type: Number, default: 0 },
+        bill_discount_amount: { type: Number, default: 0 },
         taxable_amount: { type: Number, default: 0 },
         cgst: { type: Number, default: 0 },
         sgst: { type: Number, default: 0 },
@@ -98,5 +102,6 @@ purchaseSchema.virtual('item_count').get(function () {
 const Purchase = mongoose.model('Purchase', purchaseSchema);
 Purchase.PAYMENT_STATUS = PURCHASE_PAYMENT_STATUS;
 Purchase.PAYMENT_MODES = PURCHASE_PAYMENT_MODES;
+Purchase.CASH_MODES = PURCHASE_CASH_MODES;
 
 module.exports = Purchase;

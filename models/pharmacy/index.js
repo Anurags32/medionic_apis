@@ -19,6 +19,7 @@ const PharmacyReturn = require('./return.model');
 const PlanPayment = require('./plan-payment.model');
 const Supplier = require('./supplier.model');
 const Purchase = require('./purchase.model');
+const PurchaseReturn = require('./purchase-return.model');
 
 module.exports = {
     mongoose,
@@ -41,4 +42,5 @@ module.exports = {
     PlanPayment,
     Supplier,
     Purchase,
+    PurchaseReturn,
 };

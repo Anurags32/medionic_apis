@@ -12,6 +12,10 @@ const purchases = express.Router();
 purchases.use(authenticateToken);
 purchases.get('/', authorizeFeature(FEATURES.INVENTORY_VIEW), purchaseController.getPurchases);
 purchases.get('/summary', authorizeFeature(FEATURES.INVENTORY_VIEW), purchaseController.getPurchaseSummary);
+// Debit notes (returns to supplier) — before '/:id'.
+purchases.get('/returns', authorizeFeature(FEATURES.INVENTORY_VIEW), purchaseController.getPurchaseReturns);
+purchases.post('/returns', authorizeFeature(FEATURES.INVENTORY_MANAGE), requireActiveSubscription, purchaseController.createPurchaseReturn);
+purchases.get('/returns/:id', authorizeFeature(FEATURES.INVENTORY_VIEW), purchaseController.getPurchaseReturnById);
 purchases.post('/', authorizeFeature(FEATURES.INVENTORY_MANAGE), requireActiveSubscription, purchaseController.createPurchase);
 purchases.get('/:id', authorizeFeature(FEATURES.INVENTORY_VIEW), purchaseController.getPurchaseById);
 purchases.post('/:id/payments', authorizeFeature(FEATURES.INVENTORY_MANAGE), requireActiveSubscription, purchaseController.addPurchasePayment);

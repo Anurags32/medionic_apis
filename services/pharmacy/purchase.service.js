@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const { Medicine, MedicineBatch, StockLog, Supplier, Purchase } = require('../../models/pharmacy');
+const { Medicine, MedicineBatch, StockLog, Supplier, Purchase, PurchaseReturn } = require('../../models/pharmacy');
 const ApiError = require('../../utils/ApiError');
 const { STOCK_TRANSACTION_TYPES } = require('../../config/pharmacyConstants');
 const { emitToBranch } = require('../../socket/pharmacyEvents');
@@ -126,6 +126,7 @@ const getSupplierLedger = async (branchId, supplierId) => {
             });
         }
         for (const pay of p.payments || []) {
+            if (pay.mode === 'DEBIT_NOTE') continue; // shown via the return entry below
             entries.push({
                 date: pay.paid_at || p.created_at,
                 type: 'PAYMENT',
@@ -139,6 +140,22 @@ const getSupplierLedger = async (branchId, supplierId) => {
             });
         }
     }
+    const returns = await PurchaseReturn.find({ branch_id: branchId, supplier_id: supplier._id }).sort({ return_date: 1 });
+    for (const r of returns) {
+        entries.push({
+            date: r.return_date,
+            type: 'RETURN',
+            return_id: r._id,
+            purchase_id: r.purchase_id,
+            purchase_number: r.purchase_number,
+            reference: r.debit_note_number,
+            particulars: `Debit note ${r.debit_note_number} · ${r.items.length} item${r.items.length === 1 ? '' : 's'} returned${r.purchase_number ? ` (${r.purchase_number})` : ''} · ${r.settlement === 'ADJUST_PAYABLE' ? 'adjusted' : r.settlement === 'REFUND' ? 'refunded' : 'credit note pending'}`,
+            debit: 0,
+            credit: round2(r.grand_total),
+            settlement: r.settlement,
+        });
+    }
+
     entries.sort((a, b) => new Date(a.date) - new Date(b.date));
     let balance = 0;
     for (const e of entries) {
@@ -147,14 +164,16 @@ const getSupplierLedger = async (branchId, supplierId) => {
     }
 
     const totalBilled = round2(entries.reduce((s, e) => s + e.debit, 0));
-    const totalPaid = round2(entries.reduce((s, e) => s + e.credit, 0));
+    const totalPaid = round2(entries.filter((e) => e.type === 'PAYMENT').reduce((s, e) => s + e.credit, 0));
+    const totalReturned = round2(entries.filter((e) => e.type === 'RETURN').reduce((s, e) => s + e.credit, 0));
     const unpaid = purchases.filter((p) => p.status !== 'CANCELLED' && p.balance_due > 0);
     return {
         supplier: supplier.toJSON(),
         totals: {
             billed: totalBilled,
             paid: totalPaid,
-            balance: round2(totalBilled - totalPaid),
+            returned: totalReturned,
+            balance: round2(totalBilled - totalPaid - totalReturned),
             outstanding: round2(unpaid.reduce((s, p) => s + p.balance_due, 0)),
             unpaid_bills: unpaid.length,
             bills: purchases.filter((p) => p.status !== 'CANCELLED').length,
@@ -172,7 +191,7 @@ const paySupplier = async (branchId, supplierId, user, payload = {}) => {
     if (!supplier) throw new ApiError(404, 'Supplier not found', 'SUPPLIER_NOT_FOUND');
 
     const mode = String(payload.mode || payload.payment_mode || 'CASH').toUpperCase();
-    if (!Purchase.PAYMENT_MODES.includes(mode) || mode === 'CREDIT') {
+    if (!Purchase.CASH_MODES.includes(mode)) {
         throw new ApiError(400, 'mode must be CASH, UPI, BANK or CHEQUE', 'INVALID_PAYMENT_MODE');
     }
     const paidAt = payload.paid_at ? new Date(payload.paid_at) : new Date();
@@ -341,6 +360,30 @@ const createPurchase = async (branchId, user, payload) => {
         });
     }
 
+    // Bill-level scheme / cash discount: taken off the taxable value before GST,
+    // spread over the lines in proportion to their taxable amounts.
+    const lineTaxable = round2(prepared.reduce((s, p) => s + p.taxableAmount, 0));
+    let billDiscountPercent = Math.min(100, Math.max(0, num(payload.bill_discount_percent, 0)));
+    let billDiscountAmount = round2(num(payload.bill_discount_amount, 0));
+    if (billDiscountPercent > 0) billDiscountAmount = round2(lineTaxable * billDiscountPercent / 100);
+    if (billDiscountAmount < 0 || billDiscountAmount > lineTaxable) {
+        throw new ApiError(400, 'Bill discount cannot exceed the taxable amount', 'INVALID_DISCOUNT');
+    }
+    if (billDiscountAmount > 0 && billDiscountPercent === 0 && lineTaxable > 0) {
+        billDiscountPercent = round2(billDiscountAmount / lineTaxable * 100);
+    }
+    if (billDiscountAmount > 0 && lineTaxable > 0) {
+        let left = billDiscountAmount;
+        prepared.forEach((p, i) => {
+            const share = i === prepared.length - 1 ? left : round2(billDiscountAmount * p.taxableAmount / lineTaxable);
+            left = round2(left - share);
+            p.discountAmount = round2(p.discountAmount + share);
+            p.taxableAmount = round2(p.lineSubtotal - p.discountAmount);
+            p.gstAmount = round2(p.taxableAmount * p.gstRate / 100);
+            p.lineTotal = round2(p.taxableAmount + p.gstAmount);
+        });
+    }
+
     const subtotal = round2(prepared.reduce((s, p) => s + p.lineSubtotal, 0));
     const discountAmount = round2(prepared.reduce((s, p) => s + p.discountAmount, 0));
     const taxableAmount = round2(prepared.reduce((s, p) => s + p.taxableAmount, 0));
@@ -439,6 +482,8 @@ const createPurchase = async (branchId, user, payload) => {
         items: lineDocs,
         subtotal,
         discount_amount: discountAmount,
+        bill_discount_percent: billDiscountPercent,
+        bill_discount_amount: billDiscountAmount,
         taxable_amount: taxableAmount,
         cgst: round2(totalTax / 2),
         sgst: round2(totalTax / 2),
@@ -604,6 +649,173 @@ const cancelPurchase = async (branchId, purchaseId, user, payload = {}) => {
     return purchase;
 };
 
+// ─── Purchase returns (debit notes) ──────────────────────────────────────────
+
+const nextDebitNoteNumber = async (branchId, date) => {
+    const d = date ? new Date(date) : new Date();
+    const prefix = `DN-${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}-`;
+    const last = await PurchaseReturn.findOne({ branch_id: branchId, debit_note_number: new RegExp(`^${prefix}`) })
+        .sort({ debit_note_number: -1 })
+        .select('debit_note_number');
+    const seq = last ? parseInt(last.debit_note_number.slice(prefix.length), 10) + 1 : 1;
+    return `${prefix}${String(seq).padStart(4, '0')}`;
+};
+
+/**
+ * Sends stock back to the supplier. Each line is taken out of its batch
+ * (must still be in stock). Value is settled by knocking it off the linked
+ * bill's dues (ADJUST_PAYABLE), as a cash refund (REFUND) or left PENDING
+ * until the supplier issues a credit note.
+ */
+const createPurchaseReturn = async (branchId, user, payload) => {
+    const userId = user?.userId || user?.id || null;
+    const { items, reason, notes, return_date } = payload;
+    if (!Array.isArray(items) || items.length === 0) throw new ApiError(400, 'Add at least one item to return', 'ITEMS_REQUIRED');
+
+    let purchase = null;
+    if (payload.purchase_id) {
+        purchase = await Purchase.findOne({ _id: payload.purchase_id, branch_id: branchId });
+        if (!purchase) throw new ApiError(404, 'Purchase not found', 'PURCHASE_NOT_FOUND');
+        if (purchase.status === 'CANCELLED') throw new ApiError(400, 'Cannot return against a cancelled purchase', 'PURCHASE_CANCELLED');
+    }
+    const supplierId = purchase ? purchase.supplier_id : payload.supplier_id;
+    const supplier = await Supplier.findOne({ _id: supplierId, branch_id: branchId });
+    if (!supplier) throw new ApiError(404, 'Supplier not found', 'SUPPLIER_NOT_FOUND');
+
+    let settlement = String(payload.settlement || 'PENDING').toUpperCase();
+    if (!PurchaseReturn.SETTLEMENTS.includes(settlement)) throw new ApiError(400, 'settlement must be ADJUST_PAYABLE, REFUND or PENDING', 'INVALID_SETTLEMENT');
+
+    // Validate lines against stock before touching anything.
+    const prepared = [];
+    for (let i = 0; i < items.length; i++) {
+        const it = items[i] || {};
+        const batch = await MedicineBatch.findOne({ _id: it.batch_id, branch_id: branchId }).populate('medicine');
+        if (!batch) throw new ApiError(404, `Line ${i + 1}: batch not found`, 'BATCH_NOT_FOUND');
+        const medicine = batch.medicine || (await Medicine.findOne({ _id: batch.medicine_id, branch_id: branchId }));
+        const quantity = parseInt(it.quantity, 10);
+        if (!quantity || quantity < 1) throw new ApiError(400, `Line ${i + 1}: quantity must be at least 1`, 'INVALID_QUANTITY');
+        if ((batch.current_stock || 0) < quantity) {
+            throw new ApiError(400, `${medicine?.name || 'Medicine'} (batch ${batch.batch_number}): only ${batch.current_stock} in stock, cannot return ${quantity}`, 'INSUFFICIENT_STOCK');
+        }
+        // Rate defaults to what the linked bill (or batch) was bought at.
+        const billLine = purchase ? purchase.items.find((l) => l.batch_id.toString() === batch._id.toString()) : null;
+        const rate = num(it.purchase_rate, NaN);
+        const purchaseRate = isNaN(rate) ? num(billLine?.purchase_rate, batch.purchase_rate || 0) : rate;
+        const gstRate = num(it.gst_rate, num(billLine?.gst_rate, batch.gst_rate || 0));
+        const taxable = round2(purchaseRate * quantity);
+        const gstAmount = round2(taxable * gstRate / 100);
+        prepared.push({ batch, medicine, quantity, purchaseRate, gstRate, taxable, gstAmount, lineTotal: round2(taxable + gstAmount) });
+    }
+
+    const subtotal = round2(prepared.reduce((s, p) => s + p.taxable, 0));
+    const totalTax = round2(prepared.reduce((s, p) => s + p.gstAmount, 0));
+    const grandTotal = round2(subtotal + totalTax);
+    const returnDate = return_date ? new Date(return_date) : new Date();
+    const dnNumber = await nextDebitNoteNumber(branchId, returnDate);
+
+    // Stock out.
+    for (const p of prepared) {
+        p.batch.current_stock -= p.quantity;
+        await p.batch.save();
+        await StockLog.create({
+            branch_id: branchId,
+            medicine_id: p.batch.medicine_id,
+            batch_id: p.batch._id,
+            type: STOCK_TRANSACTION_TYPES.DAMAGED_EXPIRED_OUT,
+            quantity: -p.quantity,
+            balance_after: p.batch.current_stock,
+            unit_cost: p.purchaseRate,
+            reference_type: 'PURCHASE_RETURN',
+            remarks: `${dnNumber} · returned to ${supplier.name}${reason ? `: ${reason}` : ''}`,
+            created_by_user_id: userId,
+        });
+    }
+
+    // Settle against the linked bill's dues where possible.
+    let adjusted = 0;
+    if (settlement === 'ADJUST_PAYABLE') {
+        if (purchase && purchase.balance_due > 0) {
+            adjusted = round2(Math.min(grandTotal, purchase.balance_due));
+            purchase.payments.push({ amount: adjusted, mode: 'DEBIT_NOTE', reference: dnNumber, note: 'Purchase return adjusted', paid_at: returnDate, created_by: userId });
+            purchase.amount_paid = round2(purchase.amount_paid + adjusted);
+            purchase.balance_due = round2(Math.max(0, purchase.grand_total - purchase.amount_paid));
+            purchase.payment_status = paymentStatusFor(purchase.grand_total, purchase.amount_paid);
+            await purchase.save();
+        }
+        if (adjusted < grandTotal) settlement = adjusted > 0 ? 'ADJUST_PAYABLE' : 'PENDING';
+    }
+
+    const ret = await PurchaseReturn.create({
+        branch_id: branchId,
+        supplier_id: supplier._id,
+        supplier_name: supplier.name,
+        purchase_id: purchase ? purchase._id : null,
+        purchase_number: purchase ? purchase.purchase_number : '',
+        debit_note_number: dnNumber,
+        return_date: returnDate,
+        reason: String(reason || '').trim(),
+        items: prepared.map((p) => ({
+            medicine_id: p.batch.medicine_id,
+            batch_id: p.batch._id,
+            medicine_name: p.medicine?.name || '',
+            batch_number: p.batch.batch_number,
+            expiry_date: p.batch.expiry_date,
+            quantity: p.quantity,
+            purchase_rate: p.purchaseRate,
+            gst_rate: p.gstRate,
+            taxable_amount: p.taxable,
+            gst_amount: p.gstAmount,
+            line_total: p.lineTotal,
+        })),
+        subtotal,
+        total_tax: totalTax,
+        grand_total: grandTotal,
+        settlement,
+        adjusted_amount: adjusted,
+        notes: String(notes || '').trim(),
+        created_by: userId,
+        created_by_name: user?.fullName || '',
+    });
+    await StockLog.updateMany(
+        { branch_id: branchId, reference_type: 'PURCHASE_RETURN', reference_id: null, remarks: new RegExp(`^${escapeRegex(dnNumber)}`) },
+        { $set: { reference_id: ret._id.toString() } }
+    );
+
+    emitToBranch(branchId.toString(), 'inventory:stock_updated', {
+        source: 'purchase_return',
+        return_id: ret._id.toString(),
+        debit_note_number: dnNumber,
+        supplier: supplier.name,
+        items: prepared.length,
+        grand_total: grandTotal,
+    });
+    return ret;
+};
+
+const getPurchaseReturns = async (branchId, query = {}) => {
+    const { supplier_id, purchase_id, search, page = 1, limit = 25 } = query;
+    const filter = { branch_id: branchId };
+    if (supplier_id) filter.supplier_id = supplier_id;
+    if (purchase_id) filter.purchase_id = purchase_id;
+    if (search) {
+        const regex = new RegExp(escapeRegex(search.trim()), 'i');
+        filter.$or = [{ debit_note_number: regex }, { purchase_number: regex }, { supplier_name: regex }, { 'items.medicine_name': regex }];
+    }
+    const pageNum = Math.max(1, parseInt(page, 10) || 1);
+    const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10) || 25));
+    const [returns, total] = await Promise.all([
+        PurchaseReturn.find(filter).sort({ return_date: -1, created_at: -1 }).skip((pageNum - 1) * limitNum).limit(limitNum),
+        PurchaseReturn.countDocuments(filter),
+    ]);
+    return { returns, pagination: { total, page: pageNum, limit: limitNum, pages: Math.ceil(total / limitNum) || 1 } };
+};
+
+const getPurchaseReturnById = async (branchId, id) => {
+    const ret = await PurchaseReturn.findOne({ _id: id, branch_id: branchId });
+    if (!ret) throw new ApiError(404, 'Debit note not found', 'RETURN_NOT_FOUND');
+    return ret;
+};
+
 const addPurchasePayment = async (branchId, purchaseId, user, payload) => {
     const purchase = await Purchase.findOne({ _id: purchaseId, branch_id: branchId });
     if (!purchase) throw new ApiError(404, 'Purchase not found', 'PURCHASE_NOT_FOUND');
@@ -615,7 +827,7 @@ const addPurchasePayment = async (branchId, purchaseId, user, payload) => {
         throw new ApiError(400, `Amount exceeds balance due (${purchase.balance_due})`, 'AMOUNT_EXCEEDS_DUE');
     }
     const mode = String(payload.mode || payload.payment_mode || 'CASH').toUpperCase();
-    if (!Purchase.PAYMENT_MODES.includes(mode) || mode === 'CREDIT') {
+    if (!Purchase.CASH_MODES.includes(mode)) {
         throw new ApiError(400, 'mode must be CASH, UPI, BANK or CHEQUE', 'INVALID_PAYMENT_MODE');
     }
 
@@ -647,4 +859,7 @@ module.exports = {
     getPurchaseSummary,
     addPurchasePayment,
     cancelPurchase,
+    createPurchaseReturn,
+    getPurchaseReturns,
+    getPurchaseReturnById,
 };
