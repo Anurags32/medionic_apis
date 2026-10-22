@@ -17,6 +17,8 @@ const Notification = require('./notification.model');
 const OTP = require('./otp.model');
 const PharmacyReturn = require('./return.model');
 const PlanPayment = require('./plan-payment.model');
+const Supplier = require('./supplier.model');
+const Purchase = require('./purchase.model');
 
 module.exports = {
     mongoose,
@@ -37,4 +39,6 @@ module.exports = {
     OTP,
     PharmacyReturn,
     PlanPayment,
+    Supplier,
+    Purchase,
 };

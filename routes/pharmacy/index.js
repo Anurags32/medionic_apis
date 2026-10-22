@@ -12,6 +12,7 @@ const orderRoutes = require('./order.routes');
 const reportRoutes = require('./report.routes');
 const notificationRoutes = require('./notification.routes');
 const returnRoutes = require('./return.routes');
+const { purchases: purchaseRoutes, suppliers: supplierRoutes } = require('./purchase.routes');
 
 const { planGuard } = require('../../middleware/pharmacy/subscription.middleware');
 
@@ -21,6 +22,8 @@ router.use('/staff', staffRoutes);
 router.use('/branch', branchRoutes);
 router.use('/inventory', inventoryRoutes);
 router.use('/returns', returnRoutes);
+router.use('/purchases', purchaseRoutes);
+router.use('/suppliers', supplierRoutes);
 router.use('/customers', customerRoutes);
 router.use('/prescriptions', prescriptionRoutes);
 router.use('/pos', posRoutes);
