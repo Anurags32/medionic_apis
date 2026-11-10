@@ -586,6 +586,7 @@ async function runRound2Tests() {
             expiry_date: new Date(Date.now() + 100 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
             purchase_rate: 50,
             mrp: 80,
+        });
     assert(atomicRes.status === 201, 'POST /inventory/medicines with batch details created atomically');
 
     // Validation: Expiry date in the past

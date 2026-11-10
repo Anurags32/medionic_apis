@@ -86,6 +86,7 @@ async function setup() {
         role: 'PHARMACY_OWNER',
         branch_id: testBranch._id,
         is_active: true,
+        approval_status: 'approved', // owners must be approved before they can log in
     });
 
     testBranch.owner_id = testOwner._id;
