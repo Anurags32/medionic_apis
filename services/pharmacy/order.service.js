@@ -20,6 +20,7 @@ const {
     STOCK_LOG_TYPES,
 } = require('../../config/pharmacyConstants');
 const { emitToBranch, emitToUser } = require('../../socket/pharmacyEvents');
+const { createWithInvoiceNumber } = require('./invoiceNumber');
 
 
 const ALLOWED_STATUS_TRANSITIONS = {
@@ -38,14 +39,6 @@ const generateOrderNumber = async (branchId) => {
     const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
     const randomSuffix = Math.floor(1000 + Math.random() * 9000);
     return `ORD-${branchCode}-${dateStr}-${randomSuffix}`;
-};
-
-const generateInvoiceNumber = async (branchId) => {
-    const branch = await Branch.findById(branchId);
-    const branchCode = branch ? branch.code : 'MC';
-    const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-    const randomSuffix = Math.floor(1000 + Math.random() * 9000);
-    return `INV-${branchCode}-${dateStr}-${randomSuffix}`;
 };
 
 const createOrder = async (branchId, userId, payload) => {
@@ -301,10 +294,9 @@ const acceptOrder = async (branchId, userId, orderId) => {
         });
     }
 
-    const invoiceNumber = await generateInvoiceNumber(branchId);
     const roundedGrandTotal = Math.round(grandTotal * 100) / 100;
 
-    const invoice = await Invoice.create({
+    const invoice = await createWithInvoiceNumber(branchId, (invoiceNumber) => ({
         branch_id: branchId,
         order_id: order._id,
         customer_id: order.customer_id || null,
@@ -321,7 +313,7 @@ const acceptOrder = async (branchId, userId, orderId) => {
         payment_status: order.payment_status || PAYMENT_STATUS.PENDING,
         created_by_user_id: userId,
         items: preparedInvoiceItems,
-    });
+    }));
 
     order.status = ORDER_STATUS.CONFIRMED;
     await order.save();

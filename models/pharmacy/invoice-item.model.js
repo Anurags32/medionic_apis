@@ -45,6 +45,32 @@ const invoiceItemSchema = new mongoose.Schema(
             type: Number,
             required: true,
         },
+        // Snapshot of what was printed on the bill (names/batches can change later).
+        medicine_name: {
+            type: String,
+            default: '',
+        },
+        batch_number: {
+            type: String,
+            default: '',
+        },
+        expiry_date: {
+            type: Date,
+            default: null,
+        },
+        hsn_code: {
+            type: String,
+            default: '',
+        },
+        discount_percent: {
+            type: Number,
+            default: 0,
+        },
+        // Units of this line already returned by the customer.
+        returned_quantity: {
+            type: Number,
+            default: 0,
+        },
     },
     {
         timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' },

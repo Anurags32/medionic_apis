@@ -83,11 +83,6 @@ router.get(
     authorizeFeature(FEATURES.INVENTORY_VIEW),
     inventoryController.getMedicineBatches
 );
-router.get(
-    '/:id',
-    authorizeFeature(FEATURES.INVENTORY_VIEW),
-    inventoryController.getMedicineById
-);
 router.put(
     '/:id',
     authorizeFeature(FEATURES.INVENTORY_MANAGE),
@@ -152,6 +147,13 @@ router.get(
     '/alerts/expired',
     authorizeFeature(FEATURES.INVENTORY_VIEW),
     inventoryController.getExpiredBatches
+);
+
+// Keep last: '/:id' would otherwise swallow GET /summary and GET /returns.
+router.get(
+    '/:id',
+    authorizeFeature(FEATURES.INVENTORY_VIEW),
+    inventoryController.getMedicineById
 );
 
 module.exports = router;

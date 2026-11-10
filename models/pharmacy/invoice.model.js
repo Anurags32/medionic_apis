@@ -65,6 +65,33 @@ const invoiceSchema = new mongoose.Schema(
             required: true,
             default: 0,
         },
+        amount_paid: {
+            type: Number,
+            default: 0,
+        },
+        balance_due: {
+            type: Number,
+            default: 0,
+        },
+        // Value of customer returns refunded against this invoice.
+        refunded_amount: {
+            type: Number,
+            default: 0,
+        },
+        patient_name: {
+            type: String,
+            trim: true,
+            default: '',
+        },
+        doctor_name: {
+            type: String,
+            trim: true,
+            default: null,
+        },
+        notes: {
+            type: String,
+            default: null,
+        },
         payment_mode: {
             type: String,
             enum: Object.values(PAYMENT_MODES),

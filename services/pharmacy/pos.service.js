@@ -2,15 +2,10 @@ const { Invoice, Medicine, MedicineBatch, Customer, StockLog, Branch, User, mong
 const ApiError = require('../../utils/ApiError');
 const { PAYMENT_MODES, PAYMENT_STATUS, STOCK_TRANSACTION_TYPES, STOCK_LOG_TYPES } = require('../../config/pharmacyConstants');
 const { emitToBranch } = require('../../socket/pharmacyEvents');
+const { createWithInvoiceNumber } = require('./invoiceNumber');
 
 
-const generateInvoiceNumber = async (branchId) => {
-    const branch = await Branch.findById(branchId);
-    const branchCode = branch ? branch.code : 'MC';
-    const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-    const randomSuffix = Math.floor(1000 + Math.random() * 9000);
-    return `INV-${branchCode}-${dateStr}-${randomSuffix}`;
-};
+const round2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
 
 const createInvoice = async (branchId, userId, payload) => {
     const {
@@ -29,27 +24,8 @@ const createInvoice = async (branchId, userId, payload) => {
         throw new ApiError(400, 'Invoice must contain at least one medicine item', 'ITEMS_REQUIRED');
     }
 
-    // Resolve or auto-create customer if phone number is provided without customer_id
-    let resolvedCustomerId = customer_id || null;
     const phoneInput = (customer_phone || patient_phone || '').trim();
     const customerNameInput = (patient_name || 'Walk-in Customer').trim();
-
-    if (!resolvedCustomerId && phoneInput) {
-        let existingCustomer = await Customer.findOne({
-            branch_id: branchId,
-            phone: phoneInput,
-        });
-
-        if (!existingCustomer) {
-            existingCustomer = await Customer.create({
-                branch_id: branchId,
-                name: customerNameInput,
-                phone: phoneInput,
-                khata_balance: 0,
-            });
-        }
-        resolvedCustomerId = existingCustomer._id;
-    }
 
     let subtotal = 0;
     let totalDiscount = 0;
@@ -57,13 +33,15 @@ const createInvoice = async (branchId, userId, payload) => {
     let totalSgst = 0;
     let grandTotal = 0;
 
-    const preparedInvoiceItems = [];
-    const lowStockAlerts = [];
-    const updatedBatches = [];
-    const createdLogs = [];
-
+    // 1. Check and price every line before any stock moves.
+    const lines = [];
+    const requestedPerBatch = new Map();
     for (const item of items) {
-        const { medicine_id, batch_id, quantity, discount_percent = 0 } = item;
+        const { medicine_id, batch_id, discount_percent = 0 } = item;
+        const quantity = Number(item.quantity);
+        if (!Number.isInteger(quantity) || quantity < 1) {
+            throw new ApiError(400, 'Quantity must be a whole number of at least 1', 'INVALID_QUANTITY');
+        }
 
         const batch = await MedicineBatch.findOne({
             _id: batch_id,
@@ -75,13 +53,17 @@ const createInvoice = async (branchId, userId, payload) => {
             throw new ApiError(404, `Batch ID ${batch_id} not found for medicine ${medicine_id}`, 'BATCH_NOT_FOUND');
         }
 
-        if (batch.current_stock < quantity) {
+        // The same batch may appear on several lines.
+        const batchKey = batch._id.toString();
+        const requested = (requestedPerBatch.get(batchKey) || 0) + quantity;
+        if (batch.current_stock < requested) {
             throw new ApiError(
                 400,
-                `Insufficient stock for ${batch.medicine ? batch.medicine.name : 'Medicine'} (Batch: ${batch.batch_number}). Available: ${batch.current_stock}, Requested: ${quantity}`,
+                `Insufficient stock for ${batch.medicine ? batch.medicine.name : 'Medicine'} (Batch: ${batch.batch_number}). Available: ${batch.current_stock}, Requested: ${requested}`,
                 'INSUFFICIENT_STOCK'
             );
         }
+        requestedPerBatch.set(batchKey, requested);
 
         const unitPrice = parseFloat(batch.sale_price || batch.mrp);
         const lineSubtotal = unitPrice * quantity;
@@ -99,59 +81,40 @@ const createInvoice = async (branchId, userId, payload) => {
         totalSgst += gstAmount / 2;
         grandTotal += lineTotal;
 
-        const newStock = batch.current_stock - quantity;
-        batch.current_stock = newStock;
-        await batch.save();
-        updatedBatches.push(batch);
-
-        preparedInvoiceItems.push({
-            medicine_id: batch.medicine_id,
-            batch_id: batch._id,
-            medicine_name: batch.medicine ? batch.medicine.name : '',
-            batch_number: batch.batch_number,
-            expiry_date: batch.expiry_date,
-            hsn_code: batch.medicine ? batch.medicine.hsn_code : '',
+        lines.push({
+            batch,
             quantity,
-            unit_price: unitPrice,
-            mrp: batch.mrp,
-            discount_percent: discPercent,
-            discount_amount: lineDiscount,
-            gst_rate: gstRate,
-            gst_amount: gstAmount,
-            total_amount: lineTotal,
+            invoiceItem: {
+                medicine_id: batch.medicine_id,
+                batch_id: batch._id,
+                medicine_name: batch.medicine ? batch.medicine.name : '',
+                batch_number: batch.batch_number,
+                expiry_date: batch.expiry_date,
+                hsn_code: batch.medicine ? batch.medicine.hsn_code : '',
+                quantity,
+                unit_price: unitPrice,
+                mrp: batch.mrp,
+                discount_percent: discPercent,
+                discount_amount: lineDiscount,
+                gst_rate: gstRate,
+                gst_amount: gstAmount,
+                total_amount: lineTotal,
+            },
         });
-
-        const log = await StockLog.create({
-            branch_id: branchId,
-            medicine_id: batch.medicine_id,
-            batch_id: batch._id,
-            type: STOCK_TRANSACTION_TYPES?.SALE_OUT || STOCK_LOG_TYPES.SALE_OUT,
-            quantity: -quantity,
-            balance_after: newStock,
-            remarks: 'POS Sale',
-            created_by_user_id: userId,
-        });
-        createdLogs.push(log);
-
-        if (batch.medicine && newStock <= (batch.medicine.low_stock_threshold || 10)) {
-            lowStockAlerts.push({
-                medicineId: batch.medicine_id.toString(),
-                name: batch.medicine.name,
-                stock: newStock,
-                threshold: batch.medicine.low_stock_threshold,
-            });
-        }
     }
 
-    const invoiceNumber = await generateInvoiceNumber(branchId);
-    const roundedGrandTotal = Math.round(grandTotal * 100) / 100;
+    const roundedGrandTotal = round2(grandTotal);
 
-    let paidAmount = amount_paid !== undefined ? parseFloat(amount_paid) : roundedGrandTotal;
+    let paidAmount = amount_paid !== undefined && amount_paid !== null && amount_paid !== '' ? parseFloat(amount_paid) : roundedGrandTotal;
     if (payment_mode === PAYMENT_MODES.KHATA) {
         paidAmount = 0;
     }
-
-    const balanceDue = Math.max(0, roundedGrandTotal - paidAmount);
+    if (!Number.isFinite(paidAmount) || paidAmount < 0) {
+        throw new ApiError(400, 'amount_paid must be a positive number', 'INVALID_AMOUNT');
+    }
+    // Cash handed over beyond the bill is change, not payment.
+    paidAmount = round2(Math.min(paidAmount, roundedGrandTotal));
+    const balanceDue = round2(Math.max(0, roundedGrandTotal - paidAmount));
 
     let paymentStatus = PAYMENT_STATUS.COMPLETED || PAYMENT_STATUS.PAID;
     if (balanceDue > 0 && paidAmount > 0) {
@@ -160,28 +123,108 @@ const createInvoice = async (branchId, userId, payload) => {
         paymentStatus = PAYMENT_STATUS.PENDING;
     }
 
-    const newInvoice = await Invoice.create({
-        branch_id: branchId,
-        customer_id: resolvedCustomerId,
-        invoice_number: invoiceNumber,
-        invoice_date: new Date(),
-        patient_name: customerNameInput,
-        doctor_name: doctor_name || null,
-        subtotal: Math.round(subtotal * 100) / 100,
-        discount_amount: Math.round(totalDiscount * 100) / 100,
-        total_tax: Math.round((totalCgst + totalSgst) * 100) / 100,
-        cgst_amount: Math.round(totalCgst * 100) / 100,
-        sgst_amount: Math.round(totalSgst * 100) / 100,
-        igst_amount: 0.0,
-        grand_total: roundedGrandTotal,
-        amount_paid: paidAmount,
-        balance_due: balanceDue,
-        payment_mode: payment_mode || PAYMENT_MODES.CASH,
-        payment_status: paymentStatus,
-        notes: notes || null,
-        created_by_user_id: userId,
-        items: preparedInvoiceItems,
-    });
+    // 2. Credit needs someone to owe it.
+    let resolvedCustomerId = customer_id || null;
+    let existingCustomer = null;
+    if (!resolvedCustomerId && phoneInput) {
+        existingCustomer = await Customer.findOne({ branch_id: branchId, phone: phoneInput });
+        if (existingCustomer) resolvedCustomerId = existingCustomer._id;
+    }
+    if (balanceDue > 0 && !resolvedCustomerId && !phoneInput) {
+        throw new ApiError(
+            400,
+            'Select a customer or enter a phone number to put the balance on khata.',
+            'CUSTOMER_REQUIRED_FOR_CREDIT'
+        );
+    }
+
+    // 3. Take stock atomically; if anything fails, put back what was taken.
+    const taken = [];
+    let newInvoice;
+    try {
+        for (const line of lines) {
+            const updated = await MedicineBatch.findOneAndUpdate(
+                { _id: line.batch._id, branch_id: branchId, current_stock: { $gte: line.quantity } },
+                { $inc: { current_stock: -line.quantity } },
+                { new: true }
+            );
+            if (!updated) {
+                throw new ApiError(
+                    400,
+                    `Insufficient stock for ${line.invoiceItem.medicine_name || 'Medicine'} (Batch: ${line.batch.batch_number}). It was just sold elsewhere.`,
+                    'INSUFFICIENT_STOCK'
+                );
+            }
+            taken.push(line);
+            line.newStock = updated.current_stock;
+        }
+
+        // Phone given: save the customer for khata and history.
+        if (!resolvedCustomerId && phoneInput) {
+            const created = await Customer.create({
+                branch_id: branchId,
+                name: customerNameInput,
+                phone: phoneInput,
+                khata_balance: 0,
+            });
+            resolvedCustomerId = created._id;
+        }
+
+        newInvoice = await createWithInvoiceNumber(branchId, (invoiceNumber) => ({
+            branch_id: branchId,
+            customer_id: resolvedCustomerId,
+            invoice_number: invoiceNumber,
+            invoice_date: new Date(),
+            patient_name: customerNameInput,
+            doctor_name: doctor_name || null,
+            subtotal: round2(subtotal),
+            discount_amount: round2(totalDiscount),
+            total_tax: round2(totalCgst + totalSgst),
+            cgst_amount: round2(totalCgst),
+            sgst_amount: round2(totalSgst),
+            igst_amount: 0.0,
+            grand_total: roundedGrandTotal,
+            amount_paid: paidAmount,
+            balance_due: balanceDue,
+            payment_mode: payment_mode || PAYMENT_MODES.CASH,
+            payment_status: paymentStatus,
+            notes: notes || null,
+            created_by_user_id: userId,
+            items: lines.map((l) => l.invoiceItem),
+        }));
+    } catch (err) {
+        for (const line of taken) {
+            await MedicineBatch.updateOne({ _id: line.batch._id }, { $inc: { current_stock: line.quantity } });
+        }
+        throw err;
+    }
+
+    // 4. Sale is final: stock ledger, khata, alerts.
+    const lowStockAlerts = [];
+    for (const line of lines) {
+        await StockLog.create({
+            branch_id: branchId,
+            medicine_id: line.batch.medicine_id,
+            batch_id: line.batch._id,
+            type: STOCK_TRANSACTION_TYPES?.SALE_OUT || STOCK_LOG_TYPES.SALE_OUT,
+            quantity: -line.quantity,
+            balance_after: line.newStock,
+            reference_type: 'INVOICE',
+            reference_id: newInvoice._id.toString(),
+            remarks: `POS Sale · ${newInvoice.invoice_number}`,
+            created_by_user_id: userId,
+        });
+
+        const medicine = line.batch.medicine;
+        if (medicine && line.newStock <= (medicine.low_stock_threshold || 10)) {
+            lowStockAlerts.push({
+                medicineId: line.batch.medicine_id.toString(),
+                name: medicine.name,
+                stock: line.newStock,
+                threshold: medicine.low_stock_threshold,
+            });
+        }
+    }
 
     if (resolvedCustomerId && balanceDue > 0) {
         const customer = await Customer.findOne({ _id: resolvedCustomerId, branch_id: branchId });
@@ -350,51 +393,111 @@ const getInvoices = async (branchId, query = {}) => {
     };
 };
 
+/**
+ * Customer return against an invoice. Only medicines on the invoice can come
+ * back, never more than were sold (minus earlier returns). Stock goes back to
+ * the batch that was sold and the refund is the billed price per unit
+ * (after discount, incl. GST).
+ */
 const returnInvoiceItems = async (branchId, userId, invoiceId, items = []) => {
     const invoice = await Invoice.findOne({ _id: invoiceId, branch_id: branchId });
     if (!invoice) {
         throw new ApiError(404, 'Invoice not found', 'INVOICE_NOT_FOUND');
     }
 
-    let totalRefund = 0;
-    const returnedItemsResult = [];
-
-    for (const item of items) {
-        const medicineId = item.medicine_id;
-        const qtyToReturn = parseInt(item.quantity, 10) || 1;
+    // 1. Plan the return against the invoice lines (all-or-nothing).
+    const plan = [];
+    const plannedPerLine = new Map();
+    for (const item of items || []) {
+        const qtyToReturn = Number(item.quantity);
+        if (qtyToReturn === 0) continue; // line left untouched in the return form
+        if (!Number.isInteger(qtyToReturn) || qtyToReturn < 0) {
+            throw new ApiError(400, 'Return quantity must be a whole number', 'INVALID_QUANTITY');
+        }
         const reason = item.reason || 'Customer Return';
 
-        const medicine = await Medicine.findById(medicineId);
-        const batch = await MedicineBatch.findOne({ medicine_id: medicineId, branch_id: branchId }).sort({ expiry_date: -1 });
-
-        if (batch) {
-            batch.current_stock += qtyToReturn;
-            await batch.save();
-
-            await StockLog.create({
-                branch_id: branchId,
-                medicine_id: medicineId,
-                batch_id: batch._id,
-                type: 'RETURN_IN',
-                quantity: qtyToReturn,
-                balance_after: batch.current_stock,
-                remarks: `Return on invoice ${invoice.invoice_number}: ${reason}`,
-                created_by_user_id: userId,
-            });
+        const candidates = invoice.items
+            .map((line, index) => ({ line, index }))
+            .filter(({ line }) =>
+                String(line.medicine_id) === String(item.medicine_id) &&
+                (!item.batch_id || String(line.batch_id) === String(item.batch_id)));
+        if (!candidates.length) {
+            throw new ApiError(400, `This medicine is not on invoice ${invoice.invoice_number}`, 'ITEM_NOT_ON_INVOICE');
         }
 
-        const unitPrice = medicine ? (medicine.sale_price || medicine.mrp || 0) : 0;
-        const refundItemAmount = unitPrice * qtyToReturn;
-        totalRefund += refundItemAmount;
+        let left = qtyToReturn;
+        for (const { line, index } of candidates) {
+            const returnable = line.quantity - (line.returned_quantity || 0) - (plannedPerLine.get(index) || 0);
+            if (returnable <= 0) continue;
+            const take = Math.min(returnable, left);
+            plannedPerLine.set(index, (plannedPerLine.get(index) || 0) + take);
+            plan.push({ line, quantity: take, reason });
+            left -= take;
+            if (left === 0) break;
+        }
+        if (left > 0) {
+            const sold = candidates.reduce((s, { line }) => s + line.quantity, 0);
+            const alreadyBack = candidates.reduce((s, { line }) => s + (line.returned_quantity || 0), 0);
+            throw new ApiError(
+                400,
+                `Only ${sold - alreadyBack} of ${sold} unit(s) can still be returned on invoice ${invoice.invoice_number}`,
+                'RETURN_EXCEEDS_SOLD'
+            );
+        }
+    }
+    if (!plan.length) {
+        throw new ApiError(400, 'Enter a return quantity for at least one item', 'ITEMS_REQUIRED');
+    }
+    for (const p of plan) {
+        if (!(await MedicineBatch.exists({ _id: p.line.batch_id, branch_id: branchId }))) {
+            throw new ApiError(400, `Batch ${p.line.batch_number || ''} of this invoice no longer exists`, 'BATCH_NOT_FOUND');
+        }
+    }
 
+    // 2. Apply: stock back to the sold batch, ledger, invoice counters.
+    let totalRefund = 0;
+    const returnedItemsResult = [];
+    for (const { line, quantity, reason } of plan) {
+        const batch = await MedicineBatch.findOneAndUpdate(
+            { _id: line.batch_id, branch_id: branchId },
+            { $inc: { current_stock: quantity } },
+            { new: true }
+        );
+
+        await StockLog.create({
+            branch_id: branchId,
+            medicine_id: line.medicine_id,
+            batch_id: line.batch_id,
+            type: 'RETURN_IN',
+            quantity,
+            balance_after: batch.current_stock,
+            reference_type: 'INVOICE_RETURN',
+            reference_id: invoice._id.toString(),
+            remarks: `Return on invoice ${invoice.invoice_number}: ${reason}`,
+            created_by_user_id: userId,
+        });
+
+        const refundItemAmount = round2((line.total_amount / line.quantity) * quantity);
+        totalRefund = round2(totalRefund + refundItemAmount);
+        line.returned_quantity = (line.returned_quantity || 0) + quantity;
+
+        let medicineName = line.medicine_name;
+        if (!medicineName) {
+            const medicine = await Medicine.findById(line.medicine_id).select('name');
+            medicineName = medicine ? medicine.name : '';
+        }
         returnedItemsResult.push({
-            medicine_id: medicineId,
-            medicine_name: medicine ? medicine.name : '',
-            quantity: qtyToReturn,
+            medicine_id: line.medicine_id,
+            batch_id: line.batch_id,
+            medicine_name: medicineName,
+            quantity,
             refund_amount: refundItemAmount,
             reason,
         });
     }
+
+    invoice.refunded_amount = round2((invoice.refunded_amount || 0) + totalRefund);
+    await invoice.save();
 
     return {
         invoice_id: invoice._id.toString(),
