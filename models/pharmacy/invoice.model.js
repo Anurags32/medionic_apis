@@ -73,6 +73,11 @@ const invoiceSchema = new mongoose.Schema(
             type: Number,
             default: 0,
         },
+        // false = bill of supply: no CGST/SGST charged on this bill.
+        gst_applied: {
+            type: Boolean,
+            default: true,
+        },
         // Value of customer returns refunded against this invoice.
         refunded_amount: {
             type: Number,

@@ -46,6 +46,43 @@ describe('createInvoice', () => {
         expect(log.reference_id).toBe(String(inv._id));
     });
 
+    test('without GST: no CGST/SGST, total = taxable value, marked as bill of supply', async () => {
+        const store = await makeStore();
+        const receipt = await pos.createInvoice(store.branch._id, store.user.userId, {
+            items: [item(store, { discount_percent: 10 })], apply_gst: false,
+        });
+        const inv = await lastInvoice(store.branch._id);
+        expect(inv.gst_applied).toBe(false);
+        expect(inv.subtotal).toBe(220);
+        expect(inv.total_tax).toBe(0);
+        expect(inv.cgst_amount).toBe(0);
+        expect(inv.sgst_amount).toBe(0);
+        expect(inv.grand_total).toBe(198);
+        expect(inv.items[0].gst_rate).toBe(0);
+        expect(inv.items[0].gst_amount).toBe(0);
+        const summary = JSON.parse(JSON.stringify(receipt)).bill_summary;
+        expect(summary.gst_applied).toBe(false);
+        expect(summary.grand_total).toBe(198);
+    });
+
+    test('GST is applied by default (and with apply_gst: true)', async () => {
+        const store = await makeStore();
+        await pos.createInvoice(store.branch._id, store.user.userId, { items: [item(store)] });
+        expect((await lastInvoice(store.branch._id)).gst_applied).toBe(true);
+        await pos.createInvoice(store.branch._id, store.user.userId, { items: [item(store)], apply_gst: true });
+        const inv = await lastInvoice(store.branch._id);
+        expect(inv.gst_applied).toBe(true);
+        expect(inv.total_tax).toBe(26.4);
+    });
+
+    test('return on a no-GST bill refunds the billed price without tax', async () => {
+        const store = await makeStore();
+        await pos.createInvoice(store.branch._id, store.user.userId, { items: [item(store, { discount_percent: 10 })], apply_gst: false });
+        const inv = await lastInvoice(store.branch._id);
+        const r = await pos.returnInvoiceItems(store.branch._id, store.user.userId, inv._id, [{ medicine_id: store.medicine._id, quantity: 1 }]);
+        expect(r.refund_amount).toBe(99);
+    });
+
     test('bill keeps what was printed: medicine, batch, expiry, discount %, patient, doctor, notes', async () => {
         const store = await makeStore();
         const receipt = await pos.createInvoice(store.branch._id, store.user.userId, {

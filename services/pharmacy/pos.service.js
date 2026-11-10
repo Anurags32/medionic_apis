@@ -26,6 +26,8 @@ const createInvoice = async (branchId, userId, payload) => {
 
     const phoneInput = (customer_phone || patient_phone || '').trim();
     const customerNameInput = (patient_name || 'Walk-in Customer').trim();
+    // Counter can bill without GST (bill of supply); default is a tax invoice.
+    const applyGst = payload.apply_gst !== false && payload.apply_gst !== 'false';
 
     let subtotal = 0;
     let totalDiscount = 0;
@@ -71,7 +73,7 @@ const createInvoice = async (branchId, userId, payload) => {
         const lineDiscount = (lineSubtotal * discPercent) / 100;
         const taxableAmount = lineSubtotal - lineDiscount;
 
-        const gstRate = parseFloat(batch.gst_rate || 12);
+        const gstRate = applyGst ? parseFloat(batch.gst_rate || 12) : 0;
         const gstAmount = (taxableAmount * gstRate) / 100;
         const lineTotal = taxableAmount + gstAmount;
 
@@ -184,6 +186,7 @@ const createInvoice = async (branchId, userId, payload) => {
             sgst_amount: round2(totalSgst),
             igst_amount: 0.0,
             grand_total: roundedGrandTotal,
+            gst_applied: applyGst,
             amount_paid: paidAmount,
             balance_due: balanceDue,
             payment_mode: payment_mode || PAYMENT_MODES.CASH,
@@ -345,6 +348,7 @@ const getInvoiceReceipt = async (branchId, invoiceId) => {
             sgst_amount: invoice.sgst_amount || 0,
             total_tax: invoice.total_tax,
             grand_total: invoice.grand_total,
+            gst_applied: invoice.gst_applied !== false,
             amount_paid: invoice.amount_paid,
             balance_due: invoice.balance_due,
             payment_mode: invoice.payment_mode,
