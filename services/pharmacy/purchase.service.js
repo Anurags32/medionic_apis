@@ -344,7 +344,7 @@ const createPurchase = async (branchId, user, payload) => {
         if (mrp < purchaseRate) throw new ApiError(400, `Line ${row} (${medicine.name}): MRP cannot be less than purchase rate`, 'INVALID_MRP');
         const salePrice = num(it.sale_price, 0) || medicine.sale_price || mrp;
         if (salePrice > mrp) throw new ApiError(400, `Line ${row} (${medicine.name}): sale price cannot exceed MRP`, 'INVALID_PRICE');
-        const gstRate = num(it.gst_rate, medicine.gst_rate || 12);
+        const gstRate = num(it.gst_rate, medicine.gst_rate ?? 12);
         const discountPercent = Math.min(100, Math.max(0, num(it.discount_percent, 0)));
 
         const lineSubtotal = round2(purchaseRate * quantity);

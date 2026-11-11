@@ -13,6 +13,10 @@ const {
 
 router.use(authenticateToken);
 
+// Bulk import with opening khata (rows parsed on the client). Before '/:id'.
+router.get('/import/template', authorizeFeature(FEATURES.CUSTOMERS_MANAGE), customerController.importTemplate);
+router.post('/import', authorizeFeature(FEATURES.CUSTOMERS_MANAGE), customerController.importCustomers);
+
 router.post(
     '/',
     authorizeFeature(FEATURES.CUSTOMERS_MANAGE),

@@ -36,6 +36,22 @@ const customerSchema = new mongoose.Schema(
             type: Number,
             default: 0,
         },
+        city: {
+            type: String,
+            trim: true,
+            default: '',
+        },
+        pincode: {
+            type: String,
+            trim: true,
+            default: '',
+        },
+        // Udhaar carried over from the old register / software when the
+        // customer was added (already included in khata_balance).
+        opening_balance: {
+            type: Number,
+            default: 0,
+        },
         is_active: {
             type: Boolean,
             default: true,

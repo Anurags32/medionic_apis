@@ -36,7 +36,20 @@ const getCustomerLedger = asyncHandler(async (req, res) => {
     res.status(200).json(new ApiResponse(200, result, 'Customer Khata ledger fetched successfully'));
 });
 
+const importCustomers = asyncHandler(async (req, res) => {
+    const summary = await customerService.importCustomers(req.user.branchId, req.body.rows);
+    res.status(200).json(new ApiResponse(200, summary, `Imported ${summary.created} customers, ${summary.updated} updated`));
+});
+
+const importTemplate = asyncHandler(async (req, res) => {
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="medislip-customers-template.csv"');
+    res.status(200).send(customerService.customerImportTemplateCsv());
+});
+
 module.exports = {
+    importCustomers,
+    importTemplate,
     createCustomer,
     getCustomers,
     getCustomerById,

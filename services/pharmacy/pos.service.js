@@ -7,6 +7,14 @@ const { createWithInvoiceNumber } = require('./invoiceNumber');
 
 const round2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
 
+// GST % for a line: the stored rate (0% is a real rate), 12% only when none is set.
+const gstRateOf = (...values) => {
+    for (const v of values) {
+        if (v !== undefined && v !== null && v !== '' && !Number.isNaN(parseFloat(v))) return parseFloat(v);
+    }
+    return 12;
+};
+
 const createInvoice = async (branchId, userId, payload) => {
     const {
         items,
@@ -73,7 +81,7 @@ const createInvoice = async (branchId, userId, payload) => {
         const lineDiscount = (lineSubtotal * discPercent) / 100;
         const taxableAmount = lineSubtotal - lineDiscount;
 
-        const gstRate = applyGst ? parseFloat(batch.gst_rate || 12) : 0;
+        const gstRate = applyGst ? gstRateOf(batch.gst_rate) : 0;
         const gstAmount = (taxableAmount * gstRate) / 100;
         const lineTotal = taxableAmount + gstAmount;
 

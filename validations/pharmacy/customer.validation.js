@@ -29,6 +29,9 @@ const createCustomerRules = [
         .optional({ checkFalsy: true })
         .trim()
         .matches(PINCODE_REGEX).withMessage('Pincode must be a valid 6-digit number without letters or special characters.'),
+    body('opening_balance')
+        .optional({ checkFalsy: true })
+        .isFloat({ min: 0 }).withMessage('Opening khata balance must be 0 or more'),
 ];
 
 const updateCustomerRules = [

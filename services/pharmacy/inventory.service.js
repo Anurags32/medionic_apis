@@ -4,6 +4,14 @@ const ApiError = require('../../utils/ApiError');
 const { STOCK_TRANSACTION_TYPES, STOCK_LOG_TYPES } = require('../../config/pharmacyConstants');
 const { emitToBranch } = require('../../socket/pharmacyEvents');
 
+// GST % for a line: the stored rate (0% is a real rate), 12% only when none is set.
+const gstRateOf = (...values) => {
+    for (const v of values) {
+        if (v !== undefined && v !== null && v !== '' && !Number.isNaN(parseFloat(v))) return parseFloat(v);
+    }
+    return 12;
+};
+
 
 const createCategory = async (branchId, payload) => {
     const { name, description } = payload;
@@ -56,7 +64,7 @@ const createMedicine = async (branchId, payload, file) => {
             ? parseFloat(purchase_rate)
             : 0;
     const parsedGstRate =
-        gst_rate !== undefined && gst_rate !== null && gst_rate !== '' ? parseFloat(gst_rate) : 0;
+        gstRateOf(gst_rate);
 
     let effectiveCategoryId = category_id;
     if (!effectiveCategoryId) {
@@ -347,7 +355,7 @@ const createBatch = async (branchId, userId, payload) => {
         purchase_rate: purchase_rate || 0,
         mrp: mrp || 0,
         sale_price: sale_price || mrp,
-        gst_rate: gst_rate || 12,
+        gst_rate: gstRateOf(gst_rate),
         current_stock: initialStockVal || 0,
         rack_location: rack_location || '',
     });
@@ -737,7 +745,7 @@ const createMedicineWithBatch = async (branchId, userId, payload, file) => {
     const parsedPurchaseRate = parseFloat(purchase_rate || purchaseRate || purchasePrice || 0);
     const parsedMrp = parseFloat(mrp || 0);
     const parsedSalePrice = parseFloat(sale_price || salePrice || sellingPrice || parsedMrp || 0);
-    const parsedGstRate = parseFloat(gst_rate || gstRate || 0);
+    const parsedGstRate = gstRateOf(gst_rate, gstRate);
     const parsedInitialStock = parseInt(initial_stock !== undefined ? initial_stock : (initialStock !== undefined ? initialStock : (quantity || 0)));
     const effectiveRack = (rack_location || rackLocation || '').trim();
 
@@ -1123,7 +1131,7 @@ const importMedicines = async (branchId, userId, rows, options = {}) => {
                 mrp: mrp ?? 0,
                 sale_price: salePrice ?? mrp ?? 0,
                 purchase_rate: purchaseRate ?? 0,
-                gst_rate: gstRate ?? 0,
+                gst_rate: gstRate ?? 12,
             };
             if (hasBatch) {
                 Object.assign(payload, {

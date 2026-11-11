@@ -22,6 +22,14 @@ const {
 const { emitToBranch, emitToUser } = require('../../socket/pharmacyEvents');
 const { createWithInvoiceNumber } = require('./invoiceNumber');
 
+// GST % for a line: the stored rate (0% is a real rate), 12% only when none is set.
+const gstRateOf = (...values) => {
+    for (const v of values) {
+        if (v !== undefined && v !== null && v !== '' && !Number.isNaN(parseFloat(v))) return parseFloat(v);
+    }
+    return 12;
+};
+
 
 const ALLOWED_STATUS_TRANSITIONS = {
     [ORDER_STATUS.PLACED]: [ORDER_STATUS.CONFIRMED, ORDER_STATUS.CANCELLED],
@@ -125,7 +133,7 @@ const createOrder = async (branchId, userId, payload) => {
         const lineSubtotal = unitPrice * quantity;
         const lineDiscount = (lineSubtotal * parseFloat(discount_percent || 0)) / 100;
         const taxable = lineSubtotal - lineDiscount;
-        const gstRate = parseFloat(batch.gst_rate || 12);
+        const gstRate = gstRateOf(batch.gst_rate);
         const lineGst = (taxable * gstRate) / 100;
         const lineTotal = taxable + lineGst;
 
@@ -267,7 +275,7 @@ const acceptOrder = async (branchId, userId, orderId) => {
         const lineDiscount = parseFloat(item.discount_amount || 0);
         const taxableAmount = lineSubtotal - lineDiscount;
 
-        const gstRate = parseFloat(batch.gst_rate || item.gst_rate || 12);
+        const gstRate = gstRateOf(batch.gst_rate, item.gst_rate);
         const gstAmount = (taxableAmount * gstRate) / 100;
         const lineTotal = taxableAmount + gstAmount;
 

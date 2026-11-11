@@ -650,13 +650,24 @@ exports.approvePharmacyOwner = async (req, res, next) => {
             return next(new ErrorResponse('Pharmacy owner not found', 404));
         }
 
+        const firstApproval = owner.approval_status !== 'approved';
         owner.approval_status = 'approved';
         owner.is_active = true;
         if (remarks) owner.approval_remarks = remarks;
         await owner.save();
 
         // Also update the branch to mark as active
-        await PharmacyBranch.findByIdAndUpdate(owner.branch_id, { is_active: true });
+        const branch = await PharmacyBranch.findById(owner.branch_id);
+        if (branch) {
+            branch.is_active = true;
+            // The 14-day trial counts from the day the store can log in, not
+            // from registration. Paid plans are never touched.
+            const planId = branch.subscription && branch.subscription.plan_id;
+            if (firstApproval && (!planId || planId === 'trial')) {
+                branch.subscription = PharmacyBranch.trialSubscription();
+            }
+            await branch.save();
+        }
 
         res.status(200).json({
             success: true,
