@@ -135,7 +135,21 @@ const pharmacyOrderSchema = new mongoose.Schema({
     deliveryPartner: {
         name: String,
         contact: String,
-        trackingUrl: String
+        trackingUrl: String,
+        partnerId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'DeliveryPartner',
+            default: null
+        }
+    },
+    deliveryId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Delivery',
+        default: null
+    },
+    deliveryStatus: {
+        type: String,
+        default: null
     },
     orderNotes: {
         type: String,

@@ -85,6 +85,81 @@ const orderSchema = new mongoose.Schema(
             ref: 'User',
             default: null,
         },
+        // Delivery Integration fields
+        fulfillment_type: {
+            type: String,
+            enum: ['STORE_PICKUP', 'HOME_DELIVERY'],
+            default: 'HOME_DELIVERY',
+        },
+        delivery_required: {
+            type: Boolean,
+            default: false,
+            index: true,
+        },
+        delivery_mode: {
+            type: String,
+            enum: ['PLATFORM', 'OWN_STAFF', 'BOTH', null],
+            default: null,
+        },
+        delivery_status: {
+            type: String,
+            enum: [
+                'PENDING',
+                'OFFERED',
+                'ASSIGNED',
+                'REACHED_PHARMACY',
+                'PICKED_UP',
+                'OUT_FOR_DELIVERY',
+                'REACHED_CUSTOMER',
+                'DELIVERED',
+                'FAILED',
+                'RETURNED',
+                'CANCELLED',
+                null,
+            ],
+            default: null,
+            index: true,
+        },
+        assigned_partner_id: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'DeliveryPartner',
+            default: null,
+            index: true,
+        },
+        delivery_assignment_id: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'DeliveryAssignment',
+            default: null,
+        },
+        pickup_location: {
+            address: { type: String, trim: true },
+            location: {
+                type: { type: String, enum: ['Point'], default: 'Point' },
+                coordinates: { type: [Number], default: [0, 0] },
+            },
+        },
+        drop_location: {
+            address: { type: String, trim: true },
+            city: { type: String, trim: true },
+            pincode: { type: String, trim: true },
+            location: {
+                type: { type: String, enum: ['Point'], default: 'Point' },
+                coordinates: { type: [Number], default: [0, 0] },
+            },
+        },
+        delivery_charges: {
+            type: Number,
+            default: 0,
+            min: 0,
+        },
+        estimated_delivery_time: {
+            type: Date,
+            default: null,
+        },
+        delivered_at: {
+            type: Date,
+            default: null,
+        },
         created_by_user_id: {
             type: mongoose.Schema.Types.ObjectId,
             ref: 'User',
@@ -143,6 +218,20 @@ orderSchema.virtual('assigned_packer', {
 orderSchema.virtual('created_by', {
     ref: 'PharmacyStaff',
     localField: 'created_by_user_id',
+    foreignField: '_id',
+    justOne: true,
+});
+
+orderSchema.virtual('assigned_partner', {
+    ref: 'DeliveryPartner',
+    localField: 'assigned_partner_id',
+    foreignField: '_id',
+    justOne: true,
+});
+
+orderSchema.virtual('delivery_assignment', {
+    ref: 'DeliveryAssignment',
+    localField: 'delivery_assignment_id',
     foreignField: '_id',
     justOne: true,
 });

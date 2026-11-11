@@ -39,6 +39,13 @@ const zegoRoutes = require('./routes/zego');
 const pharmacyRouter = require('./routes/pharmacy');
 const { initSocket: initPharmacySocket } = require('./socket/pharmacyEvents');
 
+// Delivery Management Subsystem
+const deliveryRoutes = require('./routes/delivery');
+const pharmacyDeliveryRoutes = require('./routes/pharmacy/delivery.routes');
+const consumerTrackingRoutes = require('./routes/consumer/consumerTracking.routes');
+const adminDeliveryRoutes = require('./routes/admin/adminDelivery.routes');
+const { initDeliverySocket } = require('./socket/deliveryEvents');
+
 
 const doctorAuthRoutes = require('./routes/auth/doctor/doctorRoutes');
 const patientAuthRoutes = require('./routes/auth/patient/patientRoutes');
@@ -216,6 +223,12 @@ app.use('/api/app_data', appDataRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/zego', zegoRoutes);
 
+// Mount Delivery Management routes
+app.use('/api/delivery', deliveryRoutes);
+app.use('/api/pharmacy', pharmacyDeliveryRoutes);
+app.use('/api/consumer', consumerTrackingRoutes);
+app.use('/api/admin/delivery', adminDeliveryRoutes);
+
 // Mount Pharmacy Subsystem routes (/api/v1)
 app.use(process.env.API_PREFIX || '/api/v1', pharmacyRouter);
 
@@ -277,7 +290,8 @@ if (process.env.NODE_ENV !== 'test') {
   const server = http.createServer(app);
   const io = initSocket(server);
   initPharmacySocket(io);
-  console.log('✅  Socket.io initialized on HTTP server (Calling & Pharmacy Subsystems)');
+  initDeliverySocket(io);
+  console.log('✅  Socket.io initialized on HTTP server (Calling, Pharmacy & Delivery Subsystems)');
 
 
   server.listen(PORT, () => {

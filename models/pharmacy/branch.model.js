@@ -101,6 +101,17 @@ const branchSchema = new mongoose.Schema(
             type: Number,
             default: null,
         },
+        location: {
+            type: {
+                type: String,
+                enum: ['Point'],
+                default: 'Point',
+            },
+            coordinates: {
+                type: [Number], // [longitude, latitude]
+                default: [0, 0],
+            },
+        },
         is_active: {
             type: Boolean,
             default: true,
@@ -220,8 +231,21 @@ branchSchema.statics.trialSubscription = function () {
     };
 };
 
+branchSchema.pre('save', function (next) {
+    if (this.latitude !== undefined && this.longitude !== undefined && this.latitude !== null && this.longitude !== null) {
+        if (!this.location || !this.location.coordinates || (this.location.coordinates[0] === 0 && this.location.coordinates[1] === 0)) {
+            this.location = {
+                type: 'Point',
+                coordinates: [this.longitude, this.latitude],
+            };
+        }
+    }
+    next();
+});
+
 branchSchema.index({ owner_id: 1, is_active: 1 });
 branchSchema.index({ gstin: 1 });
+branchSchema.index({ location: '2dsphere' });
 
 branchSchema.virtual('staff', {
     ref: 'PharmacyStaff',
