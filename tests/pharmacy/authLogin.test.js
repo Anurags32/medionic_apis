@@ -13,7 +13,7 @@ const makeUser = async (over = {}) => {
         full_name: 'Login Tester',
         email,
         phone: `90000${String(n).padStart(5, '0')}`,
-        password_hash: await bcrypt.hash('Medcab@123', 4),
+        password_hash: await bcrypt.hash('Medislip@123', 4),
         role: 'PHARMACY_OWNER',
         branch_id: branch._id,
         approval_status: 'approved',
@@ -26,7 +26,7 @@ const makeUser = async (over = {}) => {
 describe('loginUser', () => {
     test('approved owner logs in (email is case-insensitive)', async () => {
         const email = await makeUser();
-        const r = await auth.loginUser(email.toUpperCase(), 'Medcab@123');
+        const r = await auth.loginUser(email.toUpperCase(), 'Medislip@123');
         expect(typeof r.accessToken).toBe('string');
         expect(r.user.email).toBe(email);
         expect(r.user.password_hash).toBeUndefined();
@@ -44,7 +44,7 @@ describe('loginUser', () => {
         for (let i = 0; i < 5; i++) {
             await expectApiError(auth.loginUser(email, 'Wrong@123'), 'INVALID_CREDENTIALS', 401);
         }
-        await expectApiError(auth.loginUser(email, 'Medcab@123'), 'ACCOUNT_LOCKED', 423);
+        await expectApiError(auth.loginUser(email, 'Medislip@123'), 'ACCOUNT_LOCKED', 423);
         const u = await User.findOne({ email });
         expect(u.lock_until.getTime()).toBeGreaterThan(Date.now() + 14 * 60 * 1000);
     });
@@ -52,13 +52,13 @@ describe('loginUser', () => {
     test('a successful login resets the failure counter', async () => {
         const email = await makeUser();
         await expectApiError(auth.loginUser(email, 'Wrong@123'), 'INVALID_CREDENTIALS');
-        await auth.loginUser(email, 'Medcab@123');
+        await auth.loginUser(email, 'Medislip@123');
         expect((await User.findOne({ email })).failed_login_attempts).toBe(0);
     });
 
     test('expired lock lets the user in again', async () => {
         const email = await makeUser({ failed_login_attempts: 5, lock_until: new Date(Date.now() - 1000) });
-        await expect(auth.loginUser(email, 'Medcab@123')).resolves.toHaveProperty('accessToken');
+        await expect(auth.loginUser(email, 'Medislip@123')).resolves.toHaveProperty('accessToken');
     });
 
     test.each([
@@ -68,6 +68,6 @@ describe('loginUser', () => {
         ['deactivated staff', { role: 'PHARMACIST', is_active: false }, 'ACCOUNT_DEACTIVATED'],
     ])('%s cannot log in', async (_label, over, code) => {
         const email = await makeUser(over);
-        await expectApiError(auth.loginUser(email, 'Medcab@123'), code, 403);
+        await expectApiError(auth.loginUser(email, 'Medislip@123'), code, 403);
     });
 });

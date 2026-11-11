@@ -114,7 +114,7 @@ describe('trial starts at approval', () => {
         full_name: 'Pending Owner',
         email: `pending${Date.now()}${Math.random().toString(36).slice(2, 6)}@test.local`,
         phone: `91${String(Math.floor(Math.random() * 1e8)).padStart(8, '0')}`,
-        password_hash: await bcrypt.hash('Medcab@123', 4),
+        password_hash: await bcrypt.hash('Medislip@123', 4),
         role: 'PHARMACY_OWNER',
         branch_id: store.branch._id,
         approval_status: 'pending',

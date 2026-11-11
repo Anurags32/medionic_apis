@@ -45,7 +45,7 @@ const createStaff = async (caller, payload) => {
         throw new ApiError(400, 'Password is required and must be at least 6 characters long', 'PASSWORD_REQUIRED');
     }
 
-    const defaultPasswords = ['password', 'password123', '123456', 'medcab123', 'admin123', 'staff123'];
+    const defaultPasswords = ['password', 'password123', '123456', 'medislip123', 'admin123', 'staff123'];
     if (defaultPasswords.includes(password.trim().toLowerCase())) {
         throw new ApiError(400, 'Insecure or default passwords are not permitted. Please specify a strong, unique password.', 'INSECURE_PASSWORD');
     }

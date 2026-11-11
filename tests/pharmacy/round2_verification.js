@@ -99,7 +99,7 @@ async function setupDatabase() {
 
     // 4. Create Owner User
     const salt = await bcrypt.genSalt(10);
-    const passwordHash = await bcrypt.hash('Medcab@123', salt);
+    const passwordHash = await bcrypt.hash('Medislip@123', salt);
 
     testOwner = await User.create({
         full_name: 'Dr. Anurag Tiwari (Owner)',

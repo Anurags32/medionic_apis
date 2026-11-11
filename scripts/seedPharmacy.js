@@ -37,13 +37,13 @@ const seedDatabase = async () => {
 
         // 1. Create Main Branch
         const branch = await db.Branch.create({
-            name: 'MedCab Apex Super Pharmacy & Diagnostics',
+            name: 'MediSlip Pharmacy',
             code: 'MED-APEX-01',
             drug_license_no: 'DL-UP-LKO-2026-98765',
             gstin: '09AAACM1234F1Z5',
             address: 'Shop No. 12-14, Ground Floor, Hazratganj, Lucknow, UP - 226001',
             contact_number: '+91 9876543210',
-            email: 'apex.pharmacy@medcab.in',
+            email: 'store@medislip.in',
             is_active: true,
         });
         console.log(`✅ Branch Created: ${branch.name} (ID: ${branch._id})`);

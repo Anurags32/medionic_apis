@@ -309,7 +309,7 @@ const getInvoiceReceipt = async (branchId, invoiceId) => {
             timeStyle: 'short',
         }),
         store_details: {
-            name: branch.name || 'Medcab Pharmacy Store',
+            name: branch.name || 'Pharmacy',
             code: branch.code || 'MC-STORE',
             address: branch.address || 'Medical Road',
             city: branch.city || '',
@@ -362,7 +362,7 @@ const getInvoiceReceipt = async (branchId, invoiceId) => {
             payment_mode: invoice.payment_mode,
             payment_status: invoice.payment_status,
         },
-        notes: invoice.notes || 'Thank you for choosing Medcab Pharmacy. Get well soon!',
+        notes: invoice.notes || `Thank you for choosing ${branch.name || 'us'}. Get well soon!`,
         terms: 'Medicines once sold cannot be returned without original batch and invoice within 7 days.',
     };
 
