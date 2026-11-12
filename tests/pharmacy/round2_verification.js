@@ -562,13 +562,19 @@ async function runRound2Tests() {
         `POST /staff blocked with HTTP 403 and code="PLAN_EXPIRED" on expired branch`
     );
 
-    // 7. Subscription renewal route must be EXEMPT and succeed
+    // 7. Plan recharge stays reachable when expired, but there is no free
+    // self-renew: only a verified Razorpay payment or an admin extends a plan.
+    const plansRes = await request(app)
+        .get('/api/v1/branch/plans')
+        .set('Authorization', `Bearer ${expiredToken}`);
+    assert(plansRes.status === 200, 'GET /branch/plans is exempt from planGuard on an expired plan');
     const renewRes = await request(app)
         .post('/api/v1/branch/subscription/renew')
         .set('Authorization', `Bearer ${expiredToken}`)
         .send({ days: 30, plan: 'ENTERPRISE' });
-    assert(renewRes.status === 200, 'POST /branch/subscription/renew is exempt from planGuard and succeeds');
-    assert(renewRes.body.data.status === 'ACTIVE', `Renewed branch status is now ACTIVE: got ${renewRes.body.data.status}`);
+    assert(renewRes.status === 404, `POST /branch/subscription/renew no longer exists: got ${renewRes.status}`);
+    const stillExpired = (await Branch.findById(expiredBranch._id)).getSubscriptionDetails();
+    assert(stillExpired.status !== 'ACTIVE', `Expired branch was not renewed for free: got ${stillExpired.status}`);
 
     // =========================================================================
     // TEST AUDIT ITEMS: Atomicity & Medicine Validation

@@ -13,6 +13,8 @@ const PharmacyUser = require('../models/pharmacy/user.model');
 const PharmacyBranch = require('../models/pharmacy/branch.model');
 const PharmacyOrder = require('../models/PharmacyOrder');
 const { Invoice: PharmacyInvoice } = require('../models/pharmacy');
+const pharmacyPricing = require('../services/pharmacy/pricing.service');
+const { recordEvent: recordSubscriptionEvent } = require('../services/pharmacy/subscriptionAdmin.service');
 const { ROLES: PHARMACY_ROLES } = require('../config/pharmacyConstants');
 
 
@@ -663,10 +665,20 @@ exports.approvePharmacyOwner = async (req, res, next) => {
             // The 14-day trial counts from the day the store can log in, not
             // from registration. Paid plans are never touched.
             const planId = branch.subscription && branch.subscription.plan_id;
-            if (firstApproval && (!planId || planId === 'trial')) {
-                branch.subscription = PharmacyBranch.trialSubscription();
+            const startTrial = firstApproval && (!planId || planId === 'trial');
+            if (startTrial) {
+                branch.subscription = await pharmacyPricing.trialSubscription();
             }
             await branch.save();
+            if (startTrial) {
+                await recordSubscriptionEvent(branch, 'TRIAL_STARTED', {
+                    plan_id: 'trial',
+                    plan_name: 'Free Trial',
+                    days: branch.subscription.trial_days,
+                    note: 'Store approved',
+                    new_expiry: branch.subscription.expiry_date,
+                }, { name: [req.user?.firstName, req.user?.lastName].filter(Boolean).join(' ') || req.user?.email || 'Admin', id: req.user?._id });
+            }
         }
 
         res.status(200).json({

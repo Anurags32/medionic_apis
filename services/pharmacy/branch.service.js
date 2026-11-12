@@ -5,7 +5,8 @@ const ApiError = require('../../utils/ApiError');
 const { generateAccessToken, generateRefreshToken } = require('../../config/pharmacyJwt');
 const { emitToBranch, emitToUser } = require('../../socket/pharmacyEvents');
 const { ROLES, DEFAULT_ROLE_PERMISSIONS } = require('../../config/pharmacyConstants');
-const plansConfig = require('../../config/pharmacyPlans');
+const pricing = require('./pricing.service');
+const { recordEvent } = require('./subscriptionAdmin.service');
 
 
 const createBranch = async (ownerUser, payload) => {
@@ -49,7 +50,7 @@ const createBranch = async (ownerUser, payload) => {
         is_available: is_available !== undefined ? (is_available === true || is_available === 'true') : true,
         is_active: true,
         // Plans are per branch: every new store starts on the free trial.
-        subscription: Branch.trialSubscription(),
+        subscription: await pricing.trialSubscription(),
     });
 
     emitToUser(ownerUser.id, 'branch:created', {
@@ -128,39 +129,9 @@ const getBranchSubscription = async (branchId, user = null) => {
     return branch.getSubscriptionDetails();
 };
 
-const renewBranchSubscription = async (branchId, payload = {}, user = null) => {
-    const branch = await Branch.findById(branchId);
-    if (!branch) {
-        throw new ApiError(404, 'Branch not found', 'BRANCH_NOT_FOUND');
-    }
-
-    if (user && user.role === ROLES.PHARMACY_OWNER && branch.owner_id && branch.owner_id.toString() !== user.id.toString() && branch._id.toString() !== user.branchId.toString()) {
-        throw new ApiError(403, 'You do not have permission to renew subscription for this branch', 'BRANCH_ACCESS_DENIED');
-    }
-
-    const durationDays = parseInt(payload.days || payload.durationDays || 30);
-    const planName = payload.plan || payload.plan_name || 'Standard';
-
-    const now = new Date();
-    let currentExpiry = branch.subscription?.expiry_date ? new Date(branch.subscription.expiry_date) : now;
-    const baseDate = currentExpiry > now ? currentExpiry : now;
-    const newExpiry = new Date(baseDate.getTime() + durationDays * 24 * 60 * 60 * 1000);
-
-    branch.subscription = {
-        plan_name: planName,
-        status: 'ACTIVE',
-        start_date: branch.subscription?.start_date || now,
-        expiry_date: newExpiry,
-        auto_renew: Boolean(payload.auto_renew),
-    };
-
-    await branch.save();
-    return branch.getSubscriptionDetails();
-};
-
 // ─── Plans: catalog, Razorpay checkout, verification, history ────────────────
 
-const getPlanCatalog = () => plansConfig.planCatalog();
+const getPlanCatalog = () => pricing.getCatalog();
 
 const assertOwnsBranch = (branch, user) => {
     if (!user || user.role !== ROLES.PHARMACY_OWNER) {
@@ -194,16 +165,12 @@ const createPlanCheckout = async (branchId, payload, user) => {
     }
     assertOwnsBranch(branch, user);
 
-    const plan = plansConfig.getPlan(payload.plan_id || payload.plan);
-    if (!plan || !plan.purchasable) {
-        throw new ApiError(400, 'Choose a valid paid plan (basic, standard or pro)', 'INVALID_PLAN');
-    }
-    const cycle = plansConfig.getCycle(payload.billing_cycle || payload.cycle || 'monthly');
-    if (!cycle) {
-        throw new ApiError(400, 'billing_cycle must be monthly or yearly', 'INVALID_BILLING_CYCLE');
-    }
-
-    const amount = plansConfig.planAmount(plan, cycle);
+    // Price comes from the admin-managed catalog, never from the client.
+    const { plan: planDoc, cycle, amount } = await pricing.resolvePurchase(
+        payload.plan_id || payload.plan,
+        payload.billing_cycle || payload.cycle || 'monthly'
+    );
+    const plan = { id: planDoc.plan_id, name: planDoc.name };
     const { client, keyId } = getRazorpayClient();
     const receipt = `plan_${branch.code || branch._id}_${Date.now()}`.slice(0, 40);
     const order = await client.orders.create({
@@ -275,18 +242,22 @@ const verifyPlanPayment = async (branchId, payload, user) => {
         throw new ApiError(400, 'Payment verification failed: invalid signature', 'PAYMENT_SIGNATURE_INVALID');
     }
 
-    const plan = plansConfig.getPlan(payment.plan_id);
-    const cycle = plansConfig.getCycle(payment.billing_cycle);
+    // Use what the owner was quoted at checkout, even if the admin has since
+    // renamed or repriced the plan.
+    const plan = { id: payment.plan_id, name: payment.plan_name };
+    const cycle = { id: payment.billing_cycle, days: pricing.CYCLE_DAYS[payment.billing_cycle] || 30 };
     const now = new Date();
     const currentExpiry = branch.subscription?.expiry_date ? new Date(branch.subscription.expiry_date) : now;
     // Trial days left are not carried over; paid time stacks on paid time.
     const base = branch.subscription?.plan_id !== 'trial' && currentExpiry > now ? currentExpiry : now;
     const newExpiry = new Date(base.getTime() + cycle.days * 24 * 60 * 60 * 1000);
 
+    const previousExpiry = currentExpiry;
     branch.subscription = {
         plan_id: plan.id,
         plan_name: plan.name,
         billing_cycle: cycle.id,
+        trial_days: branch.subscription?.trial_days || null,
         status: 'ACTIVE',
         start_date: branch.subscription?.plan_id === plan.id && branch.subscription?.start_date ? branch.subscription.start_date : now,
         expiry_date: newExpiry,
@@ -300,6 +271,18 @@ const verifyPlanPayment = async (branchId, payload, user) => {
     payment.period_end = newExpiry;
     payment.paid_at = now;
     await payment.save();
+
+    await recordEvent(branch, 'PLAN_PAID_ONLINE', {
+        plan_id: plan.id,
+        plan_name: plan.name,
+        billing_cycle: cycle.id,
+        days: cycle.days,
+        amount: payment.amount,
+        payment_mode: 'RAZORPAY',
+        reference: razorpay_payment_id,
+        previous_expiry: previousExpiry,
+        new_expiry: newExpiry,
+    }, { name: user.fullName || user.email || 'Store owner', id: user.id });
 
     const subscription = branch.getSubscriptionDetails();
     emitToBranch(branch._id.toString(), 'branch:plan_updated', { branchId: branch._id.toString(), subscription });
@@ -457,7 +440,6 @@ module.exports = {
     getMyBranches,
     getBranchDetails,
     getBranchSubscription,
-    renewBranchSubscription,
     getPlanCatalog,
     createPlanCheckout,
     verifyPlanPayment,

@@ -35,6 +35,7 @@ const {
 } = require('../controllers/adminController');
 
 const { protect, authorize } = require('../middleware/auth');
+const pricingAdmin = require('../controllers/pharmacyPricingAdminController');
 const constants = require('../config/constants');
 
 // ─── Public routes (no auth required) ────────────────────────────────────────
@@ -70,6 +71,18 @@ router.get('/pharmacy-owners', getPharmacyOwners);
 router.get('/pharmacy-owners/:id', getPharmacyOwnerProfile);
 router.put('/pharmacy-owners/:id/approve', approvePharmacyOwner);
 router.put('/pharmacy-owners/:id/reject', rejectPharmacyOwner);
+
+// Pharmacy plans & pricing (catalog shown in the pharmacy app)
+router.get('/pharmacy/plans', pricingAdmin.getPlans);
+router.post('/pharmacy/plans', pricingAdmin.createPlan);
+router.put('/pharmacy/plans/:planId', pricingAdmin.updatePlan);
+router.put('/pharmacy/pricing-settings', pricingAdmin.updateSettings);
+
+// Store subscriptions (trial extension, offline plan activation, audit log)
+router.get('/pharmacy/subscriptions', pricingAdmin.getSubscriptions);
+router.get('/pharmacy/subscriptions/:branchId/history', pricingAdmin.getSubscriptionHistory);
+router.post('/pharmacy/subscriptions/:branchId/extend-trial', pricingAdmin.extendTrial);
+router.post('/pharmacy/subscriptions/:branchId/activate', pricingAdmin.activatePlan);
 
 // All Users
 router.get('/users', getUsers);

@@ -15,8 +15,8 @@ router.get('/all-branches', authorizeOwnerOnly, branchController.getMyBranches);
 router.get('/my-branch', branchController.getMyBranch);
 router.get('/subscription', branchController.getSubscription);
 router.get('/plan', branchController.getSubscription);
-router.post('/subscription/renew', authorizeOwnerOnly, branchController.renewSubscription);
-router.post('/plan/renew', authorizeOwnerOnly, branchController.renewSubscription);
+// Plans are extended only by a verified Razorpay payment (below) or by an
+// admin from the admin panel. There is no owner self-renew endpoint.
 // Plan catalog + Razorpay recharge (exempt from planGuard: URL contains /plan)
 router.get('/plans', branchController.getPlans);
 router.post('/plan/checkout', authorizeOwnerOnly, branchController.createPlanCheckout);

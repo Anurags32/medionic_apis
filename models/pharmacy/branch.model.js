@@ -74,6 +74,11 @@ const branchSchema = new mongoose.Schema(
                 enum: ['trial', 'monthly', 'yearly'],
                 default: 'trial',
             },
+            // Length of the free trial this store was given (admin-configurable).
+            trial_days: {
+                type: Number,
+                default: null,
+            },
             status: {
                 type: String,
                 enum: ['ACTIVE', 'EXPIRING_SOON', 'GRACE', 'EXPIRED'],
@@ -201,7 +206,7 @@ branchSchema.methods.getSubscriptionDetails = function () {
         billing_cycle: this.subscription?.billing_cycle || (isTrial ? 'trial' : 'monthly'),
         is_trial: isTrial,
         isTrial,
-        trial_days: TRIAL_DAYS,
+        trial_days: this.subscription?.trial_days || TRIAL_DAYS,
         start_date: this.subscription?.start_date ? new Date(this.subscription.start_date).toISOString() : null,
         status,
         expiryDate: expiry.toISOString(),
@@ -217,16 +222,20 @@ branchSchema.methods.getSubscriptionDetails = function () {
     };
 };
 
-/** Subscription sub-document for a brand-new branch: free 14-day trial. */
-branchSchema.statics.trialSubscription = function () {
+/**
+ * Subscription sub-document for a brand-new branch: free trial. `days`
+ * comes from the admin pricing settings (services/pharmacy/pricing.service).
+ */
+branchSchema.statics.trialSubscription = function (days = TRIAL_DAYS) {
     const now = new Date();
     return {
         plan_id: 'trial',
         plan_name: 'Free Trial',
         billing_cycle: 'trial',
+        trial_days: days,
         status: 'ACTIVE',
         start_date: now,
-        expiry_date: new Date(now.getTime() + TRIAL_DAYS * 24 * 60 * 60 * 1000),
+        expiry_date: new Date(now.getTime() + days * 24 * 60 * 60 * 1000),
         auto_renew: false,
     };
 };

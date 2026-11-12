@@ -68,6 +68,17 @@ const planPaymentSchema = new mongoose.Schema(
             type: String,
             default: null,
         },
+        // RAZORPAY = paid online by the owner; ADMIN = recorded by an admin
+        // (cash / UPI / bank / cheque received offline, or complimentary).
+        source: {
+            type: String,
+            enum: ['RAZORPAY', 'ADMIN'],
+            default: 'RAZORPAY',
+        },
+        payment_mode: { type: String, default: '' },
+        reference: { type: String, default: '' },
+        note: { type: String, default: '' },
+        recorded_by_name: { type: String, default: '' },
     },
     {
         timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' },

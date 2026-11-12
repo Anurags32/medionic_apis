@@ -1,6 +1,7 @@
 const bcrypt = require('bcryptjs');
 const { User, Branch, OTP } = require('../../models/pharmacy');
 const ApiError = require('../../utils/ApiError');
+const pricing = require('./pricing.service');
 const { generateAccessToken, generateRefreshToken, verifyRefreshToken } = require('../../config/pharmacyJwt');
 const { ROLES, DEFAULT_ROLE_PERMISSIONS } = require('../../config/pharmacyConstants');
 
@@ -43,8 +44,8 @@ const registerOwner = async (payload) => {
         address: branch_details.address || '',
         contact_number: branch_details.contact_number || phone,
         email: branch_details.email || email,
-        // Free 14-day trial, no card required.
-        subscription: Branch.trialSubscription(),
+        // Free trial (length set in the admin panel), no card required.
+        subscription: await pricing.trialSubscription(),
     });
 
     const salt = await bcrypt.genSalt(10);

@@ -64,14 +64,9 @@ const getSubscription = asyncHandler(async (req, res) => {
     res.status(200).json(new ApiResponse(200, subscription, 'Branch subscription details fetched successfully'));
 });
 
-const renewSubscription = asyncHandler(async (req, res) => {
-    const branchId = req.params.id || req.user.branchId;
-    const subscription = await branchService.renewBranchSubscription(branchId, req.body, req.user);
-    res.status(200).json(new ApiResponse(200, subscription, 'Subscription renewed successfully'));
-});
-
 const getPlans = asyncHandler(async (req, res) => {
-    res.status(200).json(new ApiResponse(200, branchService.getPlanCatalog(), 'Plans fetched successfully'));
+    const catalog = await branchService.getPlanCatalog();
+    res.status(200).json(new ApiResponse(200, catalog, 'Plans fetched successfully'));
 });
 
 const createPlanCheckout = asyncHandler(async (req, res) => {
@@ -97,7 +92,6 @@ module.exports = {
     getMyBranches,
     getMyBranch,
     getSubscription,
-    renewSubscription,
     getPlans,
     createPlanCheckout,
     verifyPlanPayment,
