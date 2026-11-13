@@ -385,3 +385,12 @@ describe('access control', () => {
         expect(await subscriptionOf(store.token)).toMatchObject({ plan_id: 'trial' });
     });
 });
+
+describe('error messages shown to users', () => {
+    test('an unknown route does not echo the path back', async () => {
+        const res = await request(app).get('/api/v1/some/old-endpoint?x=1');
+        expect(res.status).toBe(404);
+        expect(res.body.code).toBe('ROUTE_NOT_FOUND');
+        expect(res.body.message).not.toMatch(/\/api|old-endpoint|https?:/);
+    });
+});

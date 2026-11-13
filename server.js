@@ -279,9 +279,11 @@ app.use(errorHandler);
 
 app.use('*', (req, res) => {
   console.warn(`⚠️   404 Not Found: ${req.method} ${req.originalUrl}`);
+  // The path stays in the server log only: clients show this message to users.
   res.status(404).json({
     success: false,
-    message: `Route ${req.originalUrl} not found`
+    code: 'ROUTE_NOT_FOUND',
+    message: 'This feature is not available right now. Please update the app or try again later.'
   });
 });
 

@@ -158,6 +158,14 @@ describe('Doctor Endpoints', () => {
             
             const sharmaDoctor = doctorsRes.body.data.find(d => d.fullName.includes('Sharma') || d.fullName.includes('Rajesh'));
             doctorId = sharmaDoctor.doctorId;
+
+            // The seeded schedule has no Sunday hours, and these tests book for
+            // "today" and "in 2 days". Open Sunday too so they pass on any weekday.
+            const Doctor = require('../models/Doctor');
+            await Doctor.updateOne(
+                { _id: doctorId },
+                { $set: { 'shift.sunday': [{ start: '09:00', end: '13:00' }, { start: '14:00', end: '18:00' }] } }
+            );
         });
 
         it('should book appointment for today and verify it shows in doctor dashboard', async () => {
